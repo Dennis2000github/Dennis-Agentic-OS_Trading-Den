@@ -1,0 +1,263 @@
+{
+  "step": 14,
+  "status": "PASS",
+  "summary": "Step 14 Final Integration and Regression Verification",
+  "timestamp": "2026-10-07T06:36:56.991073+00:00",
+  "checks": [
+    {
+      "name": "Clone Isolation Invariant",
+      "passed": true,
+      "blocked": false,
+      "expected": "Working directory isolated from original project",
+      "actual": "Workspace: /Users/macbookpro/PycharmProjects/MarketMaking-LoopEngineering, Original: /Users/macbookpro/PycharmProjects/MarketMaking",
+      "technical_basis": "Development must remain strictly isolated inside MarketMaking-LoopEngineering."
+    },
+    {
+      "name": "Multi-Venue Pipeline & Sequence Gap Synchronization",
+      "passed": true,
+      "blocked": false,
+      "expected": "Validates order books and detects sequence gaps to force resynchronization",
+      "actual": "book_a_valid=True, book_b_valid=True, gap_detected=True (missed=4)",
+      "technical_basis": "Step 14 requirement: WebSocket sequence handling and gap resync."
+    },
+    {
+      "name": "Screener Reference/Priced Pricing Invariant",
+      "passed": true,
+      "blocked": false,
+      "expected": "Spread % = ((Priced - Reference) / Reference) * 100 = 0.316614%",
+      "actual": "calculated_spread=0.316600%, validity=True",
+      "technical_basis": "Step 14 invariant: Pricing relationship strictly decoupled from execution roles."
+    },
+    {
+      "name": "Direction Engine Dynamic Decoupling",
+      "passed": true,
+      "blocked": false,
+      "expected": "Evaluates both Candidate A (Binance Maker -> Bybit Hedge) and Candidate B (Bybit Maker -> Binance Hedge)",
+      "actual": "cand_a=BINANCE->BYBIT, cand_b=BYBIT->BINANCE",
+      "technical_basis": "Step 14 invariant: Reference \u2260 automatically Hedge, Priced \u2260 automatically Maker."
+    },
+    {
+      "name": "Strategy Selection Decoupling",
+      "passed": true,
+      "blocked": false,
+      "expected": "Spread Arbitrage selects by Highest Net Spread %; Funding Arbitrage selects by Highest Funding %",
+      "actual": "spread_strat=SPREAD_ARBITRAGE (maker=BINANCE), funding_strat=FUNDING_ARBITRAGE (maker=BYBIT)",
+      "technical_basis": "Step 14 requirement: Separate engines for Spread Arbitrage and Funding Arbitrage."
+    },
+    {
+      "name": "Maker Entry Pricing & Strategy-Specific Lifecycle Exits",
+      "passed": true,
+      "blocked": false,
+      "expected": "Spread/Grid/Bollinger used only for entry pricing; dynamic convergence/settlement exits",
+      "actual": "maker_price=60010.0, spread_exit=SPREAD_CONVERGENCE, funding_exit=FUNDING_SETTLEMENT",
+      "technical_basis": "Step 14 requirement: Spread/Grid/Bollinger are entry controls; exits are lifecycle-specific."
+    },
+    {
+      "name": "Pre-Submission Revalidation Engine (10 Checks)",
+      "passed": true,
+      "blocked": false,
+      "expected": "All 10 checks pass before order submission",
+      "actual": "is_valid=True, checks_count=10, failed=[]",
+      "technical_basis": "Step 14 requirement: 10-point pre-submission revalidation engine."
+    },
+    {
+      "name": "Execution Failure Handling & Position Reconciliation",
+      "passed": true,
+      "blocked": false,
+      "expected": "Rejects stale submission safely; flags mismatched leg fills in reconciliation",
+      "actual": "stale_rejected=True, rec_balanced=True, rec_mismatched_detected=True",
+      "technical_basis": "Step 14 requirement: Execution failure testing and reconciliation safeguards."
+    },
+    {
+      "name": "Zero Mock Market Data & Zero Live Trading Invariants",
+      "passed": true,
+      "blocked": false,
+      "expected": "Zero mock market data generators and zero live exchange order calls in production modules",
+      "actual": "violations=[]",
+      "technical_basis": "Step 14 invariant: Real market data is mandatory; zero live orders during development."
+    },
+    {
+      "name": "Full Regression Test Suite (Step 14)",
+      "passed": true,
+      "blocked": false,
+      "expected": "Exit code 0 from tests/test_step14_final_integration_regression.py",
+      "actual": "Exit code 0.\n\n.......Sequence gap detected on BINANCE BTC/USDT: expected 102, received 105 (missed 3)\n..\n----------------------------------------------------------------------\nRan 9 tests in 0.002s\n\nOK",
+      "technical_basis": "Step 14 requirement: Complete regression verification."
+    }
+  ],
+  "evidence": {
+    "spread_decision": {
+      "symbol": "BTC/USDT",
+      "strategy_type": "SPREAD_ARBITRAGE",
+      "candidate_id": "A",
+      "first_leg_venue": "BINANCE",
+      "second_leg_venue": "BYBIT",
+      "maker_venue": "BINANCE",
+      "hedge_venue": "BYBIT",
+      "maker_side": "BUY",
+      "hedge_side": "SELL",
+      "net_spread_pct": 0.1166,
+      "raw_spread_pct": 0.3166,
+      "is_viable": true,
+      "rejection_reason": null,
+      "pricing": {
+        "pricing_mode": "SPREAD",
+        "base_maker_price": 60010.0,
+        "maker_side": "BUY",
+        "order_quantity": 1.0,
+        "grid_levels": [],
+        "bollinger_bands": null,
+        "exit_target_price": 60200.0,
+        "stop_loss_price": null,
+        "target_hedge_price": 60200.0
+      },
+      "risk_metrics": {
+        "min_profit_threshold_pct": 0.05,
+        "max_slippage_pct": 0.2,
+        "max_position_size": 10.0,
+        "actual_net_spread_pct": 0.1166,
+        "actual_slippage_pct": 0.0,
+        "available_liquidity": 2.0
+      },
+      "exit_conditions": {
+        "exit_type": "SPREAD_CONVERGENCE",
+        "convergence_target_pct": 0.0,
+        "stop_loss_pct": null
+      },
+      "timestamp": 1791355020.19479,
+      "reference_venue": "",
+      "priced_venue": "",
+      "selected_opportunity": {
+        "candidate_id": "A",
+        "symbol": "BTC/USDT",
+        "maker_venue": "BINANCE",
+        "maker_price": 60010.0,
+        "maker_side": "BUY",
+        "maker_size": 2.5,
+        "hedge_venue": "BYBIT",
+        "hedge_price": 60200.0,
+        "hedge_side": "SELL",
+        "hedge_size": 2.0,
+        "direction": "BUY_A_SELL_B",
+        "raw_spread_pct": 0.3166,
+        "raw_spread_usd": 190.0,
+        "gross_spread_pct": 0.3166,
+        "net_spread_pct": 0.1166,
+        "net_spread_usd": 69.9717,
+        "maker_fee_rate": 0.001,
+        "taker_fee_rate": 0.001,
+        "total_fee_rate": 0.002,
+        "total_fee_pct": 0.2,
+        "slippage_pct": 0.0,
+        "other_costs_pct": 0.0,
+        "liquidity_size": 2.0,
+        "liquidity_usd": 120020.0,
+        "is_profitable": true,
+        "calculation_components": {
+          "candidate_id": "A",
+          "direction": "BUY_A_SELL_B",
+          "maker_venue": "BINANCE",
+          "maker_price": 60010.0,
+          "maker_side": "BUY",
+          "hedge_venue": "BYBIT",
+          "hedge_price": 60200.0,
+          "hedge_side": "SELL",
+          "raw_spread_pct": 0.3166,
+          "gross_spread_pct": 0.3166,
+          "maker_fee_rate": 0.001,
+          "maker_fee_pct": 0.1,
+          "taker_fee_rate": 0.001,
+          "taker_fee_pct": 0.1,
+          "total_fee_rate": 0.002,
+          "total_fee_pct": 0.2,
+          "slippage_pct": 0.0,
+          "other_costs_pct": 0.0,
+          "total_deductions_pct": 0.2,
+          "net_spread_pct": 0.1166,
+          "net_spread_usd": 69.9717,
+          "min_profit_threshold_pct": 0.05,
+          "is_profitable": true,
+          "executable_liquidity_size": 2.0,
+          "executable_liquidity_usd": 120020.0
+        },
+        "timestamps": {
+          "maker": 1791355016.991364,
+          "hedge": 1791355016.991364,
+          "evaluated": 1791355016.991364
+        },
+        "validity": true,
+        "error_reason": null,
+        "reference_venue": "",
+        "priced_venue": ""
+      }
+    },
+    "funding_decision": {
+      "symbol": "BTC/USDT",
+      "strategy_type": "FUNDING_ARBITRAGE",
+      "first_leg_venue": "BYBIT",
+      "second_leg_venue": "BINANCE",
+      "maker_venue": "BYBIT",
+      "hedge_venue": "BINANCE",
+      "maker_side": "BUY",
+      "hedge_side": "SELL",
+      "net_funding_rate": 0.0011,
+      "net_funding_annual_pct": 120.45,
+      "is_viable": true,
+      "rejection_reason": null,
+      "pricing": {
+        "pricing_mode": "SPREAD",
+        "base_maker_price": 60200.0,
+        "maker_side": "BUY",
+        "order_quantity": 1.0,
+        "grid_levels": [],
+        "bollinger_bands": null,
+        "exit_target_price": 0.0,
+        "stop_loss_price": null,
+        "target_hedge_price": 60010.0
+      },
+      "risk_metrics": {
+        "net_funding_rate": 0.0011,
+        "net_funding_annual_pct": 120.45,
+        "total_fee_pct": 0.07,
+        "short_venue": "BINANCE",
+        "long_venue": "BYBIT"
+      },
+      "exit_conditions": {
+        "exit_type": "FUNDING_SETTLEMENT",
+        "settlement_target_time": 0.0,
+        "target_settlement_count": 1,
+        "rate_inversion_stop": true,
+        "max_duration_hours": 24,
+        "use_spread_convergence_exit": false
+      },
+      "timestamp": 1791355020.194906,
+      "reference_venue": "",
+      "priced_venue": "",
+      "selected_opportunity": {
+        "symbol": "BTC/USDT",
+        "short_venue": "BINANCE",
+        "long_venue": "BYBIT",
+        "short_funding_rate": 0.0008,
+        "long_funding_rate": -0.0003,
+        "net_funding_rate": 0.0011,
+        "net_funding_annual_pct": 120.45,
+        "candidate_id": "B",
+        "maker_venue": "BYBIT",
+        "maker_side": "BUY",
+        "hedge_venue": "BINANCE",
+        "hedge_side": "SELL",
+        "total_fee_pct": 0.07,
+        "net_opportunity_pct": 119.61,
+        "next_settlement_time": 0.0,
+        "validity": true,
+        "error_reason": null,
+        "timestamps": {
+          "evaluated": 1791355016.991364,
+          "funding_a": 1791355016.991364,
+          "funding_b": 1791355016.991364
+        }
+      }
+    },
+    "unit_test_output": ".......Sequence gap detected on BINANCE BTC/USDT: expected 102, received 105 (missed 3)\n..\n----------------------------------------------------------------------\nRan 9 tests in 0.002s\n\nOK\n"
+  }
+}

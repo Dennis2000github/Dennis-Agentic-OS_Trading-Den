@@ -1,0 +1,8 @@
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "http://localhost:20128/v1",
+    "ANTHROPIC_AUTH_TOKEN": "sk-bb6f98440bc121d4-1jdjml-fe46c0d4",
+    "ANTHROPIC_MODEL": "9routerfallbackcombo"
+  }
+
+}

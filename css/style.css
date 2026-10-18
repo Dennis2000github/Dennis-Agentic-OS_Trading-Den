@@ -1,0 +1,634 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --bg-main: #060913;
+  --bg-sidebar: #080c18;
+  --bg-card: rgba(13, 20, 38, 0.75);
+  --bg-card-subtle: rgba(18, 27, 49, 0.55);
+  --bg-card-hover: rgba(26, 38, 68, 0.7);
+  --border-card: rgba(43, 62, 107, 0.45);
+  --border-card-highlight: rgba(0, 240, 255, 0.3);
+  --accent-cyan: #00f0ff;
+  --accent-blue: #3b82f6;
+  --accent-indigo: #6366f1;
+  --accent-purple: #a855f7;
+  --accent-pink: #ec4899;
+  --accent-green: #10b981;
+  --accent-red: #ef4444;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --text-dim: #64748b;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  overflow-x: hidden;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(6, 9, 19, 0.8);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(43, 62, 107, 0.6);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 240, 255, 0.5);
+}
+
+/* Cyber glow effects */
+.glow-cyan {
+  text-shadow: 0 0 12px rgba(0, 240, 255, 0.65);
+}
+
+.glow-blue {
+  text-shadow: 0 0 12px rgba(59, 130, 246, 0.65);
+}
+
+.box-glow-blue {
+  box-shadow: 0 0 20px -3px rgba(37, 99, 235, 0.35);
+}
+
+.box-glow-cyan {
+  box-shadow: 0 0 15px -2px rgba(0, 240, 255, 0.25);
+}
+
+.glass-panel {
+  background: var(--bg-card);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-card);
+}
+
+.glass-panel-subtle {
+  background: var(--bg-card-subtle);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(43, 62, 107, 0.35);
+}
+
+/* Nav tabs pill active state */
+.nav-tab-active {
+  background: rgba(30, 58, 138, 0.45);
+  border: 1px solid #2563eb;
+  color: #60a5fa;
+  box-shadow: 0 0 12px rgba(37, 99, 235, 0.3);
+}
+
+/* Status dots */
+.status-dot-pulse {
+  position: relative;
+}
+.status-dot-pulse::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: inherit;
+  transform: translate(-50%, -50%);
+  animation: pulse-ring 2s infinite cubic-bezier(0.4, 0, 0.6, 1);
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.8);
+    opacity: 0;
+  }
+}
+
+/* Floating MD node badge on cosmos */
+.cosmos-node-badge {
+  background: rgba(13, 20, 38, 0.75);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(75, 95, 150, 0.4);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5), 0 0 12px rgba(59, 130, 246, 0.2);
+  transition: all 0.25s ease;
+  user-select: none;
+}
+.cosmos-node-badge:hover {
+  transform: translateY(-2px);
+  border-color: rgba(0, 240, 255, 0.6);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6), 0 0 18px rgba(0, 240, 255, 0.35);
+}
+
+/* Code Editor syntax styles */
+.code-font {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+
+.syn-keyword { color: #f472b6; }
+.syn-import { color: #38bdf8; }
+.syn-from { color: #f472b6; }
+.syn-string { color: #fbbf24; }
+.syn-def { color: #818cf8; }
+.syn-var { color: #e2e8f0; }
+.syn-comment { color: #64748b; font-style: italic; }
+.syn-number { color: #34d399; }
+
+/* Custom toggle switch */
+.toggle-checkbox:checked {
+  right: 0;
+  border-color: #3b82f6;
+}
+.toggle-checkbox:checked + .toggle-label {
+  background-color: #2563eb;
+}
+
+/* Wizard & Modal Transitions */
+.wizard-step {
+  display: none;
+}
+.wizard-step.active {
+  display: block;
+  animation: fadeIn 0.25s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.step-indicator.active {
+  background-color: #2563eb;
+  color: #ffffff;
+  border-color: #3b82f6;
+  box-shadow: 0 0 10px rgba(59, 130, 246, 0.4);
+}
+
+.step-indicator.completed {
+  background-color: #059669;
+  color: #ffffff;
+  border-color: #10b981;
+}
+
+/* MCP Connector Hub */
+.mcp-wf-step { display: none; }
+.mcp-wf-step.active {
+  display: block;
+  animation: fadeIn 0.25s ease-in-out;
+}
+.mcp-card {
+  border: 1px solid rgba(43, 62, 107, 0.5);
+  background: rgba(13, 20, 38, 0.7);
+  border-radius: 14px;
+  padding: 12px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.mcp-card:hover { border-color: rgba(217, 70, 239, 0.55); background: rgba(26, 20, 45, 0.7); }
+.mcp-badge {
+  font-size: 9.5px; font-weight: 600; padding: 2px 8px; border-radius: 9999px;
+  border: 1px solid; white-space: nowrap;
+}
+.mcp-badge-connected { color: #34d399; background: rgba(6, 78, 59, 0.5); border-color: rgba(16, 185, 129, 0.4); }
+.mcp-badge-authorizing { color: #fcd34d; background: rgba(120, 53, 15, 0.4); border-color: rgba(245, 158, 11, 0.4); }
+.mcp-badge-review { color: #93c5fd; background: rgba(30, 58, 138, 0.4); border-color: rgba(59, 130, 246, 0.4); }
+.mcp-badge-error { color: #fca5a5; background: rgba(127, 29, 29, 0.4); border-color: rgba(239, 68, 68, 0.4); }
+
+.terminal-box {
+  background: #040711;
+  border: 1px solid #1e293b;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #38bdf8;
+}
+
+/* ============================================================
+   AGENT WORKSPACE (toolbar, dropdowns, terminal, Code & Preview)
+   ============================================================ */
+
+.ws-dropdown {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #a5f3fc;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  transition: border-color 0.15s, background 0.15s;
+}
+.ws-dropdown:hover { background: rgba(30, 41, 59, 0.95); border-color: rgba(0, 240, 255, 0.7); }
+.ws-dropdown-model { color: #ddb6ff; border-color: rgba(168, 85, 247, 0.4); }
+.ws-dropdown-model:hover { border-color: rgba(168, 85, 247, 0.75); }
+.ws-dropdown span { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.ws-menu {
+  display: block;
+  background: #080d1d;
+  border: 1px solid rgba(43, 62, 107, 0.7);
+  border-radius: 12px;
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.6);
+  padding: 6px;
+}
+.ws-menu.hidden { display: none !important; }
+.ws-menu-title {
+  padding: 4px 8px 6px;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #64748b;
+  border-bottom: 1px solid #1b2537;
+  margin-bottom: 4px;
+}
+.ws-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #cbd5e1;
+  transition: background 0.12s, color 0.12s;
+}
+.ws-menu-item:hover { background: rgba(37, 99, 235, 0.18); color: #f8fafc; }
+.ws-menu-item-active { background: rgba(0, 240, 255, 0.12); color: #67e8f9; }
+.ws-menu-item-disabled { opacity: 0.45; cursor: not-allowed; }
+.ws-menu-item-disabled:hover { background: transparent; }
+.ws-agent-dot { width: 8px; height: 8px; border-radius: 9999px; flex-shrink: 0; }
+
+.ws-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #cbd5e1;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(43, 62, 107, 0.6);
+}
+
+.ws-ctrl-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 9px;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 500;
+  color: #94a3b8;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(43, 62, 107, 0.6);
+  transition: all 0.15s;
+}
+.ws-ctrl-btn:hover { color: #f8fafc; border-color: rgba(0, 240, 255, 0.6); }
+.ws-ctrl-btn.ws-toggle-on { color: #67e8f9; border-color: rgba(0, 240, 255, 0.6); background: rgba(0, 240, 255, 0.08); }
+
+.ws-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  color: #94a3b8;
+  transition: all 0.12s;
+}
+.ws-icon-btn:hover { background: rgba(51, 65, 85, 0.6); color: #f8fafc; }
+
+.ws-session-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.ws-session-row:hover { background: rgba(30, 41, 59, 0.5); }
+.ws-session-active { background: rgba(37, 99, 235, 0.18); border-color: rgba(59, 130, 246, 0.4); }
+.ws-session-del { color: #64748b; }
+.ws-session-del:hover { color: #f87171; }
+
+/* ============================================================
+   WORKSPACE ROW (bounded height so it is usable without scrolling)
+   ============================================================ */
+
+.ws-workspace-row {
+  flex: 0 0 auto;
+  height: max(420px, calc(100vh - 300px));
+  min-height: 420px;
+}
+
+/* Hermes Apollo Jarvis Voice Core Widget */
+.galaxy-card {
+  flex: 0 0 auto;
+  height: auto;
+  min-height: 0;
+  max-height: none;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.galaxy-card.apollo-awake {
+  border-color: rgba(0, 240, 255, 0.6) !important;
+  box-shadow: 0 0 25px rgba(0, 240, 255, 0.18), inset 0 0 15px rgba(0, 240, 255, 0.08);
+}
+
+.galaxy-canvas-frame {
+  flex: 0 0 auto;
+  height: 88px;
+  min-height: 88px;
+  position: relative;
+}
+
+.galaxy-canvas-frame canvas {
+  max-width: 100%;
+  height: 100% !important;
+  display: block;
+  cursor: pointer;
+}
+
+#apollo-reactor-ring {
+  box-shadow: inset 0 0 12px rgba(0, 240, 255, 0.15), 0 0 10px rgba(0, 240, 255, 0.08);
+  transition: all 0.4s ease;
+}
+
+.apollo-awake #apollo-reactor-ring {
+  border-color: rgba(0, 240, 255, 0.7);
+  box-shadow: inset 0 0 25px rgba(0, 240, 255, 0.35), 0 0 20px rgba(0, 240, 255, 0.25);
+  animation: apolloReactorPulse 2s ease-in-out infinite alternate;
+}
+
+@keyframes apolloReactorPulse {
+  0% { transform: scale(0.97); opacity: 0.75; }
+  100% { transform: scale(1.03); opacity: 1; }
+}
+
+/* Audio Equalizer Bars */
+.apollo-eq-bar {
+  width: 2.5px;
+  height: 4px;
+  background: #38bdf8;
+  border-radius: 9999px;
+  transition: height 0.1s ease, background-color 0.2s ease;
+  display: inline-block;
+}
+
+.apollo-eq-active .apollo-eq-bar {
+  background: #00f0ff;
+  animation: apolloEqBounce 0.7s ease-in-out infinite alternate;
+}
+
+.apollo-eq-active .apollo-eq-bar:nth-child(1) { animation-delay: 0.1s; animation-duration: 0.5s; }
+.apollo-eq-active .apollo-eq-bar:nth-child(2) { animation-delay: 0.25s; animation-duration: 0.65s; }
+.apollo-eq-active .apollo-eq-bar:nth-child(3) { animation-delay: 0.05s; animation-duration: 0.45s; }
+.apollo-eq-active .apollo-eq-bar:nth-child(4) { animation-delay: 0.35s; animation-duration: 0.75s; }
+.apollo-eq-active .apollo-eq-bar:nth-child(5) { animation-delay: 0.15s; animation-duration: 0.55s; }
+.apollo-eq-active .apollo-eq-bar:nth-child(6) { animation-delay: 0.3s; animation-duration: 0.6s; }
+.apollo-eq-active .apollo-eq-bar:nth-child(7) { animation-delay: 0.2s; animation-duration: 0.5s; }
+
+@keyframes apolloEqBounce {
+  0% { height: 3px; }
+  50% { height: 12px; }
+  100% { height: 5px; }
+}
+
+/* Jarvis HUD Floating Toast */
+.apollo-hud-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 240px;
+  z-index: 9999;
+  background: rgba(7, 12, 26, 0.94);
+  border: 1px solid rgba(0, 240, 255, 0.5);
+  box-shadow: 0 0 30px rgba(0, 240, 255, 0.25), inset 0 0 15px rgba(0, 240, 255, 0.1);
+  backdrop-filter: blur(12px);
+  border-radius: 14px;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #fff;
+  font-family: monospace;
+  font-size: 11.5px;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  pointer-events: none;
+}
+
+.apollo-hud-toast.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.registry-scroll-section {
+  flex: 0 0 clamp(300px, 36vh, 380px);
+  min-height: 300px;
+  max-height: 380px;
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+
+/* One dashboard per session; hidden dashboards stay mounted and running. */
+.ws-dash .xterm { height: 100%; }
+.ws-dash .xterm-viewport { background: transparent !important; }
+
+/* Slim collapsed-panel handle on the right edge (S1) */
+.ws-handle {
+  flex: 0 0 30px;
+  width: 30px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: #080d1b;
+  border-left: 1px solid #1b2744;
+  color: #94a3b8;
+  transition: color 0.15s, background 0.15s;
+}
+.ws-handle:hover { color: #67e8f9; background: #0b1226; }
+.ws-handle.hidden { display: none !important; }
+.ws-handle-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* Collapsible Code & Preview panel: width animates between collapsed (S1)
+ * and the expanded width (S2-S4). Reduced motion disables the transition. */
+.ws-panel {
+  width: 46%;
+  min-width: 300px;
+  max-width: 680px;
+  overflow: hidden;
+  transition: width 0.22s ease, min-width 0.22s ease;
+}
+.ws-panel.ws-panel-off,
+.ws-panel:not(.ws-panel-open) {
+  width: 0 !important;
+  min-width: 0 !important;
+  max-width: 0 !important;
+  border-left-width: 0;
+  overflow: hidden;
+}
+
+.ws-pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;
+  min-width: 0;
+  min-height: 0;
+}
+.ws-pane + .ws-pane { border-left: 1px solid #131c30; }
+.ws-pane-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid #131c30;
+  background: #080d1b;
+  flex-shrink: 0;
+}
+
+/* Minimized pane: a slim strip with a restore button (S3/S4). */
+.ws-pane-strip { flex: 0 0 34px !important; width: 34px; }
+.ws-pane-strip > .ws-pane-head,
+.ws-pane-strip > .flex-1 { display: none !important; }
+.ws-strip {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: #94a3b8;
+}
+.ws-strip.hidden { display: none !important; }
+.ws-strip-label {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 9.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* Code file tree */
+.ws-tree-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 8px;
+  font-size: 11px;
+  color: #cbd5e1;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background 0.12s;
+}
+.ws-tree-row:hover { background: rgba(37, 99, 235, 0.15); color: #f8fafc; }
+
+/* Disabled dropdown (no agent selected, or the agent is still starting) */
+.ws-dropdown:disabled,
+.ws-dropdown.ws-dropdown-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  border-color: rgba(43, 62, 107, 0.6);
+}
+
+/* OS fullscreen (S5/S6): the whole section becomes a fixed overlay above the
+ * top nav and sidebar. Panes stay in the DOM, so the editor keeps its cursor
+ * and the preview never reloads. */
+#agent-workspace.ws-fs-active {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  height: 100vh !important;
+  max-height: none !important;
+  border-radius: 0;
+  border: 0;
+}
+#agent-workspace.ws-fs-active #ws-toolbar,
+#agent-workspace.ws-fs-active #ws-screen,
+#agent-workspace.ws-fs-active #ws-panel-handle { display: none !important; }
+#agent-workspace.ws-fs-active #ws-panel {
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  border-left: 0;
+}
+#agent-workspace.ws-fs-active #ws-panel-head { display: none !important; }
+
+.ws-fs-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: #080d1b;
+  border-bottom: 1px solid #1b2744;
+  flex-shrink: 0;
+}
+.ws-fs-bar.hidden { display: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ws-panel { transition: none !important; }
+  .status-dot-pulse::after { animation: none !important; }
+}
+
+/* ---- Code & Preview IDE: CodeMirror editor + project Run controls ---- */
+.ws-code-host { position: relative; background: #060a14; overflow: hidden; }
+.ws-code-host .CodeMirror {
+  height: 100%; width: 100%; background: #060a14; color: #cbd5e1;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11.5px; line-height: 1.5;
+}
+.ws-code-host .CodeMirror-gutters { background: #060a14; border-right: 1px solid #131c30; }
+.ws-code-host .CodeMirror-linenumber { color: #475569; }
+.ws-code-host .CodeMirror-cursor { border-left: 1px solid #38bdf8; }
+.ws-code-host .CodeMirror-selected { background: #1e293b !important; }
+.ws-code-host .CodeMirror-activeline-background { background: rgba(56, 189, 248, 0.06); }
+.ws-code-host .CodeMirror-matchingbracket { color: #38bdf8 !important; }
+.ws-code-host .CodeMirror-placeholder { color: #475569; }
+.ws-code-save { position: relative; }
+.ws-dirty-dot {
+  position: absolute; top: 2px; right: 2px; width: 6px; height: 6px;
+  border-radius: 9999px; background: #f59e0b; box-shadow: 0 0 4px rgba(245, 158, 11, 0.8);
+}
+.ws-run-status {
+  font-family: ui-monospace, monospace; font-size: 10px; padding: 1px 6px;
+  border-radius: 9999px; border: 1px solid #14532d; background: rgba(6, 78, 59, 0.5);
+  color: #34d399; max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ws-run-status.ws-run-error { border-color: #7f1d1d; background: rgba(127, 29, 29, 0.35); color: #fca5a5; }
+.ws-run-status.ws-run-starting { border-color: #78350f; background: rgba(120, 53, 15, 0.35); color: #fcd34d; }
+.ws-runlog {
+  max-height: 130px; overflow: auto; border-top: 1px solid #131c30; background: #04070f;
+  color: #94a3b8; font-family: ui-monospace, monospace; font-size: 10.5px;
+  padding: 6px 8px; white-space: pre-wrap; word-break: break-word;
+}
