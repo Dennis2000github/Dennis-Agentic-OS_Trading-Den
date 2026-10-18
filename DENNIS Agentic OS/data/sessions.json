@@ -1,0 +1,76 @@
+{
+  "active_session_id": "sess-1792107232335",
+  "sessions": [
+    {
+      "id": "sess-1792107232335",
+      "title": "hi",
+      "created_at": "2026-10-16T07:33:52",
+      "updated_at": "2026-10-16T07:33:52",
+      "agent_id": "antigravity",
+      "model_id": "gemini-2.5-flash",
+      "messages": [
+        {
+          "id": "msg-user-1792106029731",
+          "role": "user",
+          "text": "hi",
+          "timestamp": "07:13:28"
+        },
+        {
+          "id": "msg-agent-1792106029732",
+          "role": "assistant",
+          "agent": "OpenCode",
+          "agent_id": "opencode",
+          "model": "DeepSeek R1",
+          "model_id": "deepseek-r1",
+          "text": "Hi! What can I help you with today?",
+          "steps": [
+            "Prompt dispatched to OpenCode CLI (/Users/macbookpro/.opencode/bin/opencode)",
+            "Model: DeepSeek R1 (DeepSeek)",
+            "Received response (35 chars)"
+          ],
+          "timestamp": "07:13:28"
+        },
+        {
+          "id": "msg-user-1792106390914",
+          "role": "user",
+          "text": "set up the sessions in the side bar",
+          "timestamp": "07:17:50"
+        },
+        {
+          "id": "msg-agent-1792106390915",
+          "role": "assistant",
+          "agent": "OpenCode",
+          "agent_id": "opencode",
+          "model": "DeepSeek R1",
+          "model_id": "deepseek-r1",
+          "text": "\u23f1\ufe0f **OpenCode** timed out after 120 seconds.\n\nThe agent may be waiting for user input or is performing a long-running task. Try a simpler query or check the agent's interactive session.",
+          "steps": [
+            "Agent invoked",
+            "Timeout after 120s"
+          ],
+          "timestamp": "07:17:50"
+        },
+        {
+          "id": "msg-user-1792106720308",
+          "role": "user",
+          "text": "continue",
+          "timestamp": "07:23:20"
+        },
+        {
+          "id": "msg-agent-1792106720309",
+          "role": "assistant",
+          "agent": "OpenCode",
+          "agent_id": "opencode",
+          "model": "Qwen3 8B",
+          "model_id": "qwen3-8b",
+          "text": "\u23f1\ufe0f **OpenCode** timed out after 120 seconds.\n\nThe agent may be waiting for user input or is performing a long-running task. Try a simpler query or check the agent's interactive session.",
+          "steps": [
+            "Agent invoked",
+            "Timeout after 120s"
+          ],
+          "timestamp": "07:23:20"
+        }
+      ]
+    }
+  ]
+}

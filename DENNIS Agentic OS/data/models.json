@@ -1,0 +1,104 @@
+[
+  {
+    "id": "gemini-3.8-flash",
+    "name": "Gemini 3.8 Flash",
+    "provider": "Google",
+    "tier": "free",
+    "context_window": "1M tokens",
+    "recommended_for": ["antigravity", "gemini-cli"],
+    "icon": "G",
+    "color": "blue"
+  },
+  {
+    "id": "gemini-3.8-pro",
+    "name": "Gemini 3.8 Pro",
+    "provider": "Google",
+    "tier": "paid",
+    "context_window": "2M tokens",
+    "recommended_for": ["antigravity"],
+    "icon": "G",
+    "color": "blue"
+  },
+  {
+    "id": "claude-sonnet-4.6",
+    "name": "Claude Sonnet 4.6",
+    "provider": "Anthropic",
+    "tier": "paid",
+    "context_window": "200k tokens",
+    "recommended_for": ["antigravity", "claude-code"],
+    "icon": "C",
+    "color": "amber"
+  },
+  {
+    "id": "claude-opus-4.6",
+    "name": "Claude Opus 4.6",
+    "provider": "Anthropic",
+    "tier": "paid",
+    "context_window": "200k tokens",
+    "recommended_for": ["antigravity"],
+    "icon": "C",
+    "color": "amber"
+  },
+  {
+    "id": "gpt-oss-120b",
+    "name": "GPT-OSS 120B",
+    "provider": "OpenAI",
+    "tier": "paid",
+    "context_window": "128k tokens",
+    "recommended_for": ["antigravity", "codex-cli", "codex"],
+    "icon": "O",
+    "color": "emerald"
+  },
+  {
+    "id": "deepseek-r1",
+    "name": "DeepSeek R1",
+    "provider": "DeepSeek",
+    "tier": "free",
+    "context_window": "64k tokens",
+    "recommended_for": ["opencode"],
+    "cli_models": {
+      "opencode": "opencode/deepseek-v4.1-flash-free"
+    },
+    "icon": "D",
+    "color": "cyan"
+  },
+  {
+    "id": "llama-3-2-3b",
+    "name": "Llama 3.2 3B",
+    "provider": "Meta",
+    "tier": "free",
+    "context_window": "128k tokens",
+    "recommended_for": ["opencode", "custom-agent"],
+    "cli_models": {
+      "opencode": "opencode/longcat-2.5-preview-free"
+    },
+    "icon": "∞",
+    "color": "indigo"
+  },
+  {
+    "id": "qwen3-8b",
+    "name": "Qwen3 8B",
+    "provider": "Alibaba",
+    "tier": "free",
+    "context_window": "32k tokens",
+    "recommended_for": ["opencode"],
+    "cli_models": {
+      "opencode": "opencode/mimo-v2.6-flash-free"
+    },
+    "icon": "Q",
+    "color": "purple"
+  },
+  {
+    "id": "mistral-7b",
+    "name": "Mistral 7B",
+    "provider": "Mistral AI",
+    "tier": "free",
+    "context_window": "32k tokens",
+    "recommended_for": ["opencode", "aider"],
+    "cli_models": {
+      "opencode": "opencode/nemotron-3.5-lightning-free"
+    },
+    "icon": "M",
+    "color": "amber"
+  }
+]

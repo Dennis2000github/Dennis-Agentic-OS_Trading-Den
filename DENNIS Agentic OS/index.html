@@ -1,0 +1,1962 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DENNIS Agentic OS - Your AI Brain. Your Tools. Your Universe.</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Custom Cyber Theme CSS -->
+  <link rel="stylesheet" href="css/style.css?v=20261017-1">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            cyberDark: '#060913',
+            cyberCard: 'rgba(13, 20, 38, 0.75)',
+            cyberBorder: 'rgba(43, 62, 107, 0.45)',
+            cyberCyan: '#00f0ff',
+            cyberBlue: '#2563eb',
+            cyberPurple: '#a855f7'
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="bg-[#060913] text-slate-100 h-screen overflow-hidden flex flex-col font-sans select-none">
+
+  <!-- ========================================================================= -->
+  <!-- 1. TOP HEADER NAVIGATION BAR                                              -->
+  <!-- ========================================================================= -->
+  <header class="h-14 border-b border-[#1b253d] bg-[#070b16]/95 backdrop-blur-md px-4 flex items-center justify-between z-30 shrink-0">
+    <!-- Brand Logo & Identity -->
+    <div class="flex items-center gap-3 shrink-0">
+      <div class="w-8 h-8 relative flex items-center justify-center">
+        <!-- Geometric Winged Emblem SVG -->
+        <svg viewBox="0 0 40 40" class="w-8 h-8 drop-shadow-[0_0_8px_rgba(0,240,255,0.7)]">
+          <defs>
+            <linearGradient id="wingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#00f0ff" />
+              <stop offset="50%" stop-color="#3b82f6" />
+              <stop offset="100%" stop-color="#d946ef" />
+            </linearGradient>
+          </defs>
+          <path d="M4 14 C12 6, 26 8, 36 4 C32 14, 24 24, 14 36 C16 26, 12 18, 4 14 Z" fill="url(#wingGrad)" />
+          <path d="M12 20 C18 16, 28 17, 34 13 C30 22, 22 28, 16 34 Z" fill="#00f0ff" opacity="0.65" />
+          <path d="M18 24 C23 21, 30 21, 32 18 C28 25, 22 29, 18 33 Z" fill="#ffffff" opacity="0.85" />
+        </svg>
+      </div>
+      <div class="leading-tight">
+        <div class="flex items-center gap-1.5">
+          <span class="font-extrabold tracking-wider text-white text-base">DENNIS</span>
+          <span class="font-semibold text-slate-300 text-sm">Agentic OS</span>
+        </div>
+        <p class="text-[9.5px] text-slate-400 font-medium tracking-wide">Your AI Brain. Your Tools. Your Universe.</p>
+      </div>
+    </div>
+
+    <!-- Center Navigation Tabs -->
+    <nav class="hidden xl:flex items-center gap-1 overflow-x-auto py-1 px-2 no-scrollbar">
+      <button class="header-nav-tab nav-tab-active flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all">
+        <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
+        <span>Hermes Chat</span>
+      </button>
+
+      <button class="header-nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:text-slate-200 transition-all">
+        <i data-lucide="bot" class="w-3.5 h-3.5"></i>
+        <span>Bots</span>
+      </button>
+
+      <button id="header-nav-apollo" class="header-nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:text-slate-200 transition-all">
+        <i data-lucide="crosshair" class="w-3.5 h-3.5"></i>
+        <span>Apollo</span>
+      </button>
+
+      <button class="header-nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:text-slate-200 transition-all">
+        <i data-lucide="eye" class="w-3.5 h-3.5"></i>
+        <span>Hermes Oracle</span>
+      </button>
+
+      <button class="header-nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:text-slate-200 transition-all">
+        <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+        <span>Hermes Muse</span>
+      </button>
+
+      <button class="header-nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:text-slate-200 transition-all">
+        <i data-lucide="telescope" class="w-3.5 h-3.5"></i>
+        <span>Hermes Astros</span>
+      </button>
+
+      <button class="header-nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:text-slate-200 transition-all">
+        <i data-lucide="sliders" class="w-3.5 h-3.5"></i>
+        <span>Studio</span>
+      </button>
+
+      <button class="header-nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:text-slate-200 transition-all">
+        <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+        <span>Sessions</span>
+      </button>
+
+      <button class="header-nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:text-slate-200 transition-all">
+        <i data-lucide="rocket" class="w-3.5 h-3.5"></i>
+        <span>Outreach</span>
+      </button>
+
+      <button class="header-nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:text-slate-200 transition-all">
+        <i data-lucide="network" class="w-3.5 h-3.5"></i>
+        <span>Mixture</span>
+      </button>
+
+      <button class="header-nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:text-slate-200 transition-all">
+        <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i>
+        <span>Workspace</span>
+      </button>
+
+      <button class="header-nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:text-slate-200 transition-all">
+        <i data-lucide="cpu" class="w-3.5 h-3.5"></i>
+        <span>MCP</span>
+      </button>
+    </nav>
+
+    <!-- Right Profile & Plan Pill -->
+    <div class="flex items-center gap-3 shrink-0">
+      <div class="flex items-center gap-2 px-2 py-1 rounded-full bg-slate-900/60 border border-slate-800 hover:border-slate-700 cursor-pointer transition">
+        <div class="w-6 h-6 rounded-full bg-gradient-to-tr from-cyan-500 to-indigo-600 flex items-center justify-center font-bold text-xs text-white ring-1 ring-cyan-400/50">
+          DM
+        </div>
+        <span class="text-xs font-medium text-slate-200">Dennis Manosa</span>
+        <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-slate-400"></i>
+      </div>
+      <button class="px-3 py-1 rounded-md text-xs font-medium bg-[#11182c] border border-blue-900/50 hover:border-blue-500/60 text-slate-200 shadow-sm transition">
+        Free Plan
+      </button>
+    </div>
+  </header>
+
+  <!-- ========================================================================= -->
+  <!-- 2. MAIN APPLICATION WORKSPACE (Sidebar + Content Body)                     -->
+  <!-- ========================================================================= -->
+  <div class="flex-1 flex overflow-hidden">
+
+    <!-- LEFT SIDEBAR -->
+    <aside class="w-56 border-r border-[#1b253d] bg-[#070b16] flex flex-col gap-3 p-3 shrink-0 overflow-y-auto">
+      <!-- Top Navigation Group -->
+      <div class="space-y-1.5">
+        <button id="sidebar-nav-workspace" class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-blue-600 text-white font-medium text-xs shadow-lg shadow-blue-500/20 transition">
+          <i data-lucide="home" class="w-4 h-4"></i>
+          <span>Workspace</span>
+        </button>
+
+        <button id="sidebar-nav-trading" class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 font-medium text-xs transition">
+          <i data-lucide="candlestick-chart" class="w-4 h-4"></i>
+          <span>Trading Den</span>
+        </button>
+
+        <button class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 font-medium text-xs transition">
+          <i data-lucide="shield" class="w-4 h-4"></i>
+          <span>Vault</span>
+        </button>
+
+        <button class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 font-medium text-xs transition">
+          <i data-lucide="settings" class="w-4 h-4"></i>
+          <span>Settings</span>
+        </button>
+      </div>
+
+      <!-- Sessions List (project sessions for the selected agent only) -->
+      <div class="flex-1 min-h-[72px] flex flex-col">
+        <div class="px-1.5 mb-1.5 relative">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-mono uppercase tracking-widest text-slate-500">Sessions</span>
+            <button id="ws-new-session" class="p-1 rounded-md hover:bg-slate-800 text-slate-400 hover:text-cyan-400 transition" title="New Project Session">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+          <span id="ws-sessions-agent" class="hidden mt-1 inline-flex items-center px-1.5 py-0.5 rounded bg-blue-950/70 border border-blue-800/60 text-[9px] font-mono text-cyan-300"></span>
+          <div id="ws-new-project-menu" class="ws-menu hidden absolute right-0 top-8 z-50 w-56"></div>
+        </div>
+        <div id="ws-sessions-list" class="flex-1 overflow-y-auto space-y-1 pr-0.5">
+          <div class="text-[10px] text-slate-600 px-2 py-1 font-mono">Select an agent to see its project sessions.</div>
+        </div>
+      </div>
+
+      <!-- Bottom Hermes Apollo Voice Core (Jarvis Voice Wake Command) -->
+      <div id="hermes-apollo-widget" class="galaxy-card p-2.5 rounded-2xl bg-gradient-to-b from-[#0c1429] to-[#070c18] border border-cyan-950/60 hover:border-cyan-500/40 relative overflow-hidden flex flex-col items-center text-center transition-all duration-300">
+        <!-- Top Protocol Tag -->
+        <div class="w-full flex items-center justify-between px-1 mb-0.5">
+          <span class="inline-flex items-center gap-1 text-[9px] font-mono uppercase tracking-widest text-cyan-400 font-semibold">
+            <i data-lucide="crosshair" class="w-2.5 h-2.5 text-cyan-400"></i>
+            <span>JARVIS PROTOCOL</span>
+          </span>
+          <span id="apollo-wake-tag" class="text-[9px] font-mono text-cyan-300 px-1.5 py-0.5 rounded bg-blue-950/70 border border-cyan-900/60 shadow-sm" title="Voice Wake Word: Hey Apollo">
+            Wake: "Hey Apollo"
+          </span>
+        </div>
+
+        <!-- Canvas Spinning Galaxy Vortex / Arc Reactor with Holographic HUD Frame -->
+        <div class="galaxy-canvas-frame w-full flex items-center justify-center relative my-0.5 cursor-pointer group" id="apollo-canvas-wrap" title="Click to wake Hermes Apollo">
+          <canvas id="galaxy-canvas" class="w-[88px] h-[88px] block"></canvas>
+          <!-- HUD Crosshair & Glow Ring Overlay -->
+          <div class="absolute inset-0 pointer-events-none flex items-center justify-center">
+            <div id="apollo-reactor-ring" class="w-[68px] h-[68px] rounded-full border border-cyan-500/20 group-hover:border-cyan-400/50 transition-all duration-500"></div>
+          </div>
+          <!-- Click to wake hover hint -->
+          <div class="absolute inset-x-0 bottom-1 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-200 pointer-events-none">
+            <span class="text-[9px] font-mono text-cyan-300 bg-black/80 px-2 py-0.5 rounded-full border border-cyan-500/40 backdrop-blur-sm shadow-md">Click to Wake</span>
+          </div>
+        </div>
+
+        <!-- Title & Subtitle -->
+        <div class="mt-0.5 mb-1">
+          <div class="flex items-center justify-center gap-1.5">
+            <h4 class="font-extrabold tracking-widest text-white text-[10.5px] glow-cyan">HERMES APOLLO</h4>
+            <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 status-dot-pulse"></span>
+          </div>
+          <p class="text-[9px] text-slate-400 font-medium">Jarvis Voice Intelligence</p>
+        </div>
+
+        <!-- Mini Audio Equalizer Waveform -->
+        <div id="apollo-equalizer" class="flex items-center justify-center gap-1 my-0.5 h-3 px-2" title="Voice Audio Activity">
+          <span class="apollo-eq-bar"></span>
+          <span class="apollo-eq-bar"></span>
+          <span class="apollo-eq-bar"></span>
+          <span class="apollo-eq-bar"></span>
+          <span class="apollo-eq-bar"></span>
+          <span class="apollo-eq-bar"></span>
+          <span class="apollo-eq-bar"></span>
+        </div>
+
+        <!-- Live Status Row -->
+        <div class="flex items-center justify-center gap-1.5 text-[10px] font-semibold text-cyan-300 mb-1">
+          <span id="apollo-status-dot" class="w-2 h-2 rounded-full bg-cyan-400 status-dot-pulse"></span>
+          <span id="apollo-status-text" class="tracking-wide">Listening for "Hey Apollo"</span>
+        </div>
+
+        <!-- Interactive Voice Wake Controls -->
+        <div class="w-full flex items-center gap-1.5 px-0.5 mb-1">
+          <button id="apollo-mic-toggle" class="flex-1 flex items-center justify-center gap-1.5 py-1.5 px-2 rounded-lg bg-blue-950/80 hover:bg-cyan-950/90 border border-cyan-800/50 hover:border-cyan-400/60 text-cyan-300 text-[10px] font-medium transition shadow-sm" title="Toggle continuous voice wake listening">
+            <i data-lucide="mic" id="apollo-mic-icon" class="w-3.5 h-3.5 text-cyan-400"></i>
+            <span id="apollo-mic-label">Voice Wake ON</span>
+          </button>
+          <button id="apollo-test-wake" class="flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-lg bg-[#11182c] hover:bg-blue-900/60 border border-blue-900/60 hover:border-cyan-500/50 text-slate-300 hover:text-white text-[10px] font-medium transition" title="Test Voice Wake command immediately">
+            <i data-lucide="sparkles" class="w-3 h-3 text-cyan-400"></i>
+            <span>Wake</span>
+          </button>
+        </div>
+
+        <!-- Live Transcript / Jarvis Response Feedback HUD -->
+        <div id="apollo-transcript-box" class="w-full px-2 py-1 rounded-md bg-[#050914]/90 border border-blue-950 text-[9.5px] font-mono text-slate-400 truncate text-left flex items-center gap-1.5">
+          <i data-lucide="radio" class="w-2.5 h-2.5 text-cyan-400 shrink-0"></i>
+          <span id="apollo-transcript-text" class="truncate">Say "Hey Apollo" or click Wake</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN DASHBOARD CONTENT AREA -->
+    <main class="flex-1 flex flex-col p-3.5 gap-3.5 overflow-y-auto">
+
+      <!-- ========================================================================= -->
+      <!-- TIER 1: TOP HERO BANNER (Time, Greeting & Neural Brain Cosmos)             -->
+      <!-- ========================================================================= -->
+      <section id="hero-banner-section" class="relative h-[210px] shrink-0 rounded-2xl border border-blue-900/40 bg-gradient-to-r from-[#070c1a] via-[#0b1328] to-[#070b18] overflow-hidden p-5 flex items-center shadow-2xl">
+        <!-- Background Canvas: Interactive Neural Constellation & Purple Nebula -->
+        <canvas id="cosmos-canvas" class="absolute inset-0 w-full h-full pointer-events-auto"></canvas>
+
+        <!-- Left Greeting & Digital Clock Overlay -->
+        <div class="relative z-10 max-w-[420px] pointer-events-none">
+          <div class="flex items-center gap-2 text-xs text-slate-400 mb-1 font-medium">
+            <i data-lucide="calendar" class="w-3.5 h-3.5 text-blue-400"></i>
+            <span id="current-date">Tuesday, October 14, 2025</span>
+          </div>
+
+          <!-- Digital Clock Display -->
+          <div id="digital-clock" class="text-4xl md:text-5xl font-mono font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-blue-300 via-cyan-300 to-white glow-blue my-1">
+            17:19:19
+          </div>
+
+          <!-- Dynamic Personalized Greeting -->
+          <h2 id="dynamic-greeting" class="text-2xl font-bold leading-tight text-white tracking-wide mt-1">
+            Good afternoon,<br>
+            <span class="text-cyan-400 glow-cyan">Dennis.</span>
+          </h2>
+
+          <p class="text-xs text-slate-400 mt-1 font-medium">0 open items and 4 active in motion.</p>
+        </div>
+
+        <!-- Floating Markdown Document Badges (Positioned in 3D Space over Constellation) -->
+        <div class="absolute inset-0 pointer-events-none">
+          <!-- project-plan.md -->
+          <div class="cosmos-node-badge absolute top-[18%] left-[45%] flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10.5px] font-mono text-cyan-200 pointer-events-auto cursor-pointer">
+            <i data-lucide="file-text" class="w-3.5 h-3.5 text-cyan-400"></i>
+            <span>project-plan.md</span>
+          </div>
+
+          <!-- research.md -->
+          <div class="cosmos-node-badge absolute top-[18%] right-[20%] flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10.5px] font-mono text-cyan-200 pointer-events-auto cursor-pointer">
+            <i data-lucide="file-text" class="w-3.5 h-3.5 text-purple-400"></i>
+            <span>research.md</span>
+          </div>
+
+          <!-- system-architecture.md -->
+          <div class="cosmos-node-badge absolute top-[44%] right-[11%] flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10.5px] font-mono text-cyan-200 pointer-events-auto cursor-pointer">
+            <i data-lucide="file-text" class="w-3.5 h-3.5 text-blue-400"></i>
+            <span>system-architecture.md</span>
+          </div>
+
+          <!-- goals.md -->
+          <div class="cosmos-node-badge absolute bottom-[18%] right-[16%] flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10.5px] font-mono text-cyan-200 pointer-events-auto cursor-pointer">
+            <i data-lucide="file-text" class="w-3.5 h-3.5 text-pink-400"></i>
+            <span>goals.md</span>
+          </div>
+
+          <!-- strategy-notes.md -->
+          <div class="cosmos-node-badge absolute bottom-[14%] left-[55%] flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10.5px] font-mono text-cyan-200 pointer-events-auto cursor-pointer">
+            <i data-lucide="file-text" class="w-3.5 h-3.5 text-indigo-400"></i>
+            <span>strategy-notes.md</span>
+          </div>
+
+          <!-- market-analysis.md -->
+          <div class="cosmos-node-badge absolute bottom-[26%] left-[40%] flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10.5px] font-mono text-cyan-200 pointer-events-auto cursor-pointer">
+            <i data-lucide="file-text" class="w-3.5 h-3.5 text-emerald-400"></i>
+            <span>market-analysis.md</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================================= -->
+      <!-- TIER 2: AGENT WORKSPACE (Real Agent CLI Screen + Collapsible Code/Preview) -->
+      <!-- ========================================================================= -->
+      <section id="agent-workspace" class="glass-panel rounded-2xl relative flex flex-col overflow-hidden border border-blue-900/40 bg-[#090e1f]/80 ws-workspace-row">
+
+        <!-- Toolbar: Agent -> Model -> Status (fixed order, no tabs, no technical text) -->
+        <div id="ws-toolbar" class="px-3 py-2 border-b border-[#1b2744] bg-[#080d1b] flex items-center gap-2 flex-wrap shrink-0">
+          <!-- Agent dropdown -->
+          <div class="relative">
+            <button id="ws-agent-btn" class="ws-dropdown" title="Active agent">
+              <i data-lucide="bot" class="w-3.5 h-3.5 text-cyan-400"></i>
+              <span id="ws-agent-label">Agent: —</span>
+              <i data-lucide="chevron-down" class="w-3 h-3 text-slate-500"></i>
+            </button>
+            <div id="ws-agent-menu" class="ws-menu hidden absolute left-0 top-full mt-1 z-50 w-64">
+              <div class="ws-menu-title">Agents</div>
+              <div id="ws-agent-options" class="max-h-56 overflow-y-auto"></div>
+            </div>
+          </div>
+
+          <!-- Model dropdown (CLI-native list) -->
+          <div class="relative">
+            <button id="ws-model-btn" class="ws-dropdown ws-dropdown-model" title="Model for this CLI" disabled>
+              <i data-lucide="cpu" class="w-3.5 h-3.5 text-purple-400"></i>
+              <span id="ws-model-label">Model: —</span>
+              <i data-lucide="chevron-down" class="w-3 h-3 text-slate-500"></i>
+            </button>
+            <div id="ws-model-menu" class="ws-menu hidden absolute left-0 top-full mt-1 z-50 w-80">
+              <div class="ws-menu-title flex items-center justify-between">
+                <span>Models from this CLI</span>
+                <button id="ws-model-refresh" class="ws-icon-btn" title="Refresh model list">
+                  <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                </button>
+              </div>
+              <div id="ws-model-current" class="hidden px-2.5 py-1 text-[10.5px] font-mono text-cyan-300 border-b border-[#1b2537] mb-1"></div>
+              <div id="ws-model-search-wrap" class="hidden px-1.5 pb-1">
+                <input id="ws-model-search" type="text" placeholder="Search models…" class="w-full bg-[#0b1226] border border-[#22304f] rounded-lg px-2 py-1 text-[11px] text-slate-200 placeholder-slate-600 outline-none focus:border-cyan-500/60">
+              </div>
+              <div id="ws-model-options" class="max-h-60 overflow-y-auto"></div>
+            </div>
+          </div>
+
+          <!-- Agent status pill -->
+          <div id="ws-status" class="ws-status" data-status="stopped"></div>
+
+          <!-- One short, actionable message (never a raw error) -->
+          <div id="ws-note" class="hidden ml-auto text-[10.5px] text-amber-300/90 truncate max-w-[46%]" title=""></div>
+        </div>
+
+        <!-- Body: agent screens + collapsible Code & Preview (PanelState S0-S6) -->
+        <div id="ws-row" class="flex-1 min-h-0 min-w-0 flex relative">
+
+          <!-- Agent screens: one per project session, only one visible -->
+          <div id="ws-screen" class="flex-1 min-w-0 min-h-0 relative flex flex-col bg-[#050811]" data-state="no-agent">
+            <div id="ws-screens" class="flex-1 min-h-0 min-w-0 relative"></div>
+
+            <!-- No-agent / no-session empty state -->
+            <div id="ws-screen-empty" class="absolute inset-0 flex flex-col items-center justify-center text-center gap-1 p-4 pointer-events-none">
+              <span class="text-[13px] font-semibold text-slate-300">No agent selected</span>
+              <span class="text-[11px] text-slate-500">Pick an agent to open its CLI dashboard.</span>
+            </div>
+
+            <!-- Starting overlay: never show the previous agent's screen -->
+            <div id="ws-starting" class="hidden absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-[#050811]">
+              <div class="w-5 h-5 rounded-full border-2 border-cyan-500/30 border-t-cyan-400 animate-spin"></div>
+              <span class="text-[11px] text-slate-400">Starting agent…</span>
+            </div>
+
+            <!-- Exited state -->
+            <div id="ws-exited" class="hidden absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-[#050811]">
+              <span class="text-[12px] text-slate-300">Agent stopped.</span>
+              <button id="ws-start-session" class="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-semibold shadow-lg shadow-blue-600/30 transition">Start session</button>
+            </div>
+          </div>
+
+          <!-- Slim handle: collapsed panel (S1) -->
+          <button id="ws-panel-handle" class="ws-handle hidden" title="Open Code & Preview">
+            <i data-lucide="chevrons-left" class="w-3.5 h-3.5"></i>
+            <span class="ws-handle-label">Code &amp; Preview</span>
+          </button>
+
+          <!-- Code & Preview panel (S2-S6) -->
+          <div id="ws-panel" class="ws-panel border-l border-[#1b2744] bg-[#070b16] flex flex-col min-h-0">
+            <div id="ws-panel-head" class="px-2.5 py-1.5 border-b border-[#1b2744] flex items-center gap-1 bg-[#090e1f] shrink-0">
+              <i data-lucide="layout-panel-left" class="w-3.5 h-3.5 text-blue-400"></i>
+              <span class="text-[11px] font-semibold text-slate-200 mr-1">Code &amp; Preview</span>
+              <div class="flex items-center gap-0.5 ml-auto">
+                <button id="ws-panel-collapse" class="ws-icon-btn" title="Collapse panel"><i data-lucide="chevrons-right" class="w-3.5 h-3.5"></i></button>
+                <button id="ws-panel-close" class="ws-icon-btn" title="Close and reset"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+              </div>
+            </div>
+
+            <!-- OS fullscreen bar: the section becomes a full-window overlay -->
+            <div id="ws-fullscreen-bar" class="ws-fs-bar hidden">
+              <i data-lucide="layout-panel-left" class="w-3.5 h-3.5 text-cyan-400"></i>
+              <span id="ws-fs-project" class="text-[11px] font-semibold text-slate-100 truncate"></span>
+              <span class="text-slate-600">·</span>
+              <span id="ws-fs-pane" class="text-[11px] font-semibold text-cyan-300"></span>
+              <span id="ws-fs-agent" class="hidden ml-2 text-[10px] text-emerald-300/90"></span>
+              <div class="ml-auto flex items-center gap-1">
+                <button id="ws-fs-browser" class="ws-icon-btn" title="Use the browser Fullscreen API"><i data-lucide="monitor-up" class="w-3.5 h-3.5"></i></button>
+                <button id="ws-fs-exit" class="ws-ctrl-btn" title="Exit full screen (Esc)"><i data-lucide="minimize-2" class="w-3.5 h-3.5"></i><span>Exit full screen</span></button>
+              </div>
+            </div>
+
+            <div class="ws-panel-body flex-1 min-h-0 min-w-0 flex">
+              <!-- Code pane -->
+              <div id="ws-code-pane" class="ws-pane hidden min-w-0 min-h-0">
+                <div class="ws-pane-head">
+                  <button id="ws-code-tree-toggle" class="ws-icon-btn" title="Files"><i data-lucide="folder-tree" class="w-3.5 h-3.5"></i></button>
+                  <i data-lucide="file-code" class="w-3.5 h-3.5 text-cyan-400 shrink-0"></i>
+                  <input id="ws-code-path" type="text" placeholder="relative/path.py" class="flex-1 min-w-0 bg-transparent text-[11px] font-mono text-slate-200 placeholder-slate-600 outline-none">
+                  <button id="ws-code-load" class="ws-icon-btn" title="Open file"><i data-lucide="corner-down-left" class="w-3.5 h-3.5"></i></button>
+                  <button id="ws-code-save" class="ws-icon-btn ws-code-save" title="Save (Ctrl/Cmd+S)" disabled>
+                    <i data-lucide="save" class="w-3.5 h-3.5"></i>
+                    <span id="ws-code-dirty" class="ws-dirty-dot hidden"></span>
+                  </button>
+                  <span class="w-px h-4 bg-[#1b2744] mx-0.5"></span>
+                  <button id="ws-code-run" class="ws-icon-btn" title="Run the open project"><i data-lucide="play" class="w-3.5 h-3.5 text-emerald-400"></i></button>
+                  <button id="ws-code-stop" class="ws-icon-btn hidden" title="Stop the running project"><i data-lucide="square" class="w-3.5 h-3.5 text-rose-400"></i></button>
+                  <span id="ws-run-status" class="ws-run-status hidden"></span>
+                  <span class="w-px h-4 bg-[#1b2744] mx-0.5"></span>
+                  <button id="ws-code-min" class="ws-icon-btn" title="Minimize pane"><i data-lucide="minus" class="w-3.5 h-3.5"></i></button>
+                  <button id="ws-code-max" class="ws-icon-btn" title="Maximize in panel"><i data-lucide="square" class="w-3.5 h-3.5"></i></button>
+                  <button id="ws-code-full" class="ws-icon-btn" title="Expand to full screen"><i data-lucide="maximize-2" class="w-3.5 h-3.5"></i></button>
+                </div>
+                <div class="flex-1 min-h-0 min-w-0 flex">
+                  <div id="ws-code-tree" class="hidden w-44 shrink-0 overflow-auto border-r border-[#131c30] bg-[#060a14]"></div>
+                  <div id="ws-code-host" class="ws-code-host flex-1 min-w-0 min-h-0">
+                    <textarea id="ws-code-editor" spellcheck="false" autocomplete="off" autocapitalize="off" wrap="off"></textarea>
+                  </div>
+                </div>
+                <div id="ws-code-runlog" class="ws-runlog hidden"></div>
+                <div id="ws-code-strip" class="ws-strip hidden">
+                  <i data-lucide="file-code" class="w-3.5 h-3.5 text-cyan-400"></i>
+                  <span class="ws-strip-label">Code</span>
+                  <button id="ws-code-strip-restore" class="ws-icon-btn" title="Restore Code"><i data-lucide="chevrons-left" class="w-3.5 h-3.5"></i></button>
+                </div>
+              </div>
+
+              <!-- Preview pane -->
+              <div id="ws-preview-pane" class="ws-pane hidden min-w-0 min-h-0">
+                <div class="ws-pane-head">
+                  <i data-lucide="globe" class="w-3.5 h-3.5 text-emerald-400 shrink-0"></i>
+                  <input id="ws-preview-url" type="text" placeholder="https://your-app.local" class="flex-1 min-w-0 bg-transparent text-[11px] font-mono text-slate-200 placeholder-slate-600 outline-none">
+                  <button id="ws-preview-load" class="ws-icon-btn" title="Load preview"><i data-lucide="corner-down-left" class="w-3.5 h-3.5"></i></button>
+                  <button id="ws-preview-min" class="ws-icon-btn" title="Minimize pane"><i data-lucide="minus" class="w-3.5 h-3.5"></i></button>
+                  <button id="ws-preview-max" class="ws-icon-btn" title="Maximize in panel"><i data-lucide="square" class="w-3.5 h-3.5"></i></button>
+                  <button id="ws-preview-full" class="ws-icon-btn" title="Expand to full screen"><i data-lucide="maximize-2" class="w-3.5 h-3.5"></i></button>
+                </div>
+                <div class="flex-1 min-h-0 min-w-0 bg-white/5">
+                  <iframe id="ws-preview-frame" class="w-full h-full bg-white" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+                </div>
+                <div id="ws-preview-strip" class="ws-strip hidden">
+                  <i data-lucide="globe" class="w-3.5 h-3.5 text-emerald-400"></i>
+                  <span class="ws-strip-label">Preview</span>
+                  <button id="ws-preview-strip-restore" class="ws-icon-btn" title="Restore Preview"><i data-lucide="chevrons-left" class="w-3.5 h-3.5"></i></button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========================================================================= -->
+      <!-- TIER 3: BOTTOM REGISTRY & ROUTER MANAGEMENT CARDS (5 Horizontal Columns)  -->
+      <!-- ========================================================================= -->
+      <section id="registry-section" class="registry-scroll-section">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3.5">
+
+        <!-- 1. AGENT REGISTRY -->
+        <div class="glass-panel rounded-2xl p-3.5 flex flex-col justify-between border border-blue-900/40 bg-[#090e1f]/75 hover:border-blue-700/50 transition">
+          <div>
+            <div class="flex items-start justify-between mb-2.5">
+              <div class="flex items-start gap-2">
+                <div class="p-1.5 rounded-lg bg-blue-500/10 text-cyan-400 border border-blue-500/20">
+                  <i data-lucide="server" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <div class="flex items-center gap-1.5">
+                    <h3 class="font-bold text-xs text-white">Agent Registry</h3>
+                    <span id="registered-agents-counter" class="text-[9px] px-1.5 py-0.2 rounded-full bg-blue-950 text-cyan-400 border border-blue-800/60 font-mono font-medium">1</span>
+                  </div>
+                  <p class="text-[10px] text-slate-400">Your installed coding agents and tools</p>
+                </div>
+              </div>
+            </div>
+
+            <!-- Dynamic Agent Registry Container -->
+            <div id="agent-registry-list" class="space-y-2 mt-3 text-xs max-h-[175px] overflow-y-auto pr-1">
+              <!-- Antigravity Core Agent Setup -->
+              <div class="agent-item-card flex items-center justify-between py-1.5 px-2 rounded-xl bg-slate-900/70 border border-cyan-500/30 hover:border-cyan-400/60 transition group cursor-pointer" data-agent-id="antigravity">
+                <div class="flex items-center gap-2">
+                  <div class="w-6 h-6 rounded-lg bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold text-[10px] shadow-sm shadow-cyan-500/30">
+                    A
+                  </div>
+                  <div>
+                    <div class="font-semibold text-slate-100 text-[11px] flex items-center gap-1.5">
+                      <span>Antigravity</span>
+                      <span class="text-[8.5px] px-1.5 py-0.2 rounded bg-cyan-950 text-cyan-400 border border-cyan-500/40 font-mono font-normal">Core</span>
+                    </div>
+                    <div class="text-[9px] text-slate-400 font-mono">v1.3.5 • Google DeepMind</div>
+                  </div>
+                </div>
+                <div class="flex items-center gap-1.5">
+                  <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-500/30 font-medium flex items-center gap-1">
+                    <span class="w-1.5 h-1.5 rounded-full bg-emerald-400"></span> Connected
+                  </span>
+                  <button class="btn-inspect-agent p-1 rounded-md hover:bg-slate-800 text-slate-400 hover:text-cyan-300 transition" title="Inspect Antigravity Details" data-agent-id="antigravity">
+                    <i data-lucide="settings" class="w-3.5 h-3.5"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <button id="btn-add-agent" class="w-full mt-3 py-1.5 px-3 rounded-xl bg-blue-950/60 hover:bg-blue-900/60 border border-blue-800/60 text-cyan-400 text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Agent
+          </button>
+        </div>
+
+        <!-- 2. MODEL REGISTRY -->
+        <div class="glass-panel rounded-2xl p-3.5 flex flex-col justify-between border border-blue-900/40 bg-[#090e1f]/75 hover:border-blue-700/50 transition">
+          <div>
+            <div class="flex items-start gap-2 mb-2">
+              <div class="p-1.5 rounded-lg bg-blue-500/10 text-cyan-400 border border-blue-500/20">
+                <i data-lucide="cpu" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <h3 class="font-bold text-xs text-white">Model Registry</h3>
+                <p class="text-[10px] text-slate-400">AI models from your providers</p>
+              </div>
+            </div>
+
+            <!-- Filters & Prefer Free Toggle -->
+            <div class="flex items-center justify-between gap-1 my-2 text-[10.5px]">
+              <div class="flex items-center gap-1 bg-slate-900/80 p-0.5 rounded-lg border border-slate-800">
+                <button class="model-filter-btn px-2 py-0.5 rounded text-slate-400" data-filter="all">All</button>
+                <button class="model-filter-btn px-2 py-0.5 rounded bg-blue-600 text-white font-medium" data-filter="free">Free</button>
+                <button class="model-filter-btn px-2 py-0.5 rounded text-slate-400" data-filter="paid">Paid</button>
+              </div>
+
+              <div class="flex items-center gap-1.5 text-[10px] text-slate-400">
+                <span>Prefer Free</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input id="prefer-free-toggle" type="checkbox" checked class="sr-only peer">
+                  <div class="w-7 h-4 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+              </div>
+            </div>
+
+            <!-- List items -->
+            <div class="space-y-1.5 text-xs">
+              <!-- Gemini 2.5 Flash -->
+              <div class="model-item-row flex items-center justify-between py-1 border-b border-slate-800/50" data-type="free">
+                <div class="flex items-center gap-2">
+                  <div class="w-5 h-5 rounded bg-blue-500/20 flex items-center justify-center text-blue-400 text-[10px] font-bold">G</div>
+                  <div>
+                    <div class="font-medium text-slate-200 text-[11px]">Gemini 2.5 Flash</div>
+                    <div class="text-[9.5px] text-slate-500">Google</div>
+                  </div>
+                </div>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/70 text-emerald-400 border border-emerald-500/30 font-medium">Free</span>
+              </div>
+
+              <!-- Llama 3.2 3B -->
+              <div class="model-item-row flex items-center justify-between py-1 border-b border-slate-800/50" data-type="free">
+                <div class="flex items-center gap-2">
+                  <div class="w-5 h-5 rounded bg-indigo-500/20 flex items-center justify-center text-indigo-400 text-[10px] font-bold">∞</div>
+                  <div>
+                    <div class="font-medium text-slate-200 text-[11px]">Llama 3.2 3B</div>
+                    <div class="text-[9.5px] text-slate-500">Meta</div>
+                  </div>
+                </div>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/70 text-emerald-400 border border-emerald-500/30 font-medium">Free</span>
+              </div>
+
+              <!-- Qwen3 8B -->
+              <div class="model-item-row flex items-center justify-between py-1 border-b border-slate-800/50" data-type="free">
+                <div class="flex items-center gap-2">
+                  <div class="w-5 h-5 rounded bg-purple-500/20 flex items-center justify-center text-purple-400 text-[10px] font-bold">Q</div>
+                  <div>
+                    <div class="font-medium text-slate-200 text-[11px]">Qwen3 8B</div>
+                    <div class="text-[9.5px] text-slate-500">Alibaba</div>
+                  </div>
+                </div>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/70 text-emerald-400 border border-emerald-500/30 font-medium">Free</span>
+              </div>
+
+              <!-- DeepSeek R1 -->
+              <div class="model-item-row flex items-center justify-between py-1 border-b border-slate-800/50" data-type="free">
+                <div class="flex items-center gap-2">
+                  <div class="w-5 h-5 rounded bg-cyan-500/20 flex items-center justify-center text-cyan-400 text-[10px] font-bold">D</div>
+                  <div>
+                    <div class="font-medium text-slate-200 text-[11px]">DeepSeek R1</div>
+                    <div class="text-[9.5px] text-slate-500">DeepSeek</div>
+                  </div>
+                </div>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/70 text-emerald-400 border border-emerald-500/30 font-medium">Free</span>
+              </div>
+
+              <!-- Mistral 7B -->
+              <div class="model-item-row flex items-center justify-between py-1" data-type="free">
+                <div class="flex items-center gap-2">
+                  <div class="w-5 h-5 rounded bg-amber-500/20 flex items-center justify-center text-amber-400 text-[10px] font-bold">M</div>
+                  <div>
+                    <div class="font-medium text-slate-200 text-[11px]">Mistral 7B</div>
+                    <div class="text-[9.5px] text-slate-500">Mistral AI</div>
+                  </div>
+                </div>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/70 text-emerald-400 border border-emerald-500/30 font-medium">Free</span>
+              </div>
+            </div>
+          </div>
+
+          <button id="btn-add-provider" class="w-full mt-3 py-1.5 px-3 rounded-xl bg-blue-950/60 hover:bg-blue-900/60 border border-blue-800/60 text-cyan-400 text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+            <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Provider
+          </button>
+        </div>
+
+        <!-- 3. MCP CONNECTORS -->
+        <div class="glass-panel rounded-2xl p-3.5 flex flex-col justify-between border border-fuchsia-900/40 bg-[#090e1f]/75 hover:border-fuchsia-700/50 transition">
+          <div>
+            <div class="flex items-start gap-2 mb-2.5">
+              <div class="p-1.5 rounded-lg bg-fuchsia-500/10 text-fuchsia-400 border border-fuchsia-500/20">
+                <i data-lucide="plug" class="w-4 h-4"></i>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between gap-2">
+                  <h3 class="font-bold text-xs text-white">MCP Connectors</h3>
+                  <span id="mcp-panel-count" class="text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-fuchsia-950/60 text-fuchsia-300 border border-fuchsia-500/30" title="Connected connectors">0 active</span>
+                </div>
+                <p class="text-[10px] text-slate-400">Discover &amp; authorize MCP servers</p>
+              </div>
+            </div>
+
+            <!-- Registry search -->
+            <div class="relative flex items-center bg-slate-900/80 rounded-xl border border-slate-800 px-2.5 py-1.5 text-xs text-slate-300 focus-within:border-fuchsia-500/60 transition">
+              <i data-lucide="search" class="w-3.5 h-3.5 text-slate-500 mr-2 shrink-0"></i>
+              <input id="mcp-panel-search" type="text" placeholder="Search MCP registry..." class="bg-transparent outline-none w-full placeholder-slate-500 text-[11px]">
+            </div>
+
+            <!-- Connector list -->
+            <div id="mcp-panel-list" class="space-y-1.5 mt-2 text-xs max-h-40 overflow-y-auto pr-0.5">
+              <div class="flex items-center justify-center py-4 text-slate-500 text-[11px]">
+                <i data-lucide="loader" class="w-3.5 h-3.5 animate-spin mr-2"></i> Loading connectors...
+              </div>
+            </div>
+          </div>
+
+          <div class="flex gap-2 mt-3">
+            <button id="btn-mcp-discover" class="flex-1 py-1.5 px-3 rounded-xl bg-fuchsia-950/60 hover:bg-fuchsia-900/60 border border-fuchsia-800/60 text-fuchsia-300 text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+              <i data-lucide="radar" class="w-3.5 h-3.5"></i> Discover
+            </button>
+            <button id="btn-mcp-custom" class="flex-1 py-1.5 px-3 rounded-xl bg-blue-950/60 hover:bg-blue-900/60 border border-blue-800/60 text-cyan-400 text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+              <i data-lucide="plus" class="w-3.5 h-3.5"></i> Custom
+            </button>
+          </div>
+        </div>
+
+        <!-- 4. FRAMEWORK ROUTER -->
+        <div class="glass-panel rounded-2xl p-3.5 flex flex-col justify-between border border-blue-900/40 bg-[#090e1f]/75 hover:border-blue-700/50 transition">
+          <div>
+            <div class="flex items-start gap-2 mb-2.5">
+              <div class="p-1.5 rounded-lg bg-blue-500/10 text-cyan-400 border border-blue-500/20">
+                <i data-lucide="git-fork" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <h3 class="font-bold text-xs text-white">Framework Router</h3>
+                <p class="text-[10px] text-slate-400">Route tasks to the best framework</p>
+              </div>
+            </div>
+
+            <!-- List items -->
+            <div class="space-y-2 mt-3 text-xs">
+              <!-- LangChain -->
+              <div class="flex items-center justify-between py-1 border-b border-slate-800/50">
+                <div class="flex items-center gap-2">
+                  <div class="w-5 h-5 rounded bg-emerald-500/20 flex items-center justify-center text-emerald-400 text-[10px] font-bold">LC</div>
+                  <div>
+                    <div class="font-medium text-slate-200 text-[11px]">LangChain</div>
+                    <div class="text-[9.5px] text-slate-500">General / Tools</div>
+                  </div>
+                </div>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/70 text-emerald-400 border border-emerald-500/30 font-medium">Enabled</span>
+              </div>
+
+              <!-- LangGraph -->
+              <div class="flex items-center justify-between py-1 border-b border-slate-800/50">
+                <div class="flex items-center gap-2">
+                  <div class="w-5 h-5 rounded bg-blue-500/20 flex items-center justify-center text-blue-400 text-[10px] font-bold">LG</div>
+                  <div>
+                    <div class="font-medium text-slate-200 text-[11px]">LangGraph</div>
+                    <div class="text-[9.5px] text-slate-500">Agentic / Workflows</div>
+                  </div>
+                </div>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/70 text-emerald-400 border border-emerald-500/30 font-medium">Enabled</span>
+              </div>
+
+              <!-- LlamaIndex -->
+              <div class="flex items-center justify-between py-1 border-b border-slate-800/50">
+                <div class="flex items-center gap-2">
+                  <div class="w-5 h-5 rounded bg-purple-500/20 flex items-center justify-center text-purple-400 text-[10px] font-bold">LI</div>
+                  <div>
+                    <div class="font-medium text-slate-200 text-[11px]">LlamaIndex</div>
+                    <div class="text-[9.5px] text-slate-500">RAG / Indexing</div>
+                  </div>
+                </div>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/70 text-emerald-400 border border-emerald-500/30 font-medium">Enabled</span>
+              </div>
+
+              <!-- CrewAI -->
+              <div class="flex items-center justify-between py-1">
+                <div class="flex items-center gap-2">
+                  <div class="w-5 h-5 rounded bg-rose-500/20 flex items-center justify-center text-rose-400 text-[10px] font-bold">CR</div>
+                  <div>
+                    <div class="font-medium text-slate-200 text-[11px]">CrewAI</div>
+                    <div class="text-[9.5px] text-slate-500">Multi-Agent</div>
+                  </div>
+                </div>
+                <span class="text-[10px] px-2 py-0.5 rounded-full bg-rose-950/70 text-rose-400 border border-rose-500/30 font-medium">Disabled</span>
+              </div>
+            </div>
+          </div>
+
+          <button id="btn-config-router" class="w-full mt-3 py-1.5 px-3 rounded-xl bg-blue-950/60 hover:bg-blue-900/60 border border-blue-800/60 text-cyan-400 text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+            Configure Router
+          </button>
+        </div>
+
+        <!-- 5. QUICK TOOLS -->
+        <div class="glass-panel rounded-2xl p-3.5 flex flex-col justify-between border border-blue-900/40 bg-[#090e1f]/75 hover:border-blue-700/50 transition">
+          <div>
+            <div class="flex items-start gap-2 mb-2.5">
+              <div class="p-1.5 rounded-lg bg-blue-500/10 text-cyan-400 border border-blue-500/20">
+                <i data-lucide="sparkles" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <h3 class="font-bold text-xs text-white">Quick Tools</h3>
+                <p class="text-[10px] text-slate-400">Useful shortcuts and actions</p>
+              </div>
+            </div>
+
+            <!-- List items -->
+            <div class="space-y-1.5 mt-3 text-xs">
+              <!-- Open Obsidian -->
+              <div class="quick-tool-item flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-800/60 cursor-pointer transition" data-tool-name="Obsidian">
+                <div class="flex items-center gap-2">
+                  <div class="w-6 h-6 rounded-lg bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-400">
+                    <i data-lucide="book-open" class="w-3.5 h-3.5"></i>
+                  </div>
+                  <div>
+                    <div class="font-medium text-slate-200 text-[11px]">Open Obsidian</div>
+                    <div class="text-[9px] text-slate-500">Manage your knowledge base</div>
+                  </div>
+                </div>
+                <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-slate-500"></i>
+              </div>
+
+              <!-- Graphify -->
+              <div class="quick-tool-item flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-800/60 cursor-pointer transition" data-tool-name="Graphify">
+                <div class="flex items-center gap-2">
+                  <div class="w-6 h-6 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                    <i data-lucide="share-2" class="w-3.5 h-3.5"></i>
+                  </div>
+                  <div>
+                    <div class="font-medium text-slate-200 text-[11px]">Graphify</div>
+                    <div class="text-[9px] text-slate-500">Visualize your connections</div>
+                  </div>
+                </div>
+                <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-slate-500"></i>
+              </div>
+
+              <!-- Search Repository -->
+              <div class="quick-tool-item flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-800/60 cursor-pointer transition" data-tool-name="Repository Search">
+                <div class="flex items-center gap-2">
+                  <div class="w-6 h-6 rounded-lg bg-cyan-600/20 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
+                    <i data-lucide="search" class="w-3.5 h-3.5"></i>
+                  </div>
+                  <div>
+                    <div class="font-medium text-slate-200 text-[11px]">Search Repository</div>
+                    <div class="text-[9px] text-slate-500">Find code, docs, and files</div>
+                  </div>
+                </div>
+                <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-slate-500"></i>
+              </div>
+
+              <!-- Run Terminal -->
+              <div class="quick-tool-item flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-800/60 cursor-pointer transition" data-tool-name="Terminal">
+                <div class="flex items-center gap-2">
+                  <div class="w-6 h-6 rounded-lg bg-emerald-600/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                    <i data-lucide="terminal" class="w-3.5 h-3.5"></i>
+                  </div>
+                  <div>
+                    <div class="font-medium text-slate-200 text-[11px]">Run Terminal</div>
+                    <div class="text-[9px] text-slate-500">Access your CLI tools</div>
+                  </div>
+                </div>
+                <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-slate-500"></i>
+              </div>
+
+              <!-- Create New Session -->
+              <div class="quick-tool-item flex items-center justify-between p-1.5 rounded-xl hover:bg-slate-800/60 cursor-pointer transition" data-tool-name="New Session">
+                <div class="flex items-center gap-2">
+                  <div class="w-6 h-6 rounded-lg bg-indigo-600/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+                    <i data-lucide="plus-circle" class="w-3.5 h-3.5"></i>
+                  </div>
+                  <div>
+                    <div class="font-medium text-slate-200 text-[11px]">Create New Session</div>
+                    <div class="text-[9px] text-slate-500">Start a focused workspace</div>
+                  </div>
+                </div>
+                <i data-lucide="chevron-right" class="w-3.5 h-3.5 text-slate-500"></i>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        </div>
+      </section>
+
+      <!-- ========================================================================= -->
+      <!-- TRADING DEN VIEW (DenMa Arbitrage & Market Making Engine)                  -->
+      <!-- ========================================================================= -->
+      <section id="trading-den-view" class="hidden flex-1 flex flex-col gap-3.5 min-h-0 pb-6">
+        <!-- Top Trading Den Header & Remote Repository Info -->
+        <div class="relative shrink-0 rounded-2xl border border-emerald-900/40 bg-gradient-to-r from-[#071318] via-[#091823] to-[#070e1c] p-5 shadow-2xl overflow-hidden flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <!-- Background Glow Effect -->
+          <div class="absolute -right-20 -top-20 w-80 h-80 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none"></div>
+
+          <div class="relative z-10 flex flex-col gap-1.5 max-w-2xl">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-wider bg-emerald-950/80 border border-emerald-800/60 text-emerald-400 font-semibold shadow-sm">
+                <i data-lucide="candlestick-chart" class="w-3 h-3 text-emerald-400"></i>
+                QUANTITATIVE EXECUTION ENVIRONMENT
+              </span>
+              <a href="https://github.com/Dennis2000github/MMcloneLoopEngineering.git" target="_blank" class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono bg-blue-950/70 border border-cyan-800/50 text-cyan-300 hover:border-cyan-400 transition" title="Open GitHub Repository">
+                <i data-lucide="git-branch" class="w-3 h-3 text-cyan-400"></i>
+                <span>MMcloneLoopEngineering</span>
+                <span class="text-cyan-500 font-bold">• main</span>
+                <i data-lucide="external-link" class="w-2.5 h-2.5 text-slate-400"></i>
+              </a>
+              <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold text-emerald-400 bg-emerald-950/50 border border-emerald-800/40">
+                <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 status-dot-pulse"></span>
+                <span>Engine Ready</span>
+              </span>
+            </div>
+
+            <h2 class="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+              <span>TRADING DEN</span>
+              <span class="text-emerald-400 text-lg font-mono font-normal">/ DenMa Arbi</span>
+            </h2>
+
+            <p class="text-xs text-slate-400 leading-relaxed">
+              Order Book Market Making, Triangular Arbitrage Screener, and Loop Controller platform imported from <code class="text-cyan-300 bg-slate-900/80 px-1.5 py-0.5 rounded border border-blue-950 font-mono text-[11px]">MMcloneLoopEngineering.git</code>.
+            </p>
+          </div>
+
+          <!-- Quick Action Buttons -->
+          <div class="relative z-10 flex flex-wrap items-center gap-2 shrink-0">
+            <a id="td-open-dashboard-top" href="http://127.0.0.1:8000/" target="_blank" class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-lg shadow-emerald-600/25 transition" title="Open DenMa Live Dashboard in standalone browser tab">
+              <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+              <span>Fullscreen Live UI</span>
+            </a>
+            <button id="trading-den-open-ide" class="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-blue-950/80 hover:bg-cyan-950 border border-cyan-800/60 hover:border-cyan-400 text-cyan-300 font-semibold text-xs shadow-sm transition" title="Open MMcloneLoopEngineering in Workspace Code IDE">
+              <i data-lucide="code" class="w-3.5 h-3.5 text-cyan-400"></i>
+              <span>Open in IDE</span>
+            </button>
+            <button id="trading-den-back-workspace" class="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/60 text-slate-300 hover:text-white font-semibold text-xs transition" title="Return to Workspace">
+              <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i>
+              <span>Back to Workspace</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Metric KPI Cards -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          <div class="glass-panel rounded-2xl p-3.5 border border-emerald-950/70 bg-[#071318]/70 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-slate-400 text-[11px] font-medium mb-1">
+              <span>24H VOLUME</span>
+              <i data-lucide="bar-chart-3" class="w-4 h-4 text-emerald-400"></i>
+            </div>
+            <div class="text-xl font-bold font-mono text-white tracking-tight my-0.5">$2,481,950.00</div>
+            <div class="text-[10px] text-emerald-400 flex items-center gap-1 font-mono">
+              <span>▲ +14.2%</span>
+              <span class="text-slate-500">• Binance, OKX, Bybit</span>
+            </div>
+          </div>
+
+          <div class="glass-panel rounded-2xl p-3.5 border border-emerald-950/70 bg-[#071318]/70 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-slate-400 text-[11px] font-medium mb-1">
+              <span>REALIZED PNL</span>
+              <i data-lucide="trending-up" class="w-4 h-4 text-emerald-400"></i>
+            </div>
+            <div class="text-xl font-bold font-mono text-emerald-300 tracking-tight my-0.5">+$14,820.45</div>
+            <div class="text-[10px] text-slate-400 flex items-center gap-1 font-mono">
+              <span class="text-emerald-400 font-semibold">+6.84% ROI</span>
+              <span class="text-slate-500">• 1,428 orders</span>
+            </div>
+          </div>
+
+          <div class="glass-panel rounded-2xl p-3.5 border border-cyan-950/70 bg-[#091524]/70 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-slate-400 text-[11px] font-medium mb-1">
+              <span>TRIANGULAR SPREAD</span>
+              <i data-lucide="git-merge" class="w-4 h-4 text-cyan-400"></i>
+            </div>
+            <div class="text-xl font-bold font-mono text-cyan-300 tracking-tight my-0.5">18.4 bps avg</div>
+            <div class="text-[10px] text-cyan-400 flex items-center gap-1 font-mono">
+              <span>12 Live Paths</span>
+              <span class="text-slate-500">• Peak 42.1 bps</span>
+            </div>
+          </div>
+
+          <div class="glass-panel rounded-2xl p-3.5 border border-purple-950/70 bg-[#120f26]/70 flex flex-col justify-between">
+            <div class="flex items-center justify-between text-slate-400 text-[11px] font-medium mb-1">
+              <span>AUTONOMOUS LOOP</span>
+              <i data-lucide="cpu" class="w-4 h-4 text-purple-400"></i>
+            </div>
+            <div class="text-xl font-bold font-mono text-purple-300 tracking-tight my-0.5">Step 16 / 16</div>
+            <div class="text-[10px] text-purple-400 flex items-center gap-1 font-mono">
+              <span>Leg1Leg2Config</span>
+              <span class="text-slate-500">• Verified</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sub-Navigation Tabs inside Trading Den -->
+        <div class="flex items-center justify-between border-b border-blue-950/60 pb-2">
+          <div class="flex items-center gap-2">
+            <button id="td-tab-dashboard" class="td-sub-tab px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600/30 border border-emerald-500/50 text-emerald-300 transition">
+              <i data-lucide="layout-dashboard" class="w-3.5 h-3.5 inline mr-1.5"></i>
+              <span>Live Web Dashboard</span>
+            </button>
+            <button id="td-tab-loop" class="td-sub-tab px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent transition">
+              <i data-lucide="sliders" class="w-3.5 h-3.5 inline mr-1.5"></i>
+              <span>Loop Controller &amp; Engine Settings</span>
+            </button>
+            <button id="td-tab-repo" class="td-sub-tab px-3 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 border border-transparent transition">
+              <i data-lucide="folder-git-2" class="w-3.5 h-3.5 inline mr-1.5"></i>
+              <span>Repository &amp; Architecture Files</span>
+            </button>
+          </div>
+
+          <div class="flex items-center gap-2 text-xs text-slate-400 font-mono">
+            <span class="hidden md:inline">Root: <code class="text-cyan-300">trading_den/MMcloneLoopEngineering</code></span>
+          </div>
+        </div>
+
+        <!-- Tab 1: DenMa Live Web Dashboard (auto-loads from its own origin) -->
+        <div id="td-content-dashboard" class="td-sub-content flex-1 flex flex-col min-h-0">
+          <div class="relative flex-1 min-h-[680px] rounded-2xl border border-blue-900/50 shadow-2xl overflow-hidden bg-[#0a0e16]">
+            <iframe id="td-iframe" title="DenMa Live Dashboard" class="absolute inset-0 w-full h-full border-none bg-[#0a0e16]"></iframe>
+            <div id="td-backend-overlay" class="absolute inset-0 z-10 flex flex-col items-center justify-center text-center gap-4 p-8 bg-gradient-to-b from-[#071318] to-[#070e1c]">
+              <div class="absolute -left-24 -bottom-24 w-80 h-80 rounded-full bg-emerald-500/10 blur-3xl pointer-events-none"></div>
+              <div class="relative z-10 w-16 h-16 rounded-2xl bg-emerald-950/70 border border-emerald-800/50 flex items-center justify-center shadow-inner">
+                <i id="td-backend-spinner" data-lucide="loader-circle" class="w-8 h-8 text-emerald-400 animate-spin"></i>
+              </div>
+              <div class="relative z-10 flex items-center gap-2">
+                <span id="td-backend-dot" class="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
+                <span id="td-backend-state" class="text-sm font-semibold text-slate-300">Starting DenMa backend…</span>
+              </div>
+              <p class="relative z-10 text-xs text-slate-400 leading-relaxed max-w-md">
+                The live dashboard loads here automatically. It runs on its own server so its REST + WebSocket feeds work.
+              </p>
+              <div class="relative z-10 flex flex-wrap items-center justify-center gap-2">
+                <a id="td-open-dashboard" href="http://127.0.0.1:8000/" target="_blank" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-lg shadow-emerald-600/25 transition">
+                  <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                  <span>Open in New Tab</span>
+                </a>
+                <button id="td-restart-backend" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-950/80 hover:bg-cyan-950 border border-cyan-800/60 hover:border-cyan-400 text-cyan-300 font-semibold text-xs transition">
+                  <i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i>
+                  <span>Restart Backend</span>
+                </button>
+              </div>
+              <div class="relative z-10 text-[11px] font-mono text-slate-500">
+                <span id="td-backend-url">http://127.0.0.1:8000</span>
+                <span class="text-slate-600"> · REST + WS</span>
+              </div>
+              <div id="td-backend-error" class="relative z-10 hidden text-[11px] font-mono text-amber-400 max-w-lg leading-relaxed"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Loop Controller & Engine Settings -->
+        <div id="td-content-loop" class="td-sub-content hidden flex-1 flex flex-col gap-3.5">
+          <div class="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
+            <!-- Left: Strategy Parameters -->
+            <div class="glass-panel rounded-2xl p-4 border border-blue-900/40 bg-[#090e1f]/80 flex flex-col gap-3">
+              <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400 font-mono flex items-center gap-2">
+                <i data-lucide="sliders" class="w-4 h-4"></i>
+                <span>Execution Parameters</span>
+              </h3>
+              <div class="space-y-3 text-xs">
+                <div>
+                  <label class="block text-slate-400 text-[11px] mb-1">Target Profit Threshold (bps)</label>
+                  <input type="number" value="15" class="w-full bg-slate-900/90 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-200 font-mono focus:border-cyan-500 focus:outline-none">
+                </div>
+                <div>
+                  <label class="block text-slate-400 text-[11px] mb-1">Max Position Size (USD)</label>
+                  <input type="text" value="$50,000" class="w-full bg-slate-900/90 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-200 font-mono focus:border-cyan-500 focus:outline-none">
+                </div>
+                <div>
+                  <label class="block text-slate-400 text-[11px] mb-1">Rebalancing Frequency (ms)</label>
+                  <input type="number" value="250" class="w-full bg-slate-900/90 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-200 font-mono focus:border-cyan-500 focus:outline-none">
+                </div>
+                <div>
+                  <label class="block text-slate-400 text-[11px] mb-1">Max Slippage Tolerance</label>
+                  <input type="text" value="0.05%" class="w-full bg-slate-900/90 border border-slate-800 rounded-lg px-2.5 py-1.5 text-slate-200 font-mono focus:border-cyan-500 focus:outline-none">
+                </div>
+                <div class="pt-2 flex gap-2">
+                  <button class="flex-1 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-lg shadow-emerald-600/25 transition">
+                    Apply Parameters
+                  </button>
+                  <button class="py-2 px-3 rounded-xl bg-rose-600/20 hover:bg-rose-600/40 border border-rose-500/50 text-rose-300 font-semibold text-xs transition" title="Emergency Halt">
+                    Kill Switch
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Middle: 16 Modular Loop Steps Progress -->
+            <div class="glass-panel rounded-2xl p-4 border border-blue-900/40 bg-[#090e1f]/80 flex flex-col gap-2.5 lg:col-span-2">
+              <div class="flex items-center justify-between">
+                <h3 class="text-xs font-bold uppercase tracking-wider text-purple-400 font-mono flex items-center gap-2">
+                  <i data-lucide="check-circle-2" class="w-4 h-4"></i>
+                  <span>Modular Roadmap Completion (16 / 16 Steps)</span>
+                </h3>
+                <span class="text-[10px] font-mono text-emerald-400 bg-emerald-950/70 border border-emerald-800/60 px-2 py-0.5 rounded-full">ALL VERIFIED</span>
+              </div>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-[11px] font-mono mt-1 overflow-y-auto max-h-[360px] pr-1">
+                <div class="p-2 rounded-lg bg-slate-900/70 border border-emerald-900/40 flex items-center justify-between">
+                  <span class="text-slate-300">01. Core Engine Skeleton</span>
+                  <span class="text-emerald-400">✓ Done</span>
+                </div>
+                <div class="p-2 rounded-lg bg-slate-900/70 border border-emerald-900/40 flex items-center justify-between">
+                  <span class="text-slate-300">02. Binance Feed Normalizer</span>
+                  <span class="text-emerald-400">✓ Done</span>
+                </div>
+                <div class="p-2 rounded-lg bg-slate-900/70 border border-emerald-900/40 flex items-center justify-between">
+                  <span class="text-slate-300">03. Bybit &amp; OKX Integration</span>
+                  <span class="text-emerald-400">✓ Done</span>
+                </div>
+                <div class="p-2 rounded-lg bg-slate-900/70 border border-emerald-900/40 flex items-center justify-between">
+                  <span class="text-slate-300">04. Triangular Screener</span>
+                  <span class="text-emerald-400">✓ Done</span>
+                </div>
+                <div class="p-2 rounded-lg bg-slate-900/70 border border-emerald-900/40 flex items-center justify-between">
+                  <span class="text-slate-300">05. Multi-Venue Depth Engine</span>
+                  <span class="text-emerald-400">✓ Done</span>
+                </div>
+                <div class="p-2 rounded-lg bg-slate-900/70 border border-emerald-900/40 flex items-center justify-between">
+                  <span class="text-slate-300">06. Risk Guard &amp; Preflight</span>
+                  <span class="text-emerald-400">✓ Done</span>
+                </div>
+                <div class="p-2 rounded-lg bg-slate-900/70 border border-emerald-900/40 flex items-center justify-between">
+                  <span class="text-slate-300">07. MT5 Driver Guard (macOS)</span>
+                  <span class="text-emerald-400">✓ Done</span>
+                </div>
+                <div class="p-2 rounded-lg bg-slate-900/70 border border-emerald-900/40 flex items-center justify-between">
+                  <span class="text-slate-300">08. Lightweight Charts Hook</span>
+                  <span class="text-emerald-400">✓ Done</span>
+                </div>
+                <div class="p-2 rounded-lg bg-slate-900/70 border border-emerald-900/40 flex items-center justify-between">
+                  <span class="text-slate-300">09. WebSocket Live Stream</span>
+                  <span class="text-emerald-400">✓ Done</span>
+                </div>
+                <div class="p-2 rounded-lg bg-slate-900/70 border border-emerald-900/40 flex items-center justify-between">
+                  <span class="text-slate-300">10. SQLite PnL Recording</span>
+                  <span class="text-emerald-400">✓ Done</span>
+                </div>
+                <div class="p-2 rounded-lg bg-slate-900/70 border border-emerald-900/40 flex items-center justify-between">
+                  <span class="text-slate-300">11. CSV Export Endpoint</span>
+                  <span class="text-emerald-400">✓ Done</span>
+                </div>
+                <div class="p-2 rounded-lg bg-slate-900/70 border border-emerald-900/40 flex items-center justify-between">
+                  <span class="text-slate-300">12. Order Book Depth Ladder</span>
+                  <span class="text-emerald-400">✓ Done</span>
+                </div>
+                <div class="p-2 rounded-lg bg-slate-900/70 border border-emerald-900/40 flex items-center justify-between">
+                  <span class="text-slate-300">13. Auto Rebalancer</span>
+                  <span class="text-emerald-400">✓ Done</span>
+                </div>
+                <div class="p-2 rounded-lg bg-slate-900/70 border border-emerald-900/40 flex items-center justify-between">
+                  <span class="text-slate-300">14. Verifier Sanity Suite</span>
+                  <span class="text-emerald-400">✓ Done</span>
+                </div>
+                <div class="p-2 rounded-lg bg-slate-900/70 border border-emerald-900/40 flex items-center justify-between">
+                  <span class="text-slate-300">15. Loop Controller Runner</span>
+                  <span class="text-emerald-400">✓ Done</span>
+                </div>
+                <div class="p-2 rounded-lg bg-slate-900/70 border border-emerald-900/40 flex items-center justify-between">
+                  <span class="text-slate-300">16. Leg1Leg2Config Final</span>
+                  <span class="text-emerald-400">✓ Done</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Repository & Architecture Files -->
+        <div id="td-content-repo" class="td-sub-content hidden flex-1 flex flex-col gap-3.5">
+          <div class="glass-panel rounded-2xl p-4 border border-blue-900/40 bg-[#090e1f]/80">
+            <h3 class="text-xs font-bold uppercase tracking-wider text-cyan-400 font-mono mb-3 flex items-center gap-2">
+              <i data-lucide="files" class="w-4 h-4"></i>
+              <span>Imported MMcloneLoopEngineering Files</span>
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 text-xs font-mono">
+              <div class="p-3 rounded-xl bg-slate-900/70 border border-slate-800 flex flex-col justify-between gap-1 hover:border-cyan-500/50 transition">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="file-code" class="w-4 h-4 text-cyan-400"></i>
+                  <span class="font-bold text-slate-200">app.py</span>
+                </div>
+                <p class="text-[10px] text-slate-400">DenMa Arbitrage server &amp; live WebSocket feed</p>
+                <span class="text-[9.5px] text-slate-500">4,560 bytes • Python 3</span>
+              </div>
+
+              <div class="p-3 rounded-xl bg-slate-900/70 border border-slate-800 flex flex-col justify-between gap-1 hover:border-cyan-500/50 transition">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="cpu" class="w-4 h-4 text-purple-400"></i>
+                  <span class="font-bold text-slate-200">loop_controller.py</span>
+                </div>
+                <p class="text-[10px] text-slate-400">Autonomous loop control &amp; strategy orchestrator</p>
+                <span class="text-[9.5px] text-slate-500">33,338 bytes • Python 3</span>
+              </div>
+
+              <div class="p-3 rounded-xl bg-slate-900/70 border border-slate-800 flex flex-col justify-between gap-1 hover:border-cyan-500/50 transition">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="shield-check" class="w-4 h-4 text-emerald-400"></i>
+                  <span class="font-bold text-slate-200">verifier.py</span>
+                </div>
+                <p class="text-[10px] text-slate-400">Comprehensive risk verifier &amp; sanity validator</p>
+                <span class="text-[9.5px] text-slate-500">94,719 bytes • Python 3</span>
+              </div>
+
+              <div class="p-3 rounded-xl bg-slate-900/70 border border-slate-800 flex flex-col justify-between gap-1 hover:border-cyan-500/50 transition">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="folder" class="w-4 h-4 text-blue-400"></i>
+                  <span class="font-bold text-slate-200">arbitrage/</span>
+                </div>
+                <p class="text-[10px] text-slate-400">Engine, screener, triangular &amp; broker adapters</p>
+                <span class="text-[9.5px] text-slate-500">26 modules • Core package</span>
+              </div>
+
+              <div class="p-3 rounded-xl bg-slate-900/70 border border-slate-800 flex flex-col justify-between gap-1 hover:border-cyan-500/50 transition">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="layout" class="w-4 h-4 text-pink-400"></i>
+                  <span class="font-bold text-slate-200">templates/index.html</span>
+                </div>
+                <p class="text-[10px] text-slate-400">All-in-One Live Trading Dashboard UI</p>
+                <span class="text-[9.5px] text-slate-500">965,420 bytes • Single-Page App</span>
+              </div>
+
+              <div class="p-3 rounded-xl bg-slate-900/70 border border-slate-800 flex flex-col justify-between gap-1 hover:border-cyan-500/50 transition">
+                <div class="flex items-center gap-2">
+                  <i data-lucide="book-open" class="w-4 h-4 text-amber-400"></i>
+                  <span class="font-bold text-slate-200">modular_stepbystep.md</span>
+                </div>
+                <p class="text-[10px] text-slate-400">16-step engineering blueprint &amp; documentation</p>
+                <span class="text-[9.5px] text-slate-500">18,742 bytes • Markdown</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- 3. FOOTER STATUS BAR                                                      -->
+  <!-- ========================================================================= -->
+  <footer class="h-8 border-t border-[#1b253d] bg-[#050811] px-4 flex items-center justify-between text-[10.5px] text-slate-500 shrink-0">
+    <!-- Left Metadata System Summary -->
+    <div class="flex items-center gap-2 overflow-hidden truncate">
+      <span class="font-bold text-slate-300">HERMES Agentic OS</span>
+      <span>•</span>
+      <span class="text-cyan-400 font-semibold">DENEVO</span>
+      <span>•</span>
+      <span>Modular Hybrid Architecture</span>
+      <span>•</span>
+      <span>Multi-Provider</span>
+      <span>•</span>
+      <span class="truncate">Powered by Your Tools, Your Models, Your Knowledge</span>
+    </div>
+
+    <!-- Right Quick Status Links -->
+    <div class="flex items-center gap-3 shrink-0">
+      <button class="flex items-center gap-1 text-slate-400 hover:text-purple-400 transition">
+        <i data-lucide="book-open" class="w-3 h-3 text-purple-400"></i>
+        <span>Obsidian +</span>
+      </button>
+
+      <button class="flex items-center gap-1 text-slate-400 hover:text-blue-400 transition">
+        <i data-lucide="share-2" class="w-3 h-3 text-blue-400"></i>
+        <span>Graphify</span>
+      </button>
+
+      <span class="text-slate-600 font-mono">= Your Memory Layer</span>
+    </div>
+  </footer>
+
+  <!-- ========================================================================= -->
+  <!-- 5. ANTIGRAVITY CORE AGENT INSPECTOR MODAL                                 -->
+  <!-- ========================================================================= -->
+  <div id="antigravity-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+    <div class="glass-panel w-full max-w-2xl rounded-2xl border border-cyan-500/50 p-6 space-y-5 shadow-2xl relative bg-[#080d1d]/95 text-slate-200">
+      <!-- Modal Header -->
+      <div class="flex items-center justify-between border-b border-slate-800/80 pb-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold text-base shadow-lg shadow-cyan-500/30">
+            A
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="text-base font-bold text-white tracking-wide">Antigravity</h3>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-500/40 font-mono">System Core Agent</span>
+              <span class="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-500/30 font-medium">● Connected</span>
+            </div>
+            <p class="text-xs text-slate-400">Google DeepMind • AI-First Coding Assistant &amp; Orchestrator</p>
+          </div>
+        </div>
+        <button id="close-antigravity-modal" class="w-8 h-8 rounded-lg hover:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- Environment & Runtime Specs Grid -->
+      <div class="grid grid-cols-2 gap-3 text-xs">
+        <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+          <span class="text-[10px] text-slate-400 font-mono uppercase tracking-wider">CLI Binary Executable</span>
+          <div class="font-mono text-cyan-300 truncate" title="/Users/macbookpro/.local/bin/agy">/Users/macbookpro/.local/bin/agy</div>
+          <div class="text-[10.5px] text-slate-500">Version: <span class="text-slate-300 font-medium">1.3.5</span> (Production)</div>
+        </div>
+
+        <div class="p-3 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+          <span class="text-[10px] text-slate-400 font-mono uppercase tracking-wider">Workspace &amp; Brain Storage</span>
+          <div class="font-mono text-cyan-300 truncate" title="/Users/macbookpro/.gemini/antigravity-cli">~/.gemini/antigravity-cli</div>
+          <div class="text-[10.5px] text-slate-500">Status: <span class="text-emerald-400 font-medium">Active &amp; Persistent</span></div>
+        </div>
+      </div>
+
+      <!-- Active Capabilities -->
+      <div class="space-y-2">
+        <h4 class="text-xs font-semibold text-slate-300 uppercase tracking-wider font-mono">Active Subsystems &amp; Tools</h4>
+        <div class="flex flex-wrap gap-1.5 text-[11px]">
+          <span class="px-2.5 py-1 rounded-lg bg-blue-950/60 border border-blue-800/60 text-blue-300 flex items-center gap-1.5">
+            <i data-lucide="network" class="w-3.5 h-3.5 text-cyan-400"></i> Subagents Orchestrator
+          </span>
+          <span class="px-2.5 py-1 rounded-lg bg-blue-950/60 border border-blue-800/60 text-blue-300 flex items-center gap-1.5">
+            <i data-lucide="file-code" class="w-3.5 h-3.5 text-blue-400"></i> Markdown Artifacts Brain
+          </span>
+          <span class="px-2.5 py-1 rounded-lg bg-blue-950/60 border border-blue-800/60 text-blue-300 flex items-center gap-1.5">
+            <i data-lucide="terminal" class="w-3.5 h-3.5 text-emerald-400"></i> Terminal Sandbox Tasks
+          </span>
+          <span class="px-2.5 py-1 rounded-lg bg-blue-950/60 border border-blue-800/60 text-blue-300 flex items-center gap-1.5">
+            <i data-lucide="book-marked" class="w-3.5 h-3.5 text-purple-400"></i> agy-customizations &amp; guide
+          </span>
+          <span class="px-2.5 py-1 rounded-lg bg-blue-950/60 border border-blue-800/60 text-blue-300 flex items-center gap-1.5">
+            <i data-lucide="cpu" class="w-3.5 h-3.5 text-amber-400"></i> MCP Extensibility
+          </span>
+        </div>
+      </div>
+
+      <!-- Live Diagnostics Section -->
+      <div class="space-y-2">
+        <div class="flex items-center justify-between">
+          <h4 class="text-xs font-semibold text-slate-300 uppercase tracking-wider font-mono">System Diagnostic Test</h4>
+          <button id="btn-run-antigravity-diag" class="px-3 py-1 rounded-lg bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 text-cyan-300 text-xs font-semibold flex items-center gap-1.5 transition">
+            <i data-lucide="activity" class="w-3.5 h-3.5 text-cyan-400"></i> Run Pre-Flight Ping
+          </button>
+        </div>
+        <div id="antigravity-diag-output" class="terminal-box p-3 rounded-xl border border-slate-800 text-[11px] h-20 overflow-y-auto">
+          <span class="text-slate-500">// Click 'Run Pre-Flight Ping' to execute live diagnostic on /Users/macbookpro/.local/bin/agy...</span>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="flex items-center justify-between pt-2 border-t border-slate-800 text-xs text-slate-400">
+        <a href="https://antigravity.google/docs" target="_blank" class="text-cyan-400 hover:underline flex items-center gap-1">
+          <span>Official Antigravity Docs</span>
+          <i data-lucide="external-link" class="w-3 h-3"></i>
+        </a>
+        <button onclick="document.getElementById('antigravity-modal').classList.add('hidden')" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-lg shadow-blue-500/30 transition">
+          Done
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- 6. AGENT DISCOVERY & SETUP WORKFLOW HUB MODAL                             -->
+  <!-- ========================================================================= -->
+  <div id="add-agent-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+    <div class="glass-panel w-full max-w-3xl rounded-2xl border border-blue-500/50 p-6 space-y-5 shadow-2xl relative bg-[#080d1d]/95 text-slate-200 max-h-[90vh] flex flex-col overflow-hidden">
+      
+      <!-- Hub Header -->
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3 shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="p-2 rounded-xl bg-blue-600/20 text-cyan-400 border border-blue-500/30">
+            <i data-lucide="compass" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white tracking-wide">Agent Discovery &amp; Setup Hub</h3>
+            <p class="text-xs text-slate-400">Discover installed agents on your machine or configure new autonomous engines</p>
+          </div>
+        </div>
+        <button id="close-add-agent-modal" class="w-8 h-8 rounded-lg hover:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- VIEW 1: DISCOVERY SCREEN -->
+      <div id="discovery-screen-view" class="flex-1 flex flex-col space-y-4 overflow-hidden">
+        <!-- Discovery Tabs & Search Bar -->
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shrink-0">
+          <!-- Hub Filter Tabs -->
+          <div class="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800 text-xs">
+            <button id="tab-detected-agents" class="discovery-nav-tab px-3 py-1.5 rounded-lg bg-blue-600 text-white font-medium flex items-center gap-1.5 transition">
+              <i data-lucide="hard-drive" class="w-3.5 h-3.5"></i>
+              <span>Detected on System</span>
+              <span id="detected-agents-count" class="ml-1 px-1.5 py-0.2 rounded-full bg-blue-800 text-[10px]">...</span>
+            </button>
+            <button id="tab-catalog-agents" class="discovery-nav-tab px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 font-medium flex items-center gap-1.5 transition">
+              <i data-lucide="layers" class="w-3.5 h-3.5"></i>
+              <span>Agent Catalog</span>
+            </button>
+            <button id="tab-custom-agent" class="discovery-nav-tab px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 font-medium flex items-center gap-1.5 transition">
+              <i data-lucide="sliders" class="w-3.5 h-3.5"></i>
+              <span>Custom CLI / MCP</span>
+            </button>
+          </div>
+
+          <!-- Search filter -->
+          <div class="relative flex items-center bg-slate-900/80 rounded-xl border border-slate-800 px-3 py-1.5 text-xs text-slate-300 w-full sm:w-64">
+            <i data-lucide="search" class="w-3.5 h-3.5 text-slate-500 mr-2 shrink-0"></i>
+            <input id="agent-search-input" type="text" placeholder="Search agents..." class="bg-transparent outline-none w-full placeholder-slate-500 text-xs">
+          </div>
+        </div>
+
+        <!-- Cards Scrollable Container -->
+        <div id="discovery-cards-container" class="flex-1 overflow-y-auto pr-1 grid grid-cols-1 md:grid-cols-2 gap-3 min-h-[300px]">
+          <!-- Injected via JavaScript from /api/agents/detect and /api/agents/catalog -->
+          <div class="col-span-2 flex items-center justify-center py-12 text-slate-500 text-xs">
+            <i data-lucide="loader" class="w-4 h-4 animate-spin mr-2"></i> Scanning machine for installed agents...
+          </div>
+        </div>
+      </div>
+
+      <!-- VIEW 2: SETUP WORKFLOW WIZARD -->
+      <div id="setup-wizard-view" class="flex-1 flex flex-col space-y-4 overflow-hidden hidden">
+        <!-- Stepper Navigation Header -->
+        <div class="flex items-center justify-between px-2 shrink-0 border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-2">
+            <div id="wizard-step-badge-1" class="step-indicator active w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs border border-blue-500">1</div>
+            <span class="text-xs font-semibold text-slate-200">1. Details &amp; Path</span>
+          </div>
+          <div class="h-0.5 w-8 bg-slate-800"></div>
+          <div class="flex items-center gap-2">
+            <div id="wizard-step-badge-2" class="step-indicator w-6 h-6 rounded-full bg-slate-900 text-slate-500 border border-slate-800 flex items-center justify-center font-bold text-xs">2</div>
+            <span class="text-xs font-semibold text-slate-400">2. Environment &amp; Auth</span>
+          </div>
+          <div class="h-0.5 w-8 bg-slate-800"></div>
+          <div class="flex items-center gap-2">
+            <div id="wizard-step-badge-3" class="step-indicator w-6 h-6 rounded-full bg-slate-900 text-slate-500 border border-slate-800 flex items-center justify-center font-bold text-xs">3</div>
+            <span class="text-xs font-semibold text-slate-400">3. Diagnostics</span>
+          </div>
+          <div class="h-0.5 w-8 bg-slate-800"></div>
+          <div class="flex items-center gap-2">
+            <div id="wizard-step-badge-4" class="step-indicator w-6 h-6 rounded-full bg-slate-900 text-slate-500 border border-slate-800 flex items-center justify-center font-bold text-xs">4</div>
+            <span class="text-xs font-semibold text-slate-400">4. Register</span>
+          </div>
+        </div>
+
+        <!-- Wizard Step Containers -->
+        <div class="flex-1 overflow-y-auto px-1 py-2">
+          <!-- Step 1: Details & Path (with optional in-OS installer) -->
+          <div id="wizard-step-1" class="wizard-step active space-y-3.5 text-xs">
+            
+            <!-- In-OS Installer Box (Visible for catalog/uninstalled agents) -->
+            <div id="wiz-install-box" class="p-3.5 rounded-xl bg-blue-950/40 border border-blue-800/60 space-y-2 hidden">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <div class="p-1 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                    <i data-lucide="download-cloud" class="w-4 h-4"></i>
+                  </div>
+                  <div>
+                    <h4 class="font-bold text-white text-xs">Agent Not Installed on Computer</h4>
+                    <p class="text-[10px] text-slate-400">DENNIS Agentic OS can run the official installer directly on your machine.</p>
+                  </div>
+                </div>
+                <button id="btn-run-installer" class="px-3.5 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold flex items-center gap-1.5 transition shadow-md shadow-cyan-600/30">
+                  <i data-lucide="play" class="w-3.5 h-3.5"></i>
+                  <span>Install Agent Now</span>
+                </button>
+              </div>
+
+              <div>
+                <label class="block text-[10.5px] text-slate-400 font-medium mb-1">Installation Command</label>
+                <div class="flex items-center gap-2">
+                  <input id="wiz-install-cmd" type="text" class="flex-1 px-3 py-1.5 rounded-lg bg-black/60 border border-slate-700 text-cyan-300 font-mono text-xs focus:border-cyan-400 outline-none">
+                </div>
+              </div>
+
+              <!-- Terminal Live Output -->
+              <div id="installer-terminal-output" class="terminal-box p-2.5 rounded-xl h-24 overflow-y-auto hidden">
+                <span class="text-slate-500">// Ready to execute installer on machine...</span>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-slate-400 mb-1 font-medium">Agent Name</label>
+                <input id="wiz-agent-name" type="text" class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-200 focus:border-cyan-400 outline-none font-medium">
+              </div>
+              <div>
+                <label class="block text-slate-400 mb-1 font-medium">Provider / Ecosystem</label>
+                <input id="wiz-agent-provider" type="text" class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-200 focus:border-cyan-400 outline-none">
+              </div>
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between mb-1">
+                <label class="block text-slate-400 font-medium">Binary Executable Path</label>
+                <span id="wiz-path-status" class="text-[10px] text-emerald-400 font-mono">Found on system</span>
+              </div>
+              <input id="wiz-agent-path" type="text" class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 text-cyan-300 font-mono focus:border-cyan-400 outline-none" placeholder="/usr/local/bin/agent">
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-slate-400 mb-1 font-medium">Detected Version</label>
+                <input id="wiz-agent-version" type="text" class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-200 font-mono focus:border-cyan-400 outline-none" placeholder="1.0.0">
+              </div>
+              <div>
+                <label class="block text-slate-400 mb-1 font-medium">Agent Architecture Type</label>
+                <select id="wiz-agent-type" class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-200 focus:border-cyan-400 outline-none">
+                  <option value="Coding CLI">Autonomous Coding CLI</option>
+                  <option value="Pair Programmer">Terminal Pair Programmer</option>
+                  <option value="MCP Server">Model Context Protocol (MCP)</option>
+                  <option value="Subagent Runner">Subprocess Agent Daemon</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <!-- Step 2: Environment & Auth -->
+          <div id="wizard-step-2" class="wizard-step space-y-3.5 text-xs">
+            <div>
+              <label class="block text-slate-400 mb-1.5 font-medium">Authentication Mode</label>
+              <div class="grid grid-cols-2 gap-2">
+                <label class="flex items-center gap-2 p-2.5 rounded-xl bg-slate-900/80 border border-blue-900/60 cursor-pointer hover:border-blue-500">
+                  <input type="radio" name="wiz-auth-mode" value="inherit" checked class="text-blue-600">
+                  <div>
+                    <div class="font-semibold text-slate-200">Inherit System Login (Default)</div>
+                    <div class="text-[10px] text-slate-500">Uses existing user session or CLI keychain</div>
+                  </div>
+                </label>
+                <label class="flex items-center gap-2 p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 cursor-pointer hover:border-slate-700">
+                  <input type="radio" name="wiz-auth-mode" value="api_key" class="text-blue-600">
+                  <div>
+                    <div class="font-semibold text-slate-200">API Key / Token</div>
+                    <div class="text-[10px] text-slate-500">Pass custom authorization token</div>
+                  </div>
+                </label>
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-slate-400 mb-1 font-medium">Working Directory</label>
+              <input id="wiz-agent-workdir" type="text" value="/Users/macbookpro/PycharmProjects/DENNIS Agentic OS" class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-300 font-mono text-xs focus:border-cyan-400 outline-none">
+            </div>
+
+            <div>
+              <label class="block text-slate-400 mb-1 font-medium">Optional Startup Arguments</label>
+              <input id="wiz-agent-args" type="text" placeholder="--daemon --port 5005" class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-300 font-mono text-xs focus:border-cyan-400 outline-none">
+            </div>
+          </div>
+
+          <!-- Step 3: Diagnostics Test -->
+          <div id="wizard-step-3" class="wizard-step space-y-3.5 text-xs">
+            <div class="p-3 rounded-xl bg-blue-950/30 border border-blue-800/40 space-y-1">
+              <h4 class="font-semibold text-cyan-300 flex items-center gap-2">
+                <i data-lucide="shield-check" class="w-4 h-4 text-cyan-400"></i>
+                Pre-Flight Health Verification
+              </h4>
+              <p class="text-slate-400 text-[11px]">DENNIS Agentic OS will run an instant diagnostic against the configured binary to ensure execution permissions and valid responses.</p>
+            </div>
+
+            <div class="flex items-center justify-between">
+              <span class="font-mono text-slate-300 text-xs">Diagnostic Command: <span id="diag-cmd-preview" class="text-cyan-400">claude --version</span></span>
+              <button id="btn-run-wizard-diag" class="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium flex items-center gap-1.5 transition shadow-md shadow-blue-600/30">
+                <i data-lucide="play" class="w-3.5 h-3.5"></i> Run Diagnostics
+              </button>
+            </div>
+
+            <div id="wizard-diag-output" class="terminal-box p-3 rounded-xl h-28 overflow-y-auto">
+              <span class="text-slate-500">// Ready to execute pre-flight diagnostic test...</span>
+            </div>
+          </div>
+
+          <!-- Step 4: Register & Permissions -->
+          <div id="wizard-step-4" class="wizard-step space-y-3.5 text-xs">
+            <div class="p-4 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2">
+              <h4 class="font-bold text-white text-sm" id="wiz-confirm-name">Claude Code</h4>
+              <p class="text-slate-400 text-xs" id="wiz-confirm-desc">Ready to be registered into the DENNIS Agentic OS Registry.</p>
+              <div class="pt-2 border-t border-slate-800/60 grid grid-cols-2 gap-2 text-[11px] font-mono text-slate-300">
+                <div>Path: <span id="wiz-confirm-path" class="text-cyan-400 truncate">/usr/local/bin/claude</span></div>
+                <div>Status: <span id="wiz-confirm-status" class="text-amber-400">Unverified</span></div>
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <label class="block text-slate-400 font-medium">Permissions &amp; OS Integration</label>
+              <div class="space-y-2 text-xs">
+                <label class="flex items-center gap-2 cursor-pointer p-2 rounded-lg bg-slate-900/60 border border-cyan-500/20">
+                  <input id="wiz-set-active-checkbox" type="checkbox" checked class="rounded text-blue-600">
+                  <span class="text-cyan-300 font-semibold">Set as Active Agent in DENEVO Chat immediately</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked class="rounded text-blue-600">
+                  <span class="text-slate-300">Allow workspace file reads and modifications</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked class="rounded text-blue-600">
+                  <span class="text-slate-300">Grant terminal sandbox command execution</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked class="rounded text-blue-600">
+                  <span class="text-slate-300">Bind to DENEVO Framework Router</span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Wizard Navigation Controls Footer -->
+        <div class="flex items-center justify-between pt-3 border-t border-slate-800 shrink-0 text-xs">
+          <button id="wiz-btn-back" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium transition flex items-center gap-1.5">
+            <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Back
+          </button>
+          <div class="flex items-center gap-2">
+            <button id="wiz-btn-cancel" class="px-3.5 py-2 rounded-xl hover:bg-slate-800 text-slate-400 font-medium transition">
+              Cancel
+            </button>
+            <button id="wiz-btn-next" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold transition flex items-center gap-1.5 shadow-lg shadow-blue-600/30">
+              <span>Next Step</span>
+              <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- 6b. MCP CONNECTOR HUB (Discovery + Custom + Policy/OAuth workflow)        -->
+  <!-- ========================================================================= -->
+  <div id="mcp-modal" class="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4 hidden">
+    <div class="glass-panel w-full max-w-4xl rounded-2xl border border-fuchsia-500/50 p-6 space-y-4 shadow-2xl relative bg-[#080d1d]/95 text-slate-200 max-h-[92vh] flex flex-col overflow-hidden">
+
+      <!-- Hub Header -->
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3 shrink-0">
+        <div class="flex items-center gap-3">
+          <div class="p-2 rounded-xl bg-fuchsia-600/20 text-fuchsia-300 border border-fuchsia-500/30">
+            <i data-lucide="plug" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <h3 class="text-base font-bold text-white tracking-wide">MCP Connector Hub</h3>
+            <p class="text-xs text-slate-400">Discover MCP servers online or connect a custom one through the OS policy &amp; OAuth workflow</p>
+          </div>
+        </div>
+        <button id="close-mcp-modal" class="w-8 h-8 rounded-lg hover:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white transition">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <!-- HUB VIEW -->
+      <div id="mcp-hub-view" class="flex-1 flex flex-col space-y-4 overflow-hidden">
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 shrink-0">
+          <div class="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800 text-xs">
+            <button id="mcp-tab-registry" class="mcp-tab px-3 py-1.5 rounded-lg bg-fuchsia-600 text-white font-medium flex items-center gap-1.5 transition">
+              <i data-lucide="radar" class="w-3.5 h-3.5"></i><span>Search Registry</span>
+            </button>
+            <button id="mcp-tab-custom" class="mcp-tab px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 font-medium flex items-center gap-1.5 transition">
+              <i data-lucide="sliders-horizontal" class="w-3.5 h-3.5"></i><span>Custom Connector</span>
+            </button>
+            <button id="mcp-tab-connected" class="mcp-tab px-3 py-1.5 rounded-lg text-slate-400 hover:text-slate-200 font-medium flex items-center gap-1.5 transition">
+              <i data-lucide="plug-zap" class="w-3.5 h-3.5"></i><span>Connected</span>
+              <span id="mcp-connected-badge" class="ml-1 px-1.5 py-0.2 rounded-full bg-fuchsia-800 text-[10px]">0</span>
+            </button>
+          </div>
+          <a href="https://registry.modelcontextprotocol.io" target="_blank" rel="noopener" class="text-[11px] text-slate-500 hover:text-cyan-400 flex items-center gap-1">
+            <span>Official MCP Registry</span><i data-lucide="external-link" class="w-3 h-3"></i>
+          </a>
+        </div>
+
+        <!-- Registry search view -->
+        <div id="mcp-view-registry" class="flex-1 flex flex-col space-y-3 overflow-hidden">
+          <div class="flex items-center gap-2 shrink-0">
+            <div class="relative flex items-center bg-slate-900/80 rounded-xl border border-slate-800 px-3 py-2 text-xs text-slate-300 flex-1 focus-within:border-fuchsia-500/60 transition">
+              <i data-lucide="search" class="w-3.5 h-3.5 text-slate-500 mr-2 shrink-0"></i>
+              <input id="mcp-registry-search" type="text" placeholder="Search the MCP registry (e.g. github, filesystem, notion)..." class="bg-transparent outline-none w-full placeholder-slate-500 text-xs">
+            </div>
+            <button id="mcp-registry-btn" class="px-4 py-2 rounded-xl bg-fuchsia-600 hover:bg-fuchsia-500 text-white text-xs font-semibold flex items-center gap-1.5 transition shadow-md shadow-fuchsia-600/30">
+              <i data-lucide="search" class="w-3.5 h-3.5"></i> Search Online
+            </button>
+          </div>
+          <div id="mcp-registry-source" class="text-[10.5px] text-slate-500 font-mono shrink-0"></div>
+          <div id="mcp-registry-results" class="flex-1 overflow-y-auto pr-1 grid grid-cols-1 md:grid-cols-2 gap-3 min-h-[240px]">
+            <div class="col-span-2 flex items-center justify-center py-12 text-slate-500 text-xs">
+              <i data-lucide="radar" class="w-4 h-4 mr-2"></i> Press "Search Online" to query the MCP registry.
+            </div>
+          </div>
+        </div>
+
+        <!-- Custom connector view -->
+        <div id="mcp-view-custom" class="flex-1 overflow-y-auto pr-1 space-y-3.5 text-xs hidden">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-slate-400 mb-1 font-medium">Connector Name <span class="text-fuchsia-400">*</span></label>
+              <input id="mcp-c-name" type="text" placeholder="Acme Internal MCP" class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-200 focus:border-fuchsia-400 outline-none">
+            </div>
+            <div>
+              <label class="block text-slate-400 mb-1 font-medium">Transport</label>
+              <select id="mcp-c-transport" class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-200 focus:border-fuchsia-400 outline-none">
+                <option value="streamable-http">Streamable HTTP</option>
+                <option value="sse">SSE (legacy)</option>
+                <option value="stdio">stdio (local command)</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1 font-medium">Description</label>
+            <input id="mcp-c-desc" type="text" placeholder="What this server exposes" class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-200 focus:border-fuchsia-400 outline-none">
+          </div>
+          <div id="mcp-c-url-field">
+            <label class="block text-slate-400 mb-1 font-medium">Endpoint URL</label>
+            <input id="mcp-c-url" type="text" placeholder="https://mcp.example.com/mcp" class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 text-cyan-300 font-mono focus:border-fuchsia-400 outline-none">
+          </div>
+          <div id="mcp-c-command-field" class="hidden space-y-3">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block text-slate-400 mb-1 font-medium">Command</label>
+                <input id="mcp-c-command" type="text" placeholder="npx" class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 text-cyan-300 font-mono focus:border-fuchsia-400 outline-none">
+              </div>
+              <div class="sm:col-span-2">
+                <label class="block text-slate-400 mb-1 font-medium">Arguments</label>
+                <input id="mcp-c-args" type="text" placeholder="-y @modelcontextprotocol/server-filesystem ." class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-300 font-mono focus:border-fuchsia-400 outline-none">
+              </div>
+            </div>
+          </div>
+          <div>
+            <label class="block text-slate-400 mb-1 font-medium">Authentication</label>
+            <select id="mcp-c-auth" class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-200 focus:border-fuchsia-400 outline-none">
+              <option value="oauth">OAuth 2.1 (recommended for remote MCP)</option>
+              <option value="api_key">API key / environment token</option>
+              <option value="none">None (public)</option>
+            </select>
+          </div>
+          <div class="flex items-center justify-between pt-2">
+            <p class="text-[10.5px] text-slate-500 max-w-md">Creating a connector starts the OS policy review. OAuth connectors then run the provider authorization flow.</p>
+            <button id="mcp-c-create" class="px-4 py-2 rounded-xl bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-semibold flex items-center gap-1.5 transition shadow-lg shadow-fuchsia-600/30">
+              <i data-lucide="shield-plus" class="w-3.5 h-3.5"></i> Continue to Policy
+            </button>
+          </div>
+        </div>
+
+        <!-- Connected connectors view -->
+        <div id="mcp-view-connected" class="flex-1 overflow-y-auto pr-1 space-y-3 text-xs hidden">
+          <div id="mcp-connected-list" class="space-y-3">
+            <div class="flex items-center justify-center py-12 text-slate-500 text-xs">
+              <i data-lucide="loader" class="w-4 h-4 animate-spin mr-2"></i> Loading connectors...
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- WORKFLOW VIEW (policy -> authorize -> connect) -->
+      <div id="mcp-workflow-view" class="flex-1 flex flex-col space-y-4 overflow-hidden hidden">
+        <div class="flex items-center justify-between px-1 shrink-0 border-b border-slate-800 pb-3">
+          <div class="flex items-center gap-2">
+            <div id="mcp-wf-badge-1" class="step-indicator active w-6 h-6 rounded-full flex items-center justify-center font-bold text-xs border border-fuchsia-500">1</div>
+            <span class="text-xs font-semibold text-slate-200">Policy Review</span>
+          </div>
+          <div class="h-0.5 w-8 bg-slate-800"></div>
+          <div class="flex items-center gap-2">
+            <div id="mcp-wf-badge-2" class="step-indicator w-6 h-6 rounded-full bg-slate-900 text-slate-500 border border-slate-800 flex items-center justify-center font-bold text-xs">2</div>
+            <span class="text-xs font-semibold text-slate-400">Authorization</span>
+          </div>
+          <div class="h-0.5 w-8 bg-slate-800"></div>
+          <div class="flex items-center gap-2">
+            <div id="mcp-wf-badge-3" class="step-indicator w-6 h-6 rounded-full bg-slate-900 text-slate-500 border border-slate-800 flex items-center justify-center font-bold text-xs">3</div>
+            <span class="text-xs font-semibold text-slate-400">Connect</span>
+          </div>
+        </div>
+
+        <div class="flex-1 overflow-y-auto px-1 py-1">
+          <!-- Step 1: Policy -->
+          <div id="mcp-wf-step-1" class="mcp-wf-step active space-y-3.5 text-xs">
+            <div class="p-3.5 rounded-xl bg-fuchsia-950/30 border border-fuchsia-800/50 space-y-1">
+              <h4 class="font-semibold text-fuchsia-200 flex items-center gap-2">
+                <i data-lucide="shield-check" class="w-4 h-4 text-fuchsia-400"></i> OS Policy Gate
+              </h4>
+              <p id="mcp-wf-server-label" class="text-slate-400 text-[11px]">Define exactly what this connector may do before it is authorized.</p>
+            </div>
+
+            <div>
+              <label class="block text-slate-400 mb-1.5 font-medium">Policy Preset</label>
+              <div class="grid grid-cols-3 gap-2">
+                <label class="flex flex-col gap-1 p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 cursor-pointer hover:border-fuchsia-600 transition">
+                  <input type="radio" name="mcp-wf-preset" value="read-only" class="text-fuchsia-600">
+                  <span class="font-semibold text-slate-200">Read-only</span>
+                  <span class="text-[10px] text-slate-500">No writes, no side effects</span>
+                </label>
+                <label class="flex flex-col gap-1 p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 cursor-pointer hover:border-fuchsia-600 transition">
+                  <input type="radio" name="mcp-wf-preset" value="restricted" checked class="text-fuchsia-600">
+                  <span class="font-semibold text-slate-200">Restricted</span>
+                  <span class="text-[10px] text-slate-500">Allowlist tools, approve writes</span>
+                </label>
+                <label class="flex flex-col gap-1 p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 cursor-pointer hover:border-fuchsia-600 transition">
+                  <input type="radio" name="mcp-wf-preset" value="trusted" class="text-fuchsia-600">
+                  <span class="font-semibold text-slate-200">Trusted</span>
+                  <span class="text-[10px] text-slate-500">Full access incl. writes</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-slate-400 mb-1 font-medium">OAuth Scopes (space separated)</label>
+                <input id="mcp-wf-scopes" type="text" value="mcp:tools" class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-200 font-mono focus:border-fuchsia-400 outline-none">
+              </div>
+              <div>
+                <label class="block text-slate-400 mb-1 font-medium">Tool Allowlist (empty = all)</label>
+                <input id="mcp-wf-tools" type="text" placeholder="search, read_file, list_issues" class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-200 font-mono focus:border-fuchsia-400 outline-none">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-slate-400 mb-1 font-medium">Risk Tier</label>
+                <select id="mcp-wf-risk" class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-200 focus:border-fuchsia-400 outline-none">
+                  <option value="low">Low</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-slate-400 mb-1 font-medium">Data Classification</label>
+                <select id="mcp-wf-data" class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-200 focus:border-fuchsia-400 outline-none">
+                  <option value="public">Public</option>
+                  <option value="internal" selected>Internal</option>
+                  <option value="confidential">Confidential</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="space-y-2">
+              <label class="flex items-center gap-2 cursor-pointer p-2 rounded-lg bg-slate-900/60 border border-slate-800">
+                <input id="mcp-wf-write" type="checkbox" class="rounded text-fuchsia-600">
+                <span class="text-slate-300">Allow write / mutate operations on the connected service</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer p-2 rounded-lg bg-slate-900/60 border border-slate-800">
+                <input id="mcp-wf-network" type="checkbox" checked class="rounded text-fuchsia-600">
+                <span class="text-slate-300">Allow outbound network access</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer p-2 rounded-lg bg-slate-900/60 border border-slate-800">
+                <input id="mcp-wf-approval" type="checkbox" checked class="rounded text-fuchsia-600">
+                <span class="text-slate-300">Require human approval before each tool call</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer p-2.5 rounded-lg bg-fuchsia-950/40 border border-fuchsia-500/40">
+                <input id="mcp-wf-accept" type="checkbox" class="rounded text-fuchsia-600">
+                <span class="text-fuchsia-200 font-semibold">I accept this policy and authorize the connector to act on my behalf</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- Step 2: Authorization -->
+          <div id="mcp-wf-step-2" class="mcp-wf-step space-y-3.5 text-xs hidden">
+            <div class="p-3 rounded-xl bg-blue-950/30 border border-blue-800/40 space-y-1">
+              <h4 class="font-semibold text-cyan-300 flex items-center gap-2">
+                <i data-lucide="key-round" class="w-4 h-4 text-cyan-400"></i> <span id="mcp-wf-auth-title">OAuth 2.1 Authorization</span>
+              </h4>
+              <p id="mcp-wf-auth-desc" class="text-slate-400 text-[11px]">The OS discovers the MCP server's authorization servers (RFC 9728), registers a client when offered (RFC 7591), then opens the provider consent screen with PKCE + resource indicators.</p>
+            </div>
+
+            <div id="mcp-wf-oauth" class="space-y-3">
+              <div class="flex items-center gap-2">
+                <button id="mcp-wf-authorize" class="px-4 py-2 rounded-xl bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-semibold flex items-center gap-1.5 transition shadow-md shadow-fuchsia-600/30">
+                  <i data-lucide="external-link" class="w-3.5 h-3.5"></i> Discover &amp; Authorize
+                </button>
+                <span id="mcp-wf-auth-status" class="text-[10.5px] font-mono text-slate-400"></span>
+              </div>
+
+              <div id="mcp-wf-clientid-wrap" class="hidden">
+                <label class="block text-slate-400 mb-1 font-medium">Client ID (provider did not allow dynamic registration)</label>
+                <div class="flex items-center gap-2">
+                  <input id="mcp-wf-clientid" type="text" placeholder="Your pre-registered OAuth client id" class="flex-1 px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-200 font-mono focus:border-fuchsia-400 outline-none">
+                  <button id="mcp-wf-clientid-save" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold transition">Use</button>
+                </div>
+              </div>
+
+              <div id="mcp-wf-urlbox" class="hidden">
+                <label class="block text-slate-400 mb-1 font-medium">Authorization URL</label>
+                <div class="flex items-center gap-2">
+                  <input id="mcp-wf-url" type="text" readonly class="flex-1 px-3 py-2 rounded-xl bg-black/60 border border-slate-800 text-cyan-300 font-mono text-[10.5px] outline-none">
+                  <button id="mcp-wf-open" class="px-3 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-semibold transition">Open</button>
+                </div>
+                <p class="text-[10px] text-slate-500 mt-1">Approve in the provider tab, then copy the redirected URL (or the code) back below.</p>
+              </div>
+
+              <div id="mcp-wf-codebox" class="hidden">
+                <label class="block text-slate-400 mb-1 font-medium">Authorization Code / Redirect URL</label>
+                <textarea id="mcp-wf-code" rows="2" placeholder="Paste the redirected URL (http://127.0.0.1:8080/api/mcp/oauth/callback?code=...) or just the code" class="w-full px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 text-slate-200 font-mono text-[11px] focus:border-fuchsia-400 outline-none"></textarea>
+                <button id="mcp-wf-complete" class="mt-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold flex items-center gap-1.5 transition shadow-md shadow-emerald-600/30">
+                  <i data-lucide="check" class="w-3.5 h-3.5"></i> Exchange Code &amp; Connect
+                </button>
+              </div>
+            </div>
+
+            <div id="mcp-wf-direct" class="hidden space-y-2">
+              <p class="text-slate-400 text-[11px]" id="mcp-wf-direct-desc">This connector does not use OAuth. Provide the credential as an environment variable on the host, then connect.</p>
+              <button id="mcp-wf-connect" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold flex items-center gap-1.5 transition shadow-md shadow-emerald-600/30">
+                <i data-lucide="plug-zap" class="w-3.5 h-3.5"></i> Connect Connector
+              </button>
+            </div>
+
+            <div id="mcp-wf-error" class="hidden p-2.5 rounded-xl bg-rose-950/40 border border-rose-700/50 text-rose-300 text-[11px]"></div>
+          </div>
+
+          <!-- Step 3: Connected -->
+          <div id="mcp-wf-step-3" class="mcp-wf-step space-y-3.5 text-xs hidden">
+            <div class="p-5 rounded-xl bg-slate-900/80 border border-emerald-700/50 text-center space-y-2">
+              <div class="w-12 h-12 mx-auto rounded-full bg-emerald-500/20 border border-emerald-400 flex items-center justify-center">
+                <i data-lucide="check" class="w-6 h-6 text-emerald-400"></i>
+              </div>
+              <h4 class="font-bold text-white text-sm" id="mcp-wf-done-name">Connector</h4>
+              <p class="text-slate-400 text-[11px]">Authorization complete. The connector is now available to agents under the accepted policy.</p>
+              <div class="pt-2 border-t border-slate-800/60 grid grid-cols-2 gap-2 text-[11px] font-mono text-slate-300 text-left">
+                <div>Transport: <span id="mcp-wf-done-transport" class="text-fuchsia-300">-</span></div>
+                <div>Status: <span id="mcp-wf-done-status" class="text-emerald-400">connected</span></div>
+                <div class="col-span-2 truncate">Endpoint: <span id="mcp-wf-done-endpoint" class="text-cyan-400">-</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Workflow footer -->
+        <div class="flex items-center justify-between pt-3 border-t border-slate-800 shrink-0 text-xs">
+          <button id="mcp-wf-back" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium transition flex items-center gap-1.5 hidden">
+            <i data-lucide="arrow-left" class="w-3.5 h-3.5"></i> Back
+          </button>
+          <div class="flex items-center gap-2 ml-auto">
+            <button id="mcp-wf-cancel" class="px-3.5 py-2 rounded-xl hover:bg-slate-800 text-slate-400 font-medium transition">Cancel</button>
+            <button id="mcp-wf-next" class="px-4 py-2 rounded-xl bg-fuchsia-600 hover:bg-fuchsia-500 text-white font-semibold transition flex items-center gap-1.5 shadow-lg shadow-fuchsia-600/30">
+              <span>Accept Policy &amp; Continue</span>
+              <i data-lucide="arrow-right" class="w-3.5 h-3.5"></i>
+            </button>
+            <button id="mcp-wf-finish" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold transition hidden">Done</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="generic-modal" class="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="glass-panel w-full max-w-lg rounded-2xl border border-cyan-500/40 p-6 space-y-4 shadow-2xl relative">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div>
+          <h3 id="modal-title" class="text-base font-bold text-white flex items-center gap-2">Modal Title</h3>
+          <p id="modal-desc" class="text-xs text-slate-400">Modal description goes here</p>
+        </div>
+        <button id="modal-close-btn" class="w-8 h-8 rounded-lg hover:bg-slate-800 flex items-center justify-center text-slate-400 hover:text-white">
+          <i data-lucide="x" class="w-4 h-4"></i>
+        </button>
+      </div>
+
+      <div class="space-y-3 text-xs text-slate-300">
+        <p class="leading-relaxed">This component is ready to connect with the backend service. You can wire authentication credentials, framework parameters, and agent endpoints.</p>
+        <div class="bg-slate-900/90 rounded-xl p-3 border border-slate-800 font-mono text-[11px] text-cyan-300">
+          Status: Ready for hook setup &amp; REST / WebSocket endpoints.
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="document.getElementById('generic-modal').classList.add('hidden')" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 transition">
+          Cancel
+        </button>
+        <button onclick="document.getElementById('generic-modal').classList.add('hidden')" class="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-semibold text-white shadow-lg shadow-blue-500/30 transition">
+          Save Configuration
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Hermes Apollo Jarvis Voice HUD Overlay Toast -->
+  <div id="apollo-hud-toast" class="apollo-hud-toast">
+    <div class="w-6 h-6 rounded-full bg-cyan-500/20 border border-cyan-400 flex items-center justify-center shrink-0">
+      <i data-lucide="radio" class="w-3.5 h-3.5 text-cyan-300"></i>
+    </div>
+    <div class="flex flex-col min-w-0 pr-2">
+      <span class="text-[9.5px] uppercase tracking-wider text-cyan-400 font-bold font-mono">HERMES APOLLO</span>
+      <span id="apollo-hud-toast-msg" class="text-xs text-slate-100 font-sans font-medium truncate">Online and ready, Dennis.</span>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <!-- CodeMirror (vendored locally; the Code & Preview editor) -->
+  <link rel="stylesheet" href="vendor/codemirror/lib/codemirror.css">
+  <script src="vendor/codemirror/lib/codemirror.js"></script>
+  <script src="vendor/codemirror/mode/python/python.js"></script>
+  <script src="vendor/codemirror/mode/javascript/javascript.js"></script>
+  <script src="vendor/codemirror/mode/xml/xml.js"></script>
+  <script src="vendor/codemirror/mode/css/css.js"></script>
+  <script src="vendor/codemirror/mode/htmlmixed/htmlmixed.js"></script>
+  <script src="vendor/codemirror/mode/markdown/markdown.js"></script>
+  <script src="vendor/codemirror/mode/shell/shell.js"></script>
+  <script src="vendor/codemirror/mode/yaml/yaml.js"></script>
+  <script src="vendor/codemirror/addon/edit/closebrackets.js"></script>
+  <script src="vendor/codemirror/addon/edit/matchbrackets.js"></script>
+  <script src="vendor/codemirror/addon/selection/active-line.js"></script>
+  <script src="js/cosmos.js"></script>
+  <script src="js/galaxy.js?v=20261017-apollo-voice"></script>
+  <script src="js/panelState.js"></script>
+  <script src="js/agentDashboards.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/mcp.js?v=20261017-mcp"></script>
+  <script src="js/workspace.js"></script>
+</body>
+</html>

@@ -1,0 +1,60 @@
+[
+  {
+    "id": "antigravity",
+    "name": "Antigravity",
+    "version": "v1.3.5",
+    "binary_path": "/Users/macbookpro/.local/bin/agy",
+    "config_dir": "/Users/macbookpro/.gemini/antigravity-cli",
+    "type": "AI Coding Assistant & OS Core",
+    "provider": "Google DeepMind",
+    "status": "Connected",
+    "capabilities": [
+      "Subagents",
+      "Artifacts",
+      "Terminal Sandbox",
+      "Skills & Rules",
+      "Sidecars",
+      "MCP Integration"
+    ],
+    "icon_char": "A",
+    "color_theme": "cyan",
+    "is_system": true,
+    "last_sync": "Active now"
+  },
+  {
+    "id": "claude-code",
+    "name": "Claude Code",
+    "provider": "Anthropic",
+    "binary_path": "/Users/macbookpro/.local/bin/claude",
+    "version": "2.1.296 (Claude Code)",
+    "type": "Coding CLI",
+    "status": "Connected",
+    "color_theme": "blue",
+    "icon_char": "C",
+    "last_sync": "Just now"
+  },
+  {
+    "id": "opencode",
+    "name": "OpenCode",
+    "provider": "OpenCode AI",
+    "binary_path": "/Users/macbookpro/.opencode/bin/opencode",
+    "version": "Installed",
+    "type": "Coding CLI",
+    "status": "Connected",
+    "color_theme": "blue",
+    "icon_char": "O",
+    "last_sync": "Just now"
+  },
+  {
+    "id": "codex-cli",
+    "name": "Codex CLI",
+    "provider": "OpenAI",
+    "binary_path": "/Users/macbookpro/.local/bin/codex",
+    "version": "codex-cli 0.153.4",
+    "type": "Coding CLI",
+    "status": "Connected",
+    "color_theme": "blue",
+    "icon_char": "C",
+    "last_sync": "Just now"
+  }
+]

@@ -1,0 +1,16 @@
+{
+  "roots": [
+    "/Users/macbookpro/PycharmProjects/DENNIS Agentic OS",
+    "/Users/macbookpro/PycharmProjects/DENNIS Agentic OS/trading_den"
+  ],
+  "projects": [
+    {
+      "name": "DENNIS Agentic OS",
+      "path": "/Users/macbookpro/PycharmProjects/DENNIS Agentic OS"
+    },
+    {
+      "name": "Trading Den (MMcloneLoopEngineering)",
+      "path": "/Users/macbookpro/PycharmProjects/DENNIS Agentic OS/trading_den/MMcloneLoopEngineering"
+    }
+  ]
+}

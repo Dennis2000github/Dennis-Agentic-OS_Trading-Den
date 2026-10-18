@@ -1,0 +1,255 @@
+{
+  "owners": {
+    "local": {
+      "sessions": [
+        {
+          "id": "ps-7a82ee2144bb",
+          "owner": "local",
+          "agent_id": "codex-cli",
+          "project": "DENNIS Agentic OS",
+          "project_path": "/Users/macbookpro/PycharmProjects/DENNIS Agentic OS",
+          "title": "DENNIS Agentic OS",
+          "model_id": "gpt-6-astra",
+          "cli_session_id": null,
+          "created_at": "2026-10-17T16:49:02",
+          "last_active": "2026-10-17T16:49:05",
+          "panel": {
+            "state": "S1",
+            "code_file": null,
+            "editor": null,
+            "preview_url": null,
+            "pane": "split"
+          }
+        },
+        {
+          "id": "ps-9803ea488924",
+          "owner": "local",
+          "agent_id": "opencode",
+          "project": "DENNIS Agentic OS",
+          "project_path": "/Users/macbookpro/PycharmProjects/DENNIS Agentic OS",
+          "title": "DENNIS Agentic OS",
+          "model_id": "opencode/deepseek-v4.1-flash-free",
+          "cli_session_id": null,
+          "created_at": "2026-10-17T16:28:01",
+          "last_active": "2026-10-17T18:54:55",
+          "panel": {
+            "state": "S2",
+            "code_file": "trading_den/MMcloneLoopEngineering/server.log",
+            "editor": null,
+            "preview_url": null,
+            "pane": "split"
+          }
+        },
+        {
+          "id": "ps-e72c996e1fb3",
+          "owner": "local",
+          "agent_id": "antigravity",
+          "project": "Trading Den (MMcloneLoopEngineering)",
+          "project_path": "/Users/macbookpro/PycharmProjects/DENNIS Agentic OS/trading_den/MMcloneLoopEngineering",
+          "title": "Trading Den (MMcloneLoopEngineering)",
+          "model_id": null,
+          "cli_session_id": null,
+          "created_at": "2026-10-17T12:23:32",
+          "last_active": "2026-10-17T16:35:06",
+          "panel": {
+            "state": "S1",
+            "code_file": null,
+            "editor": null,
+            "preview_url": null,
+            "pane": "split"
+          }
+        },
+        {
+          "id": "ps-b4c655462d3f",
+          "owner": "local",
+          "agent_id": "antigravity",
+          "project": "py_demo",
+          "project_path": "/private/var/folders/j3/ngqhj8nd7rs2f4gtnk3fw4540000gn/T/dennis-ide-root-5t9w91uj/py_demo",
+          "title": "py_demo",
+          "model_id": null,
+          "cli_session_id": null,
+          "created_at": "2026-10-17T11:59:52",
+          "last_active": "2026-10-17T11:59:52",
+          "panel": {
+            "state": "S1",
+            "code_file": null,
+            "editor": null,
+            "preview_url": null,
+            "pane": "split"
+          }
+        },
+        {
+          "id": "ps-344cab730aa7",
+          "owner": "local",
+          "agent_id": "antigravity",
+          "project": "static_demo",
+          "project_path": "/private/var/folders/j3/ngqhj8nd7rs2f4gtnk3fw4540000gn/T/dennis-ide-root-5t9w91uj/static_demo",
+          "title": "static_demo",
+          "model_id": null,
+          "cli_session_id": null,
+          "created_at": "2026-10-17T11:59:52",
+          "last_active": "2026-10-17T11:59:52",
+          "panel": {
+            "state": "S1",
+            "code_file": null,
+            "editor": null,
+            "preview_url": null,
+            "pane": "split"
+          }
+        },
+        {
+          "id": "ps-9775b485aadc",
+          "owner": "local",
+          "agent_id": "antigravity",
+          "project": "demo",
+          "project_path": "/private/var/folders/j3/ngqhj8nd7rs2f4gtnk3fw4540000gn/T/dennis-ide-root-w2vhx14s/demo",
+          "title": "demo",
+          "model_id": null,
+          "cli_session_id": null,
+          "created_at": "2026-10-17T11:59:30",
+          "last_active": "2026-10-17T11:59:30",
+          "panel": {
+            "state": "S1",
+            "code_file": null,
+            "editor": null,
+            "preview_url": null,
+            "pane": "split"
+          }
+        },
+        {
+          "id": "ps-12db794ed523",
+          "owner": "local",
+          "agent_id": "antigravity",
+          "project": "DENNIS Agentic OS",
+          "project_path": "/Users/macbookpro/PycharmProjects/DENNIS Agentic OS",
+          "title": "DENNIS Agentic OS",
+          "model_id": "claude-opus-4-6-thinking",
+          "cli_session_id": null,
+          "created_at": "2026-10-17T09:27:56",
+          "last_active": "2026-10-17T10:24:34",
+          "panel": {
+            "state": "S2",
+            "code_file": "Screenshot 2026-10-17 at 10.13.28 AM.png",
+            "editor": null,
+            "preview_url": null,
+            "pane": "split"
+          }
+        },
+        {
+          "id": "ps-8124df231e59",
+          "owner": "local",
+          "agent_id": "claude-code",
+          "project": "DENNIS Agentic OS",
+          "project_path": "/Users/macbookpro/PycharmProjects/DENNIS Agentic OS",
+          "title": "DENNIS Agentic OS",
+          "model_id": null,
+          "cli_session_id": null,
+          "created_at": "2026-10-17T07:55:59",
+          "last_active": "2026-10-17T07:56:00",
+          "panel": {
+            "state": "S2",
+            "code_file": "tests/e2e_workspace.py",
+            "editor": null,
+            "preview_url": null,
+            "pane": "split"
+          }
+        },
+        {
+          "id": "ps-84c909839171",
+          "owner": "local",
+          "agent_id": "antigravity",
+          "project": "DENNIS Agentic OS",
+          "project_path": "/Users/macbookpro/PycharmProjects/DENNIS Agentic OS",
+          "title": "DENNIS Agentic OS",
+          "model_id": null,
+          "cli_session_id": null,
+          "created_at": "2026-10-17T07:50:31",
+          "last_active": "2026-10-17T09:27:19",
+          "panel": {
+            "state": "S1",
+            "code_file": null,
+            "editor": null,
+            "preview_url": null,
+            "pane": "split"
+          }
+        },
+        {
+          "id": "ps-31af3d159861",
+          "owner": "local",
+          "agent_id": "opencode",
+          "project": "DENNIS Agentic OS",
+          "project_path": "/Users/macbookpro/PycharmProjects/DENNIS Agentic OS",
+          "title": "DENNIS Agentic OS",
+          "model_id": "opencode/deepseek-v4.1-flash-free",
+          "cli_session_id": null,
+          "created_at": "2026-10-17T06:21:44",
+          "last_active": "2026-10-17T15:35:25",
+          "panel": {
+            "state": "S2",
+            "code_file": "trading_den/MMcloneLoopEngineering/server.log",
+            "editor": null,
+            "preview_url": null,
+            "pane": "split"
+          }
+        },
+        {
+          "id": "ps-75f36c4a3e41",
+          "owner": "local",
+          "agent_id": "opencode",
+          "project": "DENNIS Agentic OS",
+          "project_path": "/Users/macbookpro/PycharmProjects/DENNIS Agentic OS",
+          "title": "DENNIS Agentic OS",
+          "model_id": null,
+          "cli_session_id": null,
+          "created_at": "2026-10-17T06:21:37",
+          "last_active": "2026-10-17T06:21:38",
+          "panel": {
+            "state": "S1",
+            "code_file": null,
+            "editor": null,
+            "preview_url": null,
+            "pane": "split"
+          }
+        },
+        {
+          "id": "ps-c618127f8055",
+          "owner": "local",
+          "agent_id": "codex-cli",
+          "project": "DENNIS Agentic OS",
+          "project_path": "/Users/macbookpro/PycharmProjects/DENNIS Agentic OS",
+          "title": "DENNIS Agentic OS",
+          "model_id": "gpt-6-astra",
+          "cli_session_id": null,
+          "created_at": "2026-10-16T23:18:23",
+          "last_active": "2026-10-17T16:37:20",
+          "panel": {
+            "state": "S1",
+            "code_file": null,
+            "editor": null,
+            "preview_url": null,
+            "pane": "split"
+          }
+        },
+        {
+          "id": "ps-1b8af548f5ee",
+          "owner": "local",
+          "agent_id": "opencode",
+          "project": "DENNIS Agentic OS",
+          "project_path": "/Users/macbookpro/PycharmProjects/DENNIS Agentic OS",
+          "title": "DENNIS Agentic OS",
+          "model_id": "opencode/big-pickle",
+          "cli_session_id": null,
+          "created_at": "2026-10-16T12:12:50",
+          "last_active": "2026-10-17T06:15:57",
+          "panel": {
+            "state": "S2",
+            "code_file": "e2e-handoff-probe.txt",
+            "editor": null,
+            "preview_url": null,
+            "pane": "split"
+          }
+        }
+      ]
+    }
+  }
+}
