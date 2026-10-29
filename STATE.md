@@ -1,6 +1,6 @@
 # STATE
 
-_Last updated: 2026-10-17_
+_Last updated: 2026-10-27_
 
 ## Root causes of the reported problems (Phase 1, verified 2026-10-16 before edits)
 
@@ -24,7 +24,7 @@ _Last updated: 2026-10-17_
    mid-escape-sequence.
 5. **"Docker is not installed"** - `backend/docker_runtime.py` already separates
    CLI-missing from daemon-down and honours `DOCKER_BIN`/`DOCKER_HOST`, but the
-   UI never sees it: there is no `/api/system/readiness` handler in `server.py`
+   UI never sees it: there is no `/api/system/readiness` handler in `app.py`
    (only `backend/preflight.py`), `DENNIS_SANDBOX=docker` silently falls back to
    the local runner with a `print()`, and start responses never carry an
    actionable backend message.
@@ -46,7 +46,7 @@ _Last updated: 2026-10-17_
 
 - `backend/session_manager.py` - per-session watcher/preview scanner, handoff
   events, start/first-output timing, live model read-back, start dimensions.
-- `server.py` - `/api/system/readiness`, file-tree endpoint, session `current_model`
+- `app.py` - `/api/system/readiness`, file-tree endpoint, session `current_model`
   + backend message on start, handoff messages over the existing terminal WS.
 - `backend/preflight.py` - report the effective session backend and why.
 - `js/panelState.js` (rewrite), `js/agentDashboards.js` (new), `js/workspace.js`
@@ -77,7 +77,7 @@ syntax checks below.
 
 ## What exists now
 
-### Backend (`backend/`, wired into `server.py`)
+### Backend (`backend/`, wired into `app.py`)
 
 | Module | Responsibility |
 | --- | --- |
@@ -116,6 +116,14 @@ POST   /api/project-sessions/<id>/panel             {panel}
 POST   /api/project-sessions/<id>/reset-panel
 POST   /api/project-sessions/<id>/cli-session       {cli_session_id}
 DELETE /api/project-sessions/<id>
+GET    /api/deepseek/status                         # configured/source/default_model
+GET    /api/deepseek/conversations                  # owner-scoped history index
+GET    /api/deepseek/conversations/<id>
+POST   /api/deepseek/credentials                    {api_key}
+DELETE /api/deepseek/credentials
+POST   /api/deepseek/conversations                  {model_id?}
+POST   /api/deepseek/conversations/<id>/messages    {content} -> text/event-stream
+DELETE /api/deepseek/conversations/<id>
 ```
 
 Terminal WS frames: `data`, `replay`, `status`, `exit`, `handoff`
@@ -195,7 +203,7 @@ Code and Preview are never both hidden while the panel is expanded.
 
 - Backend: `backend/session_manager.py` (per-session watcher, handoff bursts,
   timings, resume-on-restart, current-model read-back), `backend/filewatch.py`
-  (ignore paths), `backend/sandbox.py` (UTF-8 locale defaults), `server.py`
+  (ignore paths), `backend/sandbox.py` (UTF-8 locale defaults), `app.py`
   (readiness, tree, session read-back, start dims), `backend/config.py` (TTL).
 - Frontend: `js/panelState.js` (rewritten), `js/agentDashboards.js` (new),
   `js/workspace.js` (rewritten), `index.html`, `css/style.css`.
@@ -245,7 +253,7 @@ Code and Preview are never both hidden while the panel is expanded.
 Root cause of "DenMa unreachable / REST+WS lost / empty data+charts" while
 embedded: `trading_den/MMcloneLoopEngineering/templates/index.html` uses
 same-origin relative URLs (`fetch('/api/...')`, `WebSocket('.../ws')`). The
-Trading Den iframe served that page from the **OS** origin (`server.py`), which
+Trading Den iframe served that page from the **OS** origin (`app.py`), which
 has none of DenMa's routes - `/api/history/spread-candles`, `/api/live-snapshot`
 and `/ws` all returned 404 while `/api/status` hit the OS's own endpoint.
 
@@ -255,7 +263,7 @@ Fix: the dashboard runs on its own origin instead of being embedded.
   `aiodns` (`DENMA_PYTHON`, else `trading_den/.../.venv`, else
   `~/PycharmProjects/MarketMaking/.venv`, else `sys.executable`), spawns
   `app.py --host 127.0.0.1 --port 8000`, health-checks, restarts, stops on exit.
-- `server.py` - auto-starts the backend on launch (`DENNIS_NO_DENMA=1` disables),
+- `app.py` - auto-starts the backend on launch (`DENNIS_NO_DENMA=1` disables),
   `atexit` cleanup, new endpoints `GET /api/trading-den` and
   `POST /api/trading-den/restart|stop`, and a **same-origin reverse proxy**:
   DenMa's REST paths (`/api/markets|live-snapshot|screener|triangular|mt5-pricing`
@@ -276,7 +284,7 @@ Fix: the dashboard runs on its own origin instead of being embedded.
   `NormalizedMarketState` has no `is_stale()`; the catalog overlay now checks
   `norm_state.freshness == FreshnessStatus.STALE.value` (the convention used in
   `direction_engine.py`).
-- `tests/e2e_workspace.py` - starts `server.py` with `DENNIS_NO_DENMA=1`.
+- `tests/e2e_workspace.py` - starts `app.py` with `DENNIS_NO_DENMA=1`.
 
 Config: `DENMA_HOST`/`DENMA_PORT` (default `127.0.0.1:8000`), `DENMA_PYTHON`.
 Verified: OS auto-started the backend in ~6 s; through the OS port `/api/status`,
@@ -284,6 +292,110 @@ Verified: OS auto-started the backend in ~6 s; through the OS port `/api/status`
 `/api/history/pnl`, `/api/screener`, `/api/triangular` all 200 and `/ws`
 handshakes 101 (stable over time). `tests/test_backend.py` 38 passed, JS 23 + 8
 passed.
+
+## Trading Den runs in-process: one server, one port - 2026-10-18
+
+The OS and the embedded Trading Den are now a **single process on a single
+user-facing port**. Previously DenMa ran as a separate `app.py` child on
+`127.0.0.1:8000` (loopback) with hardcoded `http://127.0.0.1:8000/` links in the
+UI; those links could send the browser to a second server (and "connection
+refused" when it was not up / not reachable).
+
+- `backend/denma.py` - the DenMa `ArbitrageServer` is now started **in-process**
+  on a private, **ephemeral** loopback port from a background asyncio thread
+  (`_InProcessEngine`); `app.py` proxies `/api/*` + `/ws` to it as before.
+  The child-process launch is kept as an automatic fallback when the running
+  interpreter lacks `ccxt`/`aiohttp`/`aiodns`. `status()` now reports `mode`
+  (`inproc` | `subprocess`).
+- `app.py` - `_ensure_denma_runtime()` re-executes the OS under an
+  interpreter that has the DenMa deps (found via `DENMA_PYTHON`, the project
+  `.venv`, `~/PycharmProjects/MarketMaking/.venv`, ...) so the engine can be
+  imported in-process. Guarded by `DENNIS_DENMA_REEXEC` (no loop) and skipped
+  when `DENNIS_NO_DENMA=1`. Note: the venv `bin/python` is a symlink to the base
+  interpreter, so the re-exec guard compares `os.path.abspath` (not `realpath`).
+- `index.html` - the "Fullscreen Live UI" / "Open in New Tab" links and the
+  backend URL label now point at the same-origin dashboard path
+  (`/trading_den/MMcloneLoopEngineering/templates/index.html`) instead of
+  `http://127.0.0.1:8000/`; overlay copy updated.
+
+Verified (headless Chrome against `http://localhost:8080/`): exactly one OS
+process; one public listener (`*:8080`) plus one private ephemeral loopback port;
+embedded dashboard `td-iframe` loads same-origin, `__DENMA_BACKEND_CONNECTED ===
+true`, `/ws` handshake **101**, and `/api/live-snapshot`, `/api/markets`,
+`/api/screener`, `/api/history/spread-candles` all **200** through the OS port.
+`tests/test_backend.py` 44 passed; JS 23 + 8 passed. Subprocess fallback
+re-verified by forcing `DENNIS_DENMA_REEXEC=1` (reports `mode: subprocess`).
+
+## Vault: Obsidian-compatible knowledge base - 2026-10-18
+
+The left-nav **Vault** item and the *Obsidian* / *Graphify* quick tools were
+stubs (no handler / toast only). They are now a working, self-contained
+Obsidian-compatible notes app on the single OS origin.
+
+- `backend/vault.py` (new) - plain-Markdown vault under `vault/`
+  (`DENNIS_VAULT_DIR` overrides). `ensure_vault` seeds `Welcome.md`/`Ideas.md`/
+  `Projects.md` on first run. API: `list_tree`, `read_note`, `write_note`,
+  `create_note`, `rename_note`, `delete_note` (soft -> `.trash/`), `search`,
+  `graph`, `backlinks`, plus `[[wikilink]]`/Markdown-link parsing
+  (`extract_links`). Atomic writes; every path is realpath-confined to the
+  vault. **Fix:** walk/relativise with a single resolved root (`_root()`) so a
+  symlinked vault path (e.g. macOS `/var` -> `/private/var`) does not yield
+  `../..` paths.
+- `app.py` - `/api/vault/notes|note|search|graph|backlinks` (GET) and
+  `/api/vault/note|rename|delete` (POST), all owner-token gated like the rest of
+  the API.
+- `index.html` - new `#vault-view`: search + tree | CodeMirror editor / live
+  preview / graph canvas | backlinks. `css/style.css` gains vault + Markdown
+  typography; `js/vault.js` (new) implements the tree, editor, preview renderer
+  (headings, lists, quotes, code, `[[wikilinks]]` with create-on-click), search,
+  backlinks and a force-directed, pan/zoom/click graph. `js/app.js`
+  `switchMainView` now handles `vault`; sidebar routes Vault, quick tools call
+  `Vault.open()` / `Vault.openGraph()`, and `galaxy.js` voice routes "vault/
+  obsidian/note" to it.
+- `.gitignore` - `vault/.trash/` ignored.
+
+Verified: backend round-trip (create/write/rename/soft-delete, `../` escape
+rejected) and headless-Chrome UI (tree = 3 notes, open note -> title/editor/
+backlinks, preview renders H1 + wikilinks, graph visible). `tests/test_backend.py`
+50 passed (6 new `VaultTests`); JS 23 + 8 passed.
+
+## Hermes orchestrator + Kanban board - 2026-10-18
+
+The OS had **no real sub-agent orchestration**: "Subagents" was a UI badge,
+"Hermes" was only the frontend Apollo voice core, and work was dispatched one
+prompt at a time to the single active CLI (`/api/chat`). Hermes is now a real,
+first-class orchestrator with a Kanban board and the Vault as its second brain.
+
+- `backend/hermes.py` (new) - `HermesOrchestrator` runs the pipeline
+  `goal -> plan -> route -> delegate -> aggregate -> remember`. State lives in
+  `data/hermes.json`. `decompose()` is a deterministic five-role pipeline
+  (research, plan, implement, verify, document). `route()` assigns the
+  least-loaded available sub-agent and keeps *verify* off the implementer.
+  `delegate()` fans tasks out as streamed subprocesses, bounded by a
+  concurrency limit (`DENNIS_HERMES_CONCURRENCY`, default 3); `SubprocessRunner`
+  streams stdout and reports completion. Planner and runner are injectable for
+  testing; planning brain is `vault` (default) or `cli` (sub-agent print mode).
+  Plans/runs/memories are written to `vault/Hermes/{Plans,Runs}` and
+  `vault/Hermes/*.md`.
+- `app.py` - `GET /api/hermes/state|tasks|runs|agents|memory`, `POST
+  /api/hermes/plan|run|delegate|tasks` and `.../tasks/<id>/assign|status|cancel`,
+  `DELETE /api/hermes/tasks/<id>` and an authenticated per-task stream at
+  `/api/hermes/ws?task=<id>`. `/api/status` now includes the `orchestrator`
+  identity.
+- Frontend - the Kanban board is embedded **full-width** in the OS
+  `#hermes-view` (sidebar **Hermes** entry or Apollo voice). `js/kanbanState.js`
+  (pure, node-tested board logic) + `js/kanban.js` (renderer + API client + live
+  log, drag-and-drop, manual/Autonomous assignment) + `js/hermes.js` (the panel
+  with goal composer, sub-agent strip and board). `js/app.js` `switchMainView`
+  handles `hermes`; `js/galaxy.js` voice routes hermes/orchestrate/delegate and
+  kanban/board -> the panel. A separate `/kanban` landing page was dropped in
+  favour of the embedded board.
+
+Verified: `test_backend.py` 64 passed (14 new `HermesTests`); `kanbanState.test.js`
+9 passed; panelState 23 + agentDashboards 8. Live: plan spreads work across
+sub-agents (verify avoids the implementer), task CRUD + board, `/api/hermes/ws`
+streams the initial status frame, and headless Chrome confirms the full-width
+board renders with no clipping (1024-1440px) with 3 sub-agents.
 
 ## Code & Preview IDE (built-in editor + Run) - 2026-10-17
 
@@ -301,7 +413,7 @@ the open project's server and auto-loads it in Preview.
   400-line output ring buffer, scrapes the first `http(s)://localhost|127.0.0.1|
   0.0.0.0:PORT` from its output as the preview URL, and reports
   `running/command/url/pid/uptime/error/output`.
-- `server.py` - endpoints `GET /api/project-sessions/<id>/run` (status),
+- `app.py` - endpoints `GET /api/project-sessions/<id>/run` (status),
   `POST .../run/start`, `POST .../run/stop`, `POST .../file` (atomic save; 2 MB
   cap; realpath-confined; owner token) and `GET .../raw?path=` (raw bytes with a
   guessed MIME type, for static previews). For the DenMa project
@@ -337,7 +449,7 @@ policy gate and the OAuth 2.1 authorization flow.
 - `backend/mcp.py` (new) - MCP subsystem, stdlib only:
   - **Discovery** - `discover()` searches the official MCP Registry REST API
     (`GET {registry}/v0.1/servers?search=&limit=`), simplifies the
-    `server`/`_meta` payload (remotes -> http transport, packages ->
+    `app.py`/`_meta` payload (remotes -> http transport, packages ->
     stdio), and falls back to a small curated offline catalog when the
     registry is unreachable. `DENNIS_MCP_REGISTRY` / `DENNIS_MCP_TIMEOUT`
     override the base URL and timeout.
@@ -356,7 +468,7 @@ policy gate and the OAuth 2.1 authorization flow.
   - State lives in `data/mcp_servers.json` (chmod 0600). The browser view
     strips tokens: only `has_token`, a masked preview and the expiry cross
     the wire.
-- `server.py` - endpoints (all owner-authenticated): `GET /api/mcp/servers`,
+- `app.py` - endpoints (all owner-authenticated): `GET /api/mcp/servers`,
   `GET /api/mcp/discover`, `GET /api/mcp/oauth/callback` (loopback redirect
   page that `postMessage`s the code back), `POST /api/mcp/servers`,
   `POST /api/mcp/servers/<id>/{policy,client-id,authorize,callback,connect,refresh}`,
@@ -381,6 +493,135 @@ Verified live against the real registry (source `registry`) and against
 Notion's MCP endpoint (PRM/ASM discovery + RFC 7591 dynamic registration
 produced a valid PKCE authorization URL). `tests/test_backend.py` 44 passed
 (6 new `McpConnectorTests`), `panelState` 23, `agentDashboards` 8.
+
+## Agent Skill Builder - 2026-10-20
+
+New sidebar view **Agent Skill Builder** (`#skill-builder-view`, sidebar
+`#sidebar-nav-skillbuilder`) that turns YouTube videos into reusable Claude Code
+skills, following the "ears → eyes → expert agents" pipeline.
+
+- **Backend** `backend/skill_builder.py` (wired into `app.py`): wraps the
+  standalone `agent-skill-builder/` workspace. Reads its `.env` for the Gemini
+  key + model chain; runs the ears (`yt-transcript.sh`, `yt-metadata.sh`) and
+  eyes (`gemini-video-analyze.sh`) scripts, then synthesises a `SKILL.md` with
+  Gemini (primary→fallback model chain, `thinkingLevel` from `GEMINI_THINKING`)
+  and installs it into `~/.claude/skills`.
+- **Endpoints** (all `X-Dennis-Token`-gated):
+  `GET /api/skill-builder/status`, `GET /api/skill-builder/skills`,
+  `GET /api/skill-builder/skill?name=`, `POST /api/skill-builder/analyze`,
+  `POST /api/skill-builder/build`, `POST /api/skill-builder/install`.
+- **Frontend** `js/skill-builder.js` (+ `css/style.css` `sb-*` rules): URL input,
+  Analyze/Build actions, Transcript/Visual/Skill/Log panes, a generated-skills
+  rail with View/Install, and a live configuration panel. `switchMainView` and
+  `initSidebar` in `js/app.js` route the new view.
+- Verified live: status/skills/401 gate, `analyze` (real transcript) and `build`
+  (real `SKILL.md` via Gemini, model fell through to `gemini-3.5-flash-lite`
+  while `3.8/3.7/3.6` were overloaded) both succeeded. 60 Python tests run, the
+  only error being the pre-existing `test_server_security` `No module named
+  'server'`; `agentDashboards` 8, `kanbanState` 9, `panelState` 23 passed.
+- **Author agent + model prompts**: the view now has Agent / Model dropdowns
+  (mirroring Studio; populated from `/api/agents/availability` and
+  `/api/agents/<id>/models`). The selected agent authors the `SKILL.md` in
+  non-interactive print mode via `agent_registry.one_shot_argv` with the
+  augmented PATH, so the agent chooses the skill **name and description**
+  (`_auto_name()` is only a fallback when no frontmatter is returned). Manual
+  name/description inputs were removed.
+- **Graceful authoring fallback**: if the agent CLI fails (e.g. Antigravity
+  returned 429 "Individual quota reached" during verification) the build falls
+  back to the Gemini chain and returns `agent_error`, which the Log pane shows.
+- **Setup action**: `POST /api/skill-builder/setup` runs the workspace
+  `install.sh` (deps, ffmpeg fetch, skill links); the header Setup button calls
+  it. Status errors are surfaced verbatim (404 → "restart the server") instead
+  of defaulting to "workspace not installed".
+- **Parallel agent dashboards** (`js/workspace.js`): a per-agent open-session map
+  (`dennis.workspace.open`) keeps each agent's pane alive; switching agents
+  re-attaches that agent's own session (or starts/stops only that agent), and
+  `loadModels` no longer relaunches a CLI when switching back. `node --check`
+  clean; live multi-agent switching not yet exercised in a browser.
+- **Robust `yt-dlp` resolution** (fixed "yt-dlp is missing"): `yt-dlp` is a
+  `pip --user` console script (`~/Library/Python/3.14/bin/yt-dlp`) that is not on
+  a GUI-launched `PATH`. `_env.sh`/`check-deps.sh` now probe PATH → module →
+  user-site script and the app exports `PYTHON_BIN` (its own interpreter);
+  `agent_registry.get_augmented_env()` and a new `skill_builder._child_env()`
+  add the user-scripts dir, and all spawned scripts/`_run` use it. Verified with
+  a stripped `PATH=/usr/bin:/bin`: status reports `yt_dlp: true`, check-deps
+  passes, `yt-metadata.sh` returns real data and `/api/skill-builder/analyze`
+  returns a 2066-char transcript.
+- **"Argument list too long" fixed**: `yt-metadata.sh` used to pass the whole
+  `yt-dlp -J` dump as an argv (a test video alone was 665 KB; macOS `ARG_MAX` is
+  ~1 MB), causing `E2BIG`. It now writes the dump to a temp file and passes the
+  path. `gemini-video-analyze.sh` passes URL/prompt/thinking via env instead of
+  argv, and agent authoring caps the prompt at `MAX_AGENT_ARG` (150 KB).
+- **Agent dropdown selection** verified in headless Chrome via a temporary
+  self-test: 3 agents render, clicking `opencode` updated the label to
+  "Agent: OpenCode", and the menu was the topmost element at its coordinates.
+  The composer originally got `relative z-20`, but that utility was missing
+  from the compiled Tailwind bundle and the menu later fell behind the output
+  panel — fixed via `.sb-composer` (see the latest bullet). No selection bug
+  reproduced in a clean load — if it persists it is a stale client/server.
+- **Installed-agent discovery in every dropdown** (2026-10-20 latest): the
+  registry only held `antigravity`, `codex-cli` and `opencode`, so an installed
+  CLI such as **Claude Code** never appeared. `backend/agent_registry.py` now
+  owns one `HOST_AGENT_PROBES` table (`agy`, `claude`, `opencode`, `codex`,
+  `gemini`, `aider`, `goose`, `hermes`) and `available_agents()` merges
+  registered agents with every probe whose binary resolves. Detected entries
+  carry `registered: false` / `detected: true`; `/api/agents/detect` uses the
+  same table (no duplicated probe lists). `get_agent()` falls back to a
+  detected CLI, so selecting Claude Code / Hermes Agent starts that agent's
+  **own** CLI session while other agents keep theirs. Dedupe is by id and binary (registered `codex-cli` hides the `codex`
+  probe). Availability now only requires a launchable binary — missing model
+  listing falls back to the CLI default — and the binary scan is cached 15 s
+  with `--version` probed only by `/api/agents/detect`, so the dropdown opens
+  in ~8 ms instead of 5.5 s. `js/skill-builder.js` re-probes on view switch
+  without resetting the chosen agent/model. Live check: availability returns
+  5 agents including Claude Code and Hermes Agent.
+- **One-click integration of detected CLIs** (2026-10-20 latest):
+  `POST /api/agents/integrate` (`{agent_id}` or `{all: true}`) persists a
+  detected CLI into `data/agents.json` through `integrate_detected_agents()`.
+  It is idempotent, never overwrites existing entries and dedupes by id and
+  binary (so `codex` does not duplicate `codex-cli`); an unknown/uninstalled
+  id returns 404. Detected rows in the Skill Builder dropdown are amber and
+  labelled `detected · setup`; selecting one switches to that agent and
+  registers it in the same click. Claude Code is integrated on this host, so
+  every dropdown shows it as a normal registered CLI.
+  `tests/test_agent_integration.py` adds 4 tests (add, alias dedupe, idempotent,
+  missing).
+- **Unsupported agents removed + popover stacking fixed** (2026-10-20
+  latest): Junie, Qoder and Devin had no CLI-native model source and were
+  dropped from `HOST_AGENT_PROBES`, `CLI_PROFILES`, one-shot argv dispatch,
+  the Skill Builder author table and `data/agents.json`; only supported CLIs
+  remain (`antigravity`, `codex-cli`, `opencode`, `claude-code`,
+  `hermes-cli`). The dropdown overlap was a stacking bug: the composer used
+  Tailwind `z-20`, which was **not present in the compiled
+  `css/tailwind.css`**, so the output pane's `backdrop-filter` stacking context
+  painted over the open menu. The composer now uses `.sb-composer`
+  (`position:relative; z-index:30`) defined in `css/style.css`; verified in
+  headless Chrome that every menu row hit-tests above the pane. CSS cache token
+  bumped to `20261020-plugins3`.
+- **Hermes Agent CLI integrated** (2026-10-20): the installed `hermes` CLI
+  (v0.22.1) is a first-class agent under the id **`hermes-cli`**; the bare
+  `hermes` id stays reserved for the in-OS orchestrator so sub-agent routing
+  does not filter it out. Added to `HOST_AGENT_PROBES` and `CLI_PROFILES`
+  (`-m` / `--resume` / `--continue`); one-shot delegation uses
+  `hermes [-m MODEL] -z PROMPT`. `backend/model_sources/hermes.py` reads
+  `~/.hermes/config.yaml` + `provider_models_cache.json` (no TUI scraping, no
+  YAML dependency) and raises an actionable "run `hermes model --refresh`"
+  error when the cache is missing. Live at the time: availability returned 7
+  agents (now 5 after the unsupported-agent cleanup) and
+  `/api/agents/hermes-cli/models` returned the 30 cached `ollama-cloud` models
+  with `deepseek-v4-flash` marked default (that revision later retired; the
+  latest setup entry below changes the default to `gemma4:31b`). The universal
+  chat handler now
+  resolves detected CLIs through `get_agent()` instead of falling back to
+  Antigravity, and no longer injects the fabricated `gemini-2.5-flash` model
+  when the static model registry is empty (the CLI default is used instead).
+  `tests.test_backend` 69 passed.
+- **Searchable model dropdowns** (2026-10-20): the Workspace, Studio and Skill
+  Builder model menus now filter by model name, id or description as you type.
+  The Workspace box is always visible once models load (it previously appeared
+  only above 12 models); Studio and Skill Builder gained the same box. The menu
+  stays open while typing, the query resets after a selection or agent switch,
+  and the Workspace menu focuses the search field when it opens.
 
 ## Limitations / unverified
 
@@ -413,10 +654,517 @@ produced a valid PKCE authorization URL). `tests/test_backend.py` 44 passed
 - The E2E harness needs Apple Google Chrome at the default path (override with
   `--chrome`); it is not part of the unit test run.
 
+## Plugins - 2026-10-20
+
+> **Superseded 2026-10-23:** the discovery/catalog UI was replaced by the API
+> Mega List console (next section). The install/link backend below still powers
+> the console's "Install skill" action.
+
+Agent-agnostic plugin manager (new sidebar tab **Plugins**, `#plugins-view`).
+A plugin is a portable folder: optional `plugin.json` + one or more
+`skills/<name>/SKILL.md` (the open Agent Skills standard), optional `agents/`,
+`mcp/`, `hooks/`, `README.md`. The same pack can be linked into any agent's
+skill directory - no Claude lock-in.
+
+- **Backend** `backend/plugins.py` (stdlib only):
+  `list_plugins`, `read_plugin`, `install_plugin` (local folder or `git clone`),
+  `set_enabled`, `install_skills` (symlink per target agent), `uninstall_plugin`
+  (removes its links), `convert_to_claude` (adds `.claude-plugin/plugin.json`),
+  `scaffold`. Plugins live in `DENNIS_PLUGINS_DIR` (default
+  `~/.agents/plugins`); enable/agent state persists in `data/plugins_state.json`
+  (git-ignored). Names are validated (`^[a-z0-9][a-z0-9._-]{0,63}$`) and manifest
+  skill paths must stay inside the plugin folder.
+- **Target agents** (`AGENT_SKILL_DIRS`): generic `~/.agents/skills`, Claude Code
+  `~/.claude/skills`, Cursor, Codex, Gemini CLI, OpenCode, Hermes.
+- **Endpoints** (token-gated): `GET /api/plugins`, `/api/plugins/status`,
+  `/api/plugins/plugin?name=`; `POST /api/plugins/install|toggle|install-skills|uninstall|convert|scaffold`.
+- **Frontend** `js/plugins.js` + `#plugins-view`: installed list with on/off,
+  per-plugin detail (skills and their linked agents, MCP entries, README),
+  target-agent checkboxes, Install skills / Add Claude metadata / Uninstall,
+  install-from-folder-or-git form and a New skeleton action. `js/app.js` routes
+  the `plugins` view and sidebar label.
+- **Discovery pipeline (2026-10-20, second pass)** mirrors ChatGPT's Plugins
+  structure: **Plugins | Skills** sub-tabs, search, **Public | Personal** filter,
+  **Popular** / **New & Noteworthy** catalog sections, Add (+), Installed list,
+  and a detail pane. Catalog is bundled and real: `youtube`, `yt-visual-analysis`,
+  `yt2skill` (sources under `agent-skill-builder/`), installed with
+  `POST /api/plugins/install {catalog_id}`. New `GET /api/plugins/catalog` and
+  `GET /api/plugins/skills` (scans every agent skill dir, dedupes by name).
+  `_plugin_dirs` now accepts a bare top-level `SKILL.md` so catalog installs show
+  up in the installed list.
+- **Why it "did not work":** the long-running server on :8080 predated the
+  `/api/plugins*` routes, so the new HTML/JS loaded but every API call 404'd.
+  Restart the server after backend changes; a stale process is the #1 cause here.
+- Verified: 7 unit tests (`tests/test_plugins.py`) pass; live catalog install →
+  list → link into `~/.agents/skills` → toggle → uninstall cleaned up; headless
+  Chrome (CDP) confirms catalog renders 3 cards in Popular/New, skills tab lists
+  linked skills, no runtime errors. Full suite: 67 tests, only the pre-existing
+  `test_server_security` error.
+- Also in this pass: **Analyze timeout raised** (`DENNIS_SB_TRANSCRIPT_TIMEOUT`
+  default 600s, `DENNIS_SB_METADATA_TIMEOUT` 120s, `DENNIS_SB_VISUAL_TIMEOUT`
+  600s), `_run` now kills the whole process group on timeout, and yt-dlp calls
+  use `--socket-timeout 20 --retries 3 --fragment-retries 3`.
+
+## Plugins = real API Mega List repository workspace - 2026-10-23
+
+The custom API search/run console was removed. The Plugins tab now displays the
+actual upstream repository and its generated README pipeline.
+
+- **Snapshot:** `public-plugins/api-mega-list/repo/` is the upstream repo at
+  commit `b7c914f5abd7d0f7562bd1f2036411d3c8f7c29e`. `SNAPSHOT.json` records the
+  source, branch, commit, sync time, file count and byte size. No second index,
+  actor catalog, token store, or Apify runner exists.
+- **Workspace:** repository tree (main README, 23 core categories, featured,
+  sponsored partners, pipeline scripts) + document viewer. Markdown is rendered
+  with vendored `marked` 15.0.12; inline HTML is sanitised, relative links stay
+  inside the workspace, and relative images are served by
+  `/api/megalist/asset`. Large READMEs render a preview with a
+  **Render full file** action.
+- **Pipeline:** `settings/fetch_apify_actors.js` →
+  `settings/generate_readme_clean.js` → `settings/validate_partner_collections.js`
+  are visible as repository files. The tab reads their generated READMEs rather
+  than reimplementing the pipeline.
+- **Backend `backend/megalist.py`** (stdlib only): `status()`, `tree()`,
+  `read(path)`, `asset(path)`, `sync()`. Paths are resolved inside the snapshot;
+  traversal, absolute paths, non-text reads, unsupported assets and oversized
+  files are rejected. Sync downloads the GitHub tarball, rejects links/special
+  files and traversal members, validates the upstream layout, and atomically
+  replaces `repo/`.
+- **Endpoints** (all owner-token gated):
+  `GET /api/megalist/status|tree|file?path=…|asset?path=…` and
+  `POST /api/megalist/sync`.
+- **Catalog:** `_CATALOG` is empty; the first-party `api-mega-list` plugin and
+  its agent skill links were removed. Previous personal packs remain in
+  `~/.agents/plugins_backup_2026-10-23/`.
+- **Frontend:** `js/plugins.js` cache version `20261023-repo1`, `style.css`
+  `20261023-megalist2`; `vendor/marked.min.js` added with its MIT license.
+- **Terminal sync:** `python3 scripts/sync_api_mega_list.py`.
+- **Restart caveat:** the long-running :8080 server predates these edits.
+  Restart it when no agent session is active, then refresh Plugins.
+
+- **Hermes Agent first-class setup (2026-10-20 latest):** the installed Hermes
+  CLI was already detected as `hermes-cli`, but three integration holes made it
+  look unsupported. Fixed:
+  1. The Agent Discovery wizard changed the id to a slug of the display name
+     ("Hermes Agent" → `hermes-agent`), losing the profile/model source/one-shot
+     mapping keyed to `hermes-cli`. `js/app.js` now keeps the catalog/probe id
+     for known agents and only slugifies custom agents.
+  2. `get_agent_catalog()` had no Hermes entry, so the Catalog/installer could
+     not see it. Added `hermes-cli` with the official
+     `curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash`
+     command and a 600 s `install_timeout` (the installer provisions
+     Python/Node/tools).
+  3. The Skill Builder fallback table had no `hermes-cli` and fell through to
+     `-p`; added `AGENT_BINARIES["hermes-cli"]` and a `-z` branch in
+     `_agent_argv`.
+  Also: `/api/terminal/start` and `/api/agents/launch` now fall back to
+  `agent_registry.get_agent()` so detected-but-unregistered CLIs are launchable,
+  and the JS fallback agent lists include Hermes. Verified live: catalog entry is
+  `is_installed=true`, availability lists 5 agents, `/api/agents/hermes-cli/models`
+  returns 30 models, and a headless probe of the wizard emits id `hermes-cli`
+  (custom agents still slug from the name). No Hermes installation was needed:
+  `hermes doctor` is clean and Nous Portal auth is present.
+  The existing Hermes default (`deepseek-v4-flash`) resolved to the retired
+  `deepseek-v4-flash:0731` revision and failed with HTTP 410. Refreshed the
+  provider cache through Hermes's own model source and set the default to
+  `gemma4:31b`; a real one-shot (`hermes -z ...`) now returns `HERMES_OK`.
+  Backups: `~/.hermes/config.yaml.dennis-backup-*` and
+  `~/.hermes/provider_models_cache.json.dennis-backup-*`. Tests: 80 pass; the
+  only failure is `DockerStatusTests.test_ready`, which expects a running Docker
+  daemon (daemon is down and the OS is in local mode).
+
+## Agent Skill Builder upgrade (2026-10-21)
+
+Audit: the existing builder was YouTube-only and had no repository extractor,
+review stage or Obsidian publishing. The old pipeline ran `yt-dlp` four times
+per URL; `Nm6rVRw8hAU` took 162.98s (8.91s metadata + 154.06s Gemini-fallback
+transcript) and `dQw4w9WgXcQ` took 17.53s.
+
+Added `backend/skill_sources.py` (one yt-dlp extraction + one caption fetch,
+targeted GitHub docs retrieval, cache, SSRF/redirect guards),
+`backend/skill_jobs.py` (dedupe/progress/cancel), and rewrote
+`backend/skill_builder.py` around staged drafts. Generation now creates an
+editable review draft; **Reject** deletes only the draft, while **Add to Vault**
+validates, resolves the real Vault path, refuses silent conflicts, writes
+atomically to `vault/Skills/<name>/SKILL.md`, verifies the artifact, then removes
+the draft. The Review overlay edits Skill Name, Description and the full
+SKILL.md with debounced autosave.
+
+Video mode supports Tutorial-to-Skill (taught method, not a recreation
+template) and Reference-Video-to-Skill (scene extraction + recreation prompt
+templates, optional character image). YouTube is analysed in place via Gemini;
+direct files use the Files API path. Observed/transcript/uncertain facts are
+separated and video mode fails honestly when visual analysis is unavailable.
+
+Gemini calls now use a bounded health probe, per-model timeouts, cooldowns and a
+persisted model-health cache. `gemini-3.8/3.7-flash` were hanging past 60s and
+`3.6/3.5` were intermittently unavailable; the chain now falls through in
+bounded time. Measured: extraction 12.75s (`Nm6r…`), 3.55s (`dQw…`), cache hit
+0.011s; generation 249.6s → 27.0s first run and 12.7s steady state; reference
+video 18.3s; tutorial video 28.4s. Review/autosave/publish/conflict/reject were
+exercised over HTTP against an isolated Vault. Direct-video upload through the
+Gemini Files API was live-tested (74s total), and `tests/e2e_skill_builder.py`
+now drives real Chrome/Playwright through generate → edit/autosave → publish →
+verify → generate → reject. `tests/test_server_security.py` was retargeted to
+`app.py`; 28 Skill Builder tests and all 127 backend tests pass.
+Details and limitations: `SKILL_BUILDER_AUDIT.md`.
+
+## Studio generation console (2026-10-23)
+
+Studio is now a real provider-backed generation console in the header (no
+sidebar entry). It replaces the previous simulated preview + `/api/chat`
+routing with asynchronous jobs and a local media library.
+
+### Backend
+
+| Module | Responsibility |
+| --- | --- |
+| `backend/studio_contracts.py` | JSON-schema validation, unknown-field rejection, normalized states (`queued/running/succeeded/failed/cancelled`), output/error normalization, request hashing, redaction, filename safety |
+| `backend/studio_catalog.py` | load and validate the pinned catalog; list/filter/detail; modes |
+| `backend/studio_secrets.py` | owner-only credential store (`data/studio/credentials.json`, `0600`), env override, hints only |
+| `backend/studio_higgsfield.py` | official API client: submit, status, cancel, presigned upload, idempotency, error mapping |
+| `backend/studio_jobs.py` | persisted job store, duplicate suppression, submit thread, poll backoff, restart recovery, media capture, no invented progress |
+| `backend/studio_media.py` | SSRF-guarded downloads, 200 MB cap, `0600` metadata, Range-friendly serving |
+| `backend/studio_collections.py` | persistent playlists/templates, atomic `0600` writes, media hydration and deletion cleanup |
+| `backend/studio_providers.py` | provider registry: official API default + optional MCP adapter |
+| `backend/studio_mcp.py` | minimal stdio JSON-RPC MCP client, timeouts, redacted stderr, persisted config |
+| `backend/studio_tools.py` | agent tool definitions, read-only execution, persisted owner approvals |
+| `scripts/studio_mcp_shim.py` | stdio MCP bridge to the Studio tool API; cannot approve its own spending actions |
+
+`backend/catalog/higgsfield-0.1.0.json` pins 84 official workflows (17 image, 67
+video) with full input schemas. Runtime never fetches docs.
+
+### HTTP API (owner token required)
+
+```
+GET    /api/studio/providers
+GET    /api/studio/models?provider=&kind=&mode=&q=&id=
+GET    /api/studio/jobs?limit=&state=
+GET    /api/studio/jobs/<id>
+POST   /api/studio/jobs                         {provider, model_id, params, auto_download}
+POST   /api/studio/jobs/<id>/cancel
+DELETE /api/studio/jobs/<id>                    (terminal jobs only)
+GET    /api/studio/library?kind=&role=&q=&limit=
+POST   /api/studio/library/import               {url, kind, title, provider, model_id}
+GET    /api/studio/media/<id>                   (Range, token via header or ?token=)
+DELETE /api/studio/library/<id>
+GET    /api/studio/playlists
+POST   /api/studio/playlists                    {name}
+POST   /api/studio/playlists/<id>               {name}
+DELETE /api/studio/playlists/<id>
+POST   /api/studio/playlists/<id>/items         {media_id}
+DELETE /api/studio/playlists/<id>/items/<media_id>
+GET    /api/studio/templates
+POST   /api/studio/templates                    {name, provider, model_id, params}
+DELETE /api/studio/templates/<id>
+POST   /api/studio/uploads                      {provider, filename, content_type, data_base64}
+GET    /api/studio/tools
+POST   /api/studio/tools/call                   {name, arguments}
+GET    /api/studio/approvals
+POST   /api/studio/approvals/<id>               {decision: approve|reject}
+POST   /api/studio/providers/higgsfield/credentials
+POST   /api/studio/providers/higgsfield/test
+DELETE /api/studio/providers/higgsfield/credentials
+GET    /api/studio/mcp
+POST   /api/studio/mcp/config
+POST   /api/studio/mcp/connect|disconnect
+```
+
+### Frontend
+
+- `js/studioState.js` - pure helpers (elapsed/clock labels, model/input-mode
+  filtering, schema parameter coercion and restore, required fields, usage
+  counts, media URLs), covered by `tests/studioState.test.js`.
+- `js/studio.js` - provider/model menus, input modes, prompt presets, dynamic
+  parameter form, uploads, job polling, single stage with real output
+  variations, share/download/import, playlists, templates, history, library,
+  local usage, credential setup and MCP configuration.
+- `index.html` - three-column Activity workspace, full-width Library and Setup
+  panels, and the Studio modal; `css/style.css` - Studio workspace styles.
+- Navigation remains header-only. Activity / Library / Setup are the only
+  Studio tabs; playlists and templates live inside the existing rails and
+  Library side panels rather than adding new top-level tabs.
+
+### Branding (2026-10-23)
+
+Studio has its own mark, modelled on the folded-page/glass-lens concept the
+owner supplied:
+
+| Asset | Use |
+| --- | --- |
+| `assets/studio/studio-icon.svg` | Full-colour master (folded page, ocean photo card, glass lens). Used in the Studio view header tile; safe to reuse for docs, app icons or social cards |
+| `assets/studio/studio-mark.svg` | 24px monochrome mark with a punched lens halo; applied via CSS mask so it inherits `currentColor` |
+
+- The header tab now uses `.studio-mark` instead of the `clapperboard` lucide
+  icon, so it tints with the tab (slate → blue when active) and keeps the same
+  14px optical weight as its neighbours.
+- The mark is decorative (`aria-hidden`); the tab still reads "Studio", and the
+  header tile image has an empty `alt`.
+
+### Verification
+
+- Python: **229 tests pass** (`python3 -m unittest discover -s tests -p 'test_*.py'`).
+  Studio-specific: contracts 20, catalog 8, official adapter 8, jobs 12, MCP 12,
+  collections 7, routes 18.
+- JS: panelState 23, kanbanState 9, agentDashboards 8, studioState 19.
+- Headless Chrome smoke tests: Studio opens from the header; 2 providers, 84
+  catalog models, input modes, schema fields, preset chips, stage details,
+  playlists/templates in the rails and Library, playlist modal, Library and
+  Setup tabs all render. With a mocked API response, a submitted job rendered
+  two real variations, variant switching worked, and the stage actions enabled.
+- Real Higgsfield generation was **not** run: no API key/secret or credits were
+  available. All provider behavior is exercised with fake/mock servers.
+
+### Security / limitations
+
+- Credentials never reach the browser; the setup form clears after save, and
+  API responses expose only `configured`, `source`, `hint` and `missing`.
+- Media URLs embed the owner token only in the query string because `<video>`
+  requests cannot set headers; access logs redact `token=`.
+- Official API: no progress endpoint, cancel is queued-only, outputs retained
+  by Higgsfield for at least 7 days. Studio therefore shows elapsed time, not a
+  fake percentage.
+- MCP provider is experimental and explicitly configured; the official API is
+  the default. The upstream project's experimental web backend is not used.
+- Historical note: the earlier "MCP Connector Hub" section above describes
+  `backend/mcp.py` / `js/mcp.js`, which are no longer present in the working
+  tree. Studio's MCP connector is a separate, Studio-scoped implementation.
+
+## DeepSeek Harness chat agent (2026-10-27)
+
+Added a sixth Workspace agent, **DeepSeek Harness**, to the existing Agent
+dropdown. It is a native in-app chat dashboard, not a spawned CLI: no
+`deepseek`/`dsh` binary is installed and none is required.
+
+### Behaviour
+
+- The agent registry carries a `transport` field (`"cli"` by default,
+  `"chat"` for built-ins in `BUILTIN_CHAT_AGENTS`). Chat agents are always
+  available, show as **built-in** in the Agent dropdown, and report no CLI
+  version or session count.
+- Chat agents have no PTY or project session. `POST /api/project-sessions`
+  rejects them with `code: "chat_agent"`, and the Workspace skips the
+  session-oriented screen/panel path when one is selected.
+- The Workspace **Model** dropdown is reused. The DeepSeek model source returns
+  `deepseek-chat` (default) and `deepseek-reasoner`; the pick is pushed into the
+  chat header and remembered in `localStorage` under
+  `dennis.deepseek.model`.
+- Selecting the chat agent records it in the existing last-selection key, so a
+  page reload restores the dashboard (and the last conversation, see below).
+- History is owner-scoped and stored in `data/deepseek/conversations.json`
+  (mode `0600`, atomic writes, git-ignored). The rail supports open, new and
+  delete; an empty conversation is reused instead of duplicated.
+- Replies stream over SSE (`text/event-stream`) through the stdlib
+  `http.client`; `Stop` aborts the upstream request and keeps the text already
+  received. One request per owner is allowed at a time (busy lock).
+
+### Credentials
+
+`data/deepseek/credentials.json` stores the API key (mode `0600`,
+git-ignored). `DEEPSEEK_API_KEY` overrides it. `GET /api/deepseek/status`
+returns only key status (`configured`, `source`, `hint`, `missing`), the base
+URL and model metadata — never the key itself.
+
+The Workspace **Provider** dropdown is the primary setup surface: its
+`provider_setup` entry for `deepseek-harness` carries `form: "api_key"`, so the
+menu renders an inline key field, Connect and Disconnect actions (plus the
+masked hint) instead of a copyable CLI command. This is the same owner-only
+credential store the chat card writes to; DeepSeek has no OAuth login, so no
+fake browser sign-in is offered. The chat card remains as a fallback and both
+surfaces refresh each other through `DeepSeekChat.refreshStatus()`. Deleting
+the stored key falls back to the environment key if one is set.
+
+### Verification
+
+- `tests/test_deepseek_harness.py` (15) covers key precedence, redaction,
+  model list, conversation CRUD, ownership, busy lock, partial persistence and
+  friendly upstream errors; `tests/test_deepseek_routes.py` (8) exercises every
+  route with a fake local SSE upstream and asserts the Provider-menu
+  `provider_setup` carries `form: "api_key"`. All 23 pass.
+- `node --check` passes for `js/deepseekChat.js` and `js/workspace.js`; the JS
+  unit tests still pass.
+- Headless Chrome (before the Provider-menu form landed): the dropdown lists
+  `DeepSeek Harness`; selecting it mounts the chat and shows the key setup card;
+  both models list; picking Reasoner updates both model labels; switching to
+  OpenCode and back, and a full reload, restore the agent and model; `+ New`
+  creates a conversation and the rail `×` deletes it.
+- The Provider-menu key form reuses the same routes (`/api/deepseek/status`,
+  `POST`/`DELETE /api/deepseek/credentials`) already covered by the route tests;
+  its DOM wiring was not re-run in headless Chrome because the host was under
+  extreme load (load average > 400) at the time.
+- Full suite: 252 tests. On this host the Docker-readiness test timed out
+  (`docker_available` false under load) and the known MCP timing test flaked;
+  both are unrelated to DeepSeek and pass when the machine is not saturated.
+- No real API key or credits were available: streaming is verified against the
+  fake SSE upstream only. The setup card correctly reports **API key required**.
+
+### Security / limitations
+
+- The key is sent only from the backend to `api.deepseek.com` over HTTPS; it is
+  never embedded in HTML, JS, logs or SSE frames.
+- Conversation text is stored unencrypted at rest under `data/` (owner-only
+  mode), consistent with the rest of the app's local stores.
+- There is no token/usage or cost accounting: DeepSeek usage frames are not
+  persisted, and there is no separate server-side abort endpoint beyond
+  closing the SSE stream. Reasoner output is shown in a collapsed
+  "Reasoning" block, streamed separately from the answer.
+
+## Provider dropdown for agents (2026-10-27)
+
+The Workspace toolbar now has **Agent → Provider → Model** (the provider menu
+sits between the existing two). Providers are never hardcoded:
+
+- `backend/model_sources/base.py` normalises an optional `provider` on every
+  model row. OpenCode takes the `provider/model` prefix, Hermes reports its
+  active provider (from `config.yaml` / `provider_models_cache.json`), Codex
+  reports OpenAI, Claude reports Anthropic, Antigravity reports Google DeepMind,
+  and DeepSeek Harness reports DeepSeek (or the `DEEPSEEK_BASE_URL` hostname for
+  a custom endpoint).
+- `backend/model_sources/registry.py` adds `providers(models)` (first-seen
+  order, model counts, availability) and `provider_label()`, which keeps an
+  unknown CLI provider id verbatim instead of renaming it.
+- `GET /api/agents/<id>/models` returns `providers` and `provider_setup`; the
+  502 model-list error carries `provider_setup` too, so a logged-out or
+  untrusted CLI can be configured from the same menu.
+- `backend/agent_registry.py` owns `PROVIDER_SETUP` (CLI-native setup command +
+  hint per agent; no credentials). The OS still never stores CLI provider keys.
+- `js/workspace.js` adds `state.providerId/providers/providerSetup`, filters the
+  Model list by the selected provider, strips OpenCode's redundant
+  `provider/` name prefix, remembers the provider per agent in `localStorage`,
+  and derives it from the current session model on resume. Picking a provider
+  opens the filtered Model menu (nothing restarts until a model is chosen).
+- `js/skill-builder.js` uses the same Agent → Provider → Model flow for the
+  authoring agent (no restart concern there: the pick is sent with the job).
+  It shares the same `/models` payload, filters identically, and shows the same
+  copyable setup block. A loading state distinguishes "still listing" from
+  "this CLI reported no providers".
+- `index.html` / `css/style.css` add the amber Provider dropdown and the copyable
+  setup block (both toolbars).
+
+Verified live (server on :8099, headless Chrome): OpenCode reported 6 providers
+(groq, nvidia, ollama-cloud, openai, opencode, openrouter; 516 models total),
+the menu showed per-provider counts, choosing OpenAI filtered the Model menu to
+82 models, and the setup block exposed `opencode auth login`. Claude Code
+(untrusted folder) returned the trust error plus its setup hint. The Skill
+Builder toolbar was verified the same way (OpenCode → 6 providers, OpenAI → 82
+rows, All providers → 516, no page errors). Tests: 252 pass
+(`python -m unittest discover -s tests -p 'test_*.py'`).
+
+## Studio Video Kit chat templates (2026-10-28)
+
+The Studio Video Kit now has a chat box directly below its three panels with a
+`Template` dropdown on the right (default `None`).
+
+- `GET /api/studio/video-kit/templates` lists approved video-generation skills
+  from the shared-brain Vault (`vault/Skills/<name>/SKILL.md`). Skills are
+  matched on name/title/description, explicit `tags`/`type`/`category`
+  frontmatter, or the opening of the body. Non-video skills are excluded.
+- For each entry the endpoint extracts a copy-ready prompt: the fenced block
+  under headings such as "Initial generation prompt" or "Reusable prompt
+  templates", falling back to the first fenced block and then the body. The
+  full SKILL.md is never injected into the composer.
+- Selecting a template loads its prompt into the chat box (editable) and syncs
+  it to the Studio prompt, so the next Generate uses it. `None` clears an
+  untouched template prompt; `Use in Prompt` forces the chat text into the
+  prompt; `Clear` empties both when they still match.
+- The dropdown is disabled while Panel 1 has a reference URL/file, so a
+  template is only chosen when no reference video is supplied. Removing the
+  reference re-enables it. The list refreshes with the Studio refresh button.
+- Files: `backend/studio_videokit.py` (`list_video_templates`, prompt/skill
+  classification), `app.py` (owner-gated route), `index.html`
+  (`#studio-vk-chat`), `css/studio-v2.css`, `js/studio.js`.
+  Test: `tests/test_studio_routes.py` covers listing, filtering and prompt
+  extraction.
+- Layout: the kit lives in the ~326px composer column, so its header chips and
+  actions wrap onto their own rows and the three panels use an auto-fit grid
+  (one full-width column in the composer, more when the workspace widens).
+  Panel badges wrap below the panel name instead of colliding with it, and the
+  chat footer stacks its actions above a full-width `Template` select.
+
+## Studio activity layout (2026-10-28)
+
+The Generate tab no longer carries a right rail. The Recent Generations,
+Playlists and Quick Actions panels were removed because History, Playlists and
+the generation modes already cover them:
+
+- `index.html` drops `<aside class="studio-rail">`; the workspace grid is now
+  two columns (composer + stage), so the preview uses the reclaimed width.
+- The Model details card moved out of the bottom info grid and now sits
+  directly under the Model dropdown in the composer (`#studio-model-details`),
+  with a `live` marker. `renderModelCard()` already runs on provider/model
+  selection, so the title, provider, documented inputs and tags update as soon
+  as a different model is chosen.
+- Usage & credits stays at the bottom of the stage and now spans the full
+  centre column (`.studio-info-grid` is single-column).
+- JS guards for the removed hosts already existed (`#studio-jobs-list`,
+  `#studio-rail-playlists`, `#studio-history-btn`, quick-action buttons), so
+  no data loading or tab routing was lost.
+
+## Model-aware Video Kit, Vault assets and runtime selectors (2026-10-28)
+
+The Video Kit is now an optional, model-aware workflow rather than a separate
+prompt toy:
+
+- **Optional by model.** `generate()` first calls `ensureVideoKitForGeneration()`.
+  For a pure text-to-video model with a kit reference but no analysis, it runs
+  the reverse-engineering pass automatically and uses the resulting prompt. For
+  models that document image/video inputs, the kit assets are attached directly
+  to the best matching URL field (reference first, then remote avatar/product
+  images) and the prompt is only replaced when it is empty.
+- **Field mapping.** `injectVideoKitAssets()` orders documented fields by
+  semantics (`image_url`/`image_urls` before `first_frame_url`/`end_image_url`,
+  `video_url` before `reference_video_url`) so a reference is never attached to
+  an unrelated end-frame slot. Only provider-fetchable `http(s)` URLs are sent
+  to the generation provider.
+- **Any-platform eyes & ears.** `skill_sources.PLATFORM_HOSTS` classifies
+  TikTok, Instagram, X/Twitter, Facebook, Vimeo, Dailymotion, Twitch, Reddit,
+  Pinterest, Snapchat, LinkedIn, Rumble, Bilibili, Threads, Kwai, Likee and
+  Weibo URLs as `kind: "platform"`. `extract_platform_video()` reuses the
+  single yt-dlp metadata/caption pass, and `download_platform_video()` resolves
+  a playable stream for Gemini when a page is not direct media. Arbitrary web
+  pages still fail classification.
+- **Image and video eyes.** `skill_builder._image_analysis()` adds Gemini vision
+  for still references. Base64 attachments are written to a temp file for
+  local probing/upload, so a dropped image or video can be analyzed even before
+  a provider URL exists.
+- **Vault avatars.** `GET /api/studio/video-kit/avatars` lists image files and
+  avatar-ish notes (notes with an image embed, frontmatter avatar/image field,
+  or an `Avatars/` path). Typing `Clair`, `Mia`, `Karen`, etc. in the new
+  `#studio-vk-avatar-name` datalist resolves the Vault image via
+  `GET /api/vault/asset` (owner-token gated, image extensions only). Resolved
+  images are also uploaded to the active generation provider so image/video
+  models can fetch them; if that upload is unavailable, the local Vault file is
+  still passed to the Gemini visual-analysis pass server-side.
+- **Add to Vault.** `POST /api/studio/video-kit/save-skill` writes
+  `vault/Skills/<slug>/SKILL.md` with the analysis and a reusable prompt. It is
+  wired to the analysis card (`Add to Vault`) and to the stage (`Save skill`) so
+  a finished render's prompt can be published. New skills immediately appear in
+  the Video Kit Template dropdown.
+- **Previews.** Reference/avatar/product panels render real `<img>`/`<video>`
+  previews from the provider URL, or from the attached base64 data URI before
+  upload. Clicking the preview no longer opens the file picker.
+- **Runtime selectors below chat.** Agent, Provider and Model now sit directly
+  below the Video Kit chat box. The Agent menu is populated from
+  `/api/agents/availability` and remembered locally; the provider menu moved out
+  of the hero unchanged. Model details remain live underneath.
+- Cache versions: `css/studio-v2.css?v=20261028-studio-kit1`,
+  `js/studio.js?v=20261028-studio-kit7`.
+- Tests: `tests/test_studio_routes.py` covers the Vault avatar listing/asset
+  route and save-skill round trip; `tests/test_skill_builder_pipeline.py`
+  covers TikTok/Instagram/X URL classification.
+
 ## Security notes
 
 - `~/.claude/settings.json` holds a live `ANTHROPIC_AUTH_TOKEN`; it is never sent
   to the browser or logged. Only an allowlisted set of env vars reaches agents.
+- Studio provider credentials live in `data/studio/credentials.json` (mode
+  `0600`, git-ignored); env vars override them. They are never returned by the
+  API, embedded in job records, written to access logs, or sent to MCP servers
+  unless the owner explicitly configures the MCP environment.
+- Studio playlists/templates live in `data/studio/playlists.json` and
+  `templates.json` (mode `0600`, atomic writes, git-ignored). Templates contain
+  only provider/model identifiers and validated parameters; credentials are
+  never copied into them.
 - The app's own token (`data/auth.json`) gates every endpoint and the WebSocket
   via `X-Dennis-Token`/`?token=`; the WS also checks session ownership.
 - File reads, folder listings and mounts are confined to validated project roots
@@ -434,5 +1182,6 @@ produced a valid PKCE authorization URL). `tests/test_backend.py` 44 passed
    `DENNIS_SANDBOX=docker` and verify the container path end to end.
 2. Consider accessing the Model Registry as an additional `ModelSource`
    (the dropdown already depends only on the interface).
-3. Persist the last selected agent per owner; add WS auto-reconnect with backoff
-   if the backend restarts while a session is open.
+3. Persist the last selected agent per owner for CLI agents with no session too
+   (the DeepSeek chat agent already records its selection this way); add WS
+   auto-reconnect with backoff if the backend restarts while a session is open.

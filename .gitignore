@@ -4,6 +4,9 @@ data/
 *.sqlite
 *.sqlite3
 
+# Vault trash (soft-deleted notes)
+vault/.trash/
+
 # Logs
 *.log
 logs/
@@ -25,8 +28,19 @@ env/
 *.key
 secrets/
 
+# Agent runtime settings that may carry provider credentials (never commit)
+trading_den/MMcloneLoopEngineering/.claude/setting.venv
+**/.claude/setting.venv
+
 # IDE / OS
 .idea/
 .vscode/
 .DS_Store
 Thumbs.db
+
+# Local clones used by maintenance scripts
+.cache/
+
+# Electron desktop build
+node_modules/
+dist/

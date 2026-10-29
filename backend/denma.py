@@ -1,19 +1,30 @@
 """DenMa (Trading Den) backend supervisor.
 
-The Trading Den dashboard shipped in ``trading_den/MMcloneLoopEngineering``
-serves its own REST API and WebSocket feed. It uses same-origin relative URLs
-(``/api/...`` and ``/ws``), so embedding the page inside the OS origin breaks
-every call. Instead of proxying, we run the DenMa ``app.py`` as its own server
-and let the OS link out to it (its own origin => REST + WS just work).
+The Trading Den dashboard shipped in ``trading_den/MMcloneLoopEngineering`` serves
+its own REST API and WebSocket feed using same-origin relative URLs (``/api/...``
+and ``/ws``). To keep the OS and the Trading Den as **one server / one origin**,
+the DenMa engine is hosted *inside the OS process*:
+
+  * the OS server (``server.py``) is the single public port;
+  * the DenMa ``ArbitrageServer`` runs on a private, ephemeral loopback port in a
+    background asyncio thread of the same process;
+  * ``server.py`` reverse-proxies DenMa's REST paths and ``/ws`` to that private
+    port, so the browser only ever talks to the OS port.
+
+If the running interpreter cannot import the DenMa engine (``ccxt`` / ``aiohttp``
+/ ``aiodns`` missing), the supervisor transparently falls back to spawning
+``app.py`` as a child process on a private loopback port - the single-origin
+behaviour is preserved either way.
 
 This module:
   * finds a Python interpreter that has the DenMa dependencies installed,
-  * spawns ``app.py --host <host> --port <port>`` in the background,
+  * starts the engine in-process (preferred) or as a child process (fallback),
   * reports health/status and supports restart,
-  * stops the child when the OS server exits.
+  * stops the engine when the OS server exits.
 """
 
 import atexit
+import asyncio
 import os
 import socket
 import subprocess
@@ -26,6 +37,8 @@ from .config import DIRECTORY
 PROJECT_DIR = os.path.join(DIRECTORY, "trading_den", "MMcloneLoopEngineering")
 
 DEFAULT_HOST = os.environ.get("DENMA_HOST", "127.0.0.1")
+# Fixed port used only by the subprocess fallback. The in-process engine binds an
+# ephemeral loopback port so there is no second stable server to reach.
 DEFAULT_PORT = int(os.environ.get("DENMA_PORT", "8000"))
 AUTOSTART = os.environ.get("DENNIS_NO_DENMA", "") not in ("1", "true", "yes")
 
@@ -41,6 +54,8 @@ _DEP_HINT = (
 
 
 def _port_open(host, port, timeout=0.3):
+    if not port:
+        return False
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.settimeout(timeout)
         try:
@@ -60,6 +75,11 @@ def _has_deps(python):
         return proc.returncode == 0
     except Exception:
         return False
+
+
+def current_has_deps():
+    """True when the running interpreter can import the DenMa engine directly."""
+    return _has_deps(sys.executable)
 
 
 def _candidate_pythons():
@@ -94,8 +114,91 @@ def find_python():
     return None
 
 
+class _InProcessEngine:
+    """Runs the DenMa ``ArbitrageServer`` on a private loopback port inside a
+    background asyncio thread of the OS process."""
+
+    def __init__(self, host=DEFAULT_HOST, port=0):
+        self.host = host
+        self.requested_port = port
+        self.bound_port = 0
+        self.loop = None
+        self.server = None
+        self.thread = None
+        self.error = ""
+        self.failed = False
+        self.ready = threading.Event()
+
+    def start(self):
+        self.thread = threading.Thread(target=self._run, daemon=True,
+                                       name="denma-engine")
+        self.thread.start()
+
+    def _run(self):
+        if PROJECT_DIR not in sys.path:
+            sys.path.insert(0, PROJECT_DIR)
+        try:
+            from arbitrage.server import ArbitrageServer
+        except Exception as exc:  # pragma: no cover - env dependent
+            self.failed = True
+            self.error = f"Cannot import DenMa engine in-process: {exc}"
+            self.ready.set()
+            return
+
+        loop = asyncio.new_event_loop()
+        self.loop = loop
+        asyncio.set_event_loop(loop)
+        self.server = ArbitrageServer(host=self.host, port=self.requested_port)
+        try:
+            loop.run_until_complete(self.server.start())
+        except Exception as exc:  # pragma: no cover - env dependent
+            self.failed = True
+            self.error = f"DenMa engine failed to start: {exc}"
+            self.ready.set()
+            try:
+                loop.close()
+            except Exception:
+                pass
+            return
+
+        sock = getattr(self.server.server, "sockets", None)
+        if sock:
+            try:
+                self.bound_port = sock[0].getsockname()[1]
+            except Exception:
+                self.bound_port = self.requested_port
+        self.ready.set()
+        try:
+            loop.run_forever()
+        finally:
+            try:
+                loop.close()
+            except Exception:
+                pass
+
+    def is_alive(self):
+        return bool(self.thread and self.thread.is_alive() and not self.failed)
+
+    def stop(self, timeout=8.0):
+        loop = self.loop
+        if loop is None:
+            return
+        try:
+            if self.server is not None:
+                fut = asyncio.run_coroutine_threadsafe(self.server.stop(), loop)
+                fut.result(timeout=timeout)
+        except Exception:
+            pass
+        try:
+            loop.call_soon_threadsafe(loop.stop)
+        except Exception:
+            pass
+        if self.thread:
+            self.thread.join(timeout=timeout)
+
+
 class DenmaBackend:
-    """Supervises the DenMa backend process."""
+    """Supervises the DenMa engine (in-process by preference)."""
 
     def __init__(self, host=DEFAULT_HOST, port=DEFAULT_PORT, project_dir=PROJECT_DIR,
                  autostart=AUTOSTART):
@@ -105,10 +208,12 @@ class DenmaBackend:
         self.autostart = autostart
         self.python = None
         self.proc = None
+        self.mode = "inproc"  # inproc | subprocess
         self.state = "stopped"  # stopped | starting | running | unavailable
         self.error = ""
         self.started_at = None
         self.log_path = os.path.join(project_dir, "server.log")
+        self._inproc = None
         self._lock = threading.Lock()
 
     # -- urls ---------------------------------------------------------------
@@ -122,13 +227,15 @@ class DenmaBackend:
 
     # -- lifecycle ----------------------------------------------------------
     def _is_managed_alive(self):
+        if self._inproc is not None:
+            return self._inproc.is_alive()
         return bool(self.proc and self.proc.poll() is None)
 
     def _port_serving(self):
         return _port_open(self.host, self.port)
 
     def start(self):
-        """Start the backend in a daemon thread. Returns immediately."""
+        """Start the engine in a daemon thread. Returns immediately."""
         with self._lock:
             if self._is_managed_alive() or self._port_serving():
                 self.state = "running"
@@ -142,6 +249,35 @@ class DenmaBackend:
         threading.Thread(target=self._start_blocking, daemon=True).start()
 
     def _start_blocking(self):
+        if current_has_deps():
+            self._start_inprocess()
+            return
+        self._start_subprocess()
+
+    def _start_inprocess(self):
+        self.mode = "inproc"
+        engine = _InProcessEngine(self.host, 0)
+        self._inproc = engine
+        engine.start()
+        engine.ready.wait(timeout=30.0)
+        if engine.failed:
+            self.state = "unavailable"
+            self.error = engine.error or _DEP_HINT
+            self._inproc = None
+            return
+        self.port = engine.bound_port or self.port
+        self.python = sys.executable
+        self.started_at = time.time()
+        if self.wait_ready(timeout=15.0):
+            self.state = "running"
+        elif engine.is_alive():
+            self.state = "starting"
+        else:
+            self.state = "unavailable"
+            self.error = "DenMa engine exited during startup."
+
+    def _start_subprocess(self):
+        self.mode = "subprocess"
         python = find_python()
         if not python:
             self.state = "unavailable"
@@ -181,6 +317,8 @@ class DenmaBackend:
         while time.time() < deadline:
             if self._port_serving():
                 return True
+            if self._inproc is not None and self._inproc.failed:
+                return False
             if self.proc is not None and self.proc.poll() is not None:
                 return False
             time.sleep(0.4)
@@ -189,7 +327,11 @@ class DenmaBackend:
     def stop(self, timeout=8.0):
         with self._lock:
             proc = self.proc
+            inproc = self._inproc
             self.proc = None
+            self._inproc = None
+        if inproc is not None:
+            inproc.stop(timeout=timeout)
         if not proc or proc.poll() is not None:
             return
         try:
@@ -225,6 +367,7 @@ class DenmaBackend:
             "running": running,
             "managed": managed,
             "external": serving and not managed,
+            "mode": self.mode,
             "state": self.state,
             "url": self.url,
             "ws_url": self.ws_url,

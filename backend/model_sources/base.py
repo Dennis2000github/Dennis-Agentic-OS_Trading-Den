@@ -49,7 +49,14 @@ class ModelSource:
     # -- helpers ---------------------------------------------------------
     @staticmethod
     def _norm(identifier, name=None, description="", is_default=False,
-              available=True, reason=None):
+              available=True, reason=None, provider=""):
+        """Normalise one model row.
+
+        ``provider`` is the provider the CLI itself associates with the model
+        (OpenCode ids are ``provider/model``; Hermes lists one provider's
+        cache). It is empty when the CLI exposes no provider information, so
+        the UI can offer an explicit "All providers" entry instead of guessing.
+        """
         return {
             "id": identifier,
             "name": name or identifier,
@@ -57,4 +64,5 @@ class ModelSource:
             "is_default": bool(is_default),
             "available": bool(available),
             "reason": reason,
+            "provider": (provider or "").strip(),
         }

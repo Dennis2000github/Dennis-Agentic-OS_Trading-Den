@@ -34,7 +34,7 @@ fi
 
 AGENTS=("$@")
 if [ ${#AGENTS[@]} -eq 0 ]; then
-  AGENTS=(opencode antigravity codex claude-code)
+  AGENTS=(opencode antigravity codex claude-code cursor openclaw)
 fi
 
 for agent in "${AGENTS[@]}"; do

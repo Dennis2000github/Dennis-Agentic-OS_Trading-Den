@@ -12,15 +12,38 @@
   "use strict";
 
   var XTERM_VERSION = "5.3.0";
+  var LOCAL = "/vendor/xterm/";
   var CDN = "https://cdn.jsdelivr.net/npm/";
-  var XTERM_CSS = CDN + "xterm@" + XTERM_VERSION + "/css/xterm.css";
-  var XTERM_JS = CDN + "xterm@" + XTERM_VERSION + "/lib/xterm.js";
-  var FIT_JS = CDN + "xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js";
-  var UNICODE_JS = CDN + "xterm-addon-unicode11@0.6.0/lib/xterm-addon-unicode11.js";
-  var WEBGL_JS = CDN + "xterm-addon-webgl@0.16.0/lib/xterm-addon-webgl.js";
+  var XTERM_CSS = LOCAL + "xterm.css";
+  var XTERM_JS = LOCAL + "xterm.js";
+  var FIT_JS = LOCAL + "addon-fit.js";
+  var UNICODE_JS = LOCAL + "addon-unicode11.js";
+  var WEBGL_JS = LOCAL + "addon-webgl.js";
+  // Served from the repo so the terminal never depends on the CDN; the public
+  // URLs remain as a fallback for a checkout without vendor/xterm.
+  var XTERM_CSS_CDN = CDN + "xterm@" + XTERM_VERSION + "/css/xterm.css";
+  var XTERM_JS_CDN = CDN + "xterm@" + XTERM_VERSION + "/lib/xterm.js";
+  var FIT_JS_CDN = CDN + "xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js";
+  var UNICODE_JS_CDN = CDN + "xterm-addon-unicode11@0.6.0/lib/xterm-addon-unicode11.js";
+  var WEBGL_JS_CDN = CDN + "xterm-addon-webgl@0.16.0/lib/xterm-addon-webgl.js";
 
-  var MAX_AUTO_OPEN_MODELS = 12;   // show search above this many
   var HANDOFF_ANIM_MS = 220;
+
+  // A page opened straight from disk (file://) can never reach the backend.
+  // Send the browser to the address the OS actually serves itself from.
+  if (location.protocol === "file:") {
+    location.replace("http://localhost:8080/" + (location.hash || ""));
+    return;
+  }
+
+  function backendHint() {
+    if (location.port && location.port !== "8080") {
+      return "This page is not served by the OS backend. Open http://localhost:8080 " +
+        "(start app.py first).";
+    }
+    return "Backend not reachable. Start app.py (or press Run in PyCharm), then reload " +
+      "http://localhost:8080.";
+  }
 
   var state = {
     initDone: false,
@@ -36,9 +59,13 @@
     panel: null,
     models: { status: "idle", items: [], error: null, current: null, liveSwitch: false, forAgent: null },
     modelQuery: "",
+    providerId: null,
+    providerLocked: false,
+    providers: [],
+    providerSetup: null,
     ready: null,
     readyNote: null,
-    screen: { starting: false, exited: false, hasSession: false },
+    screen: { starting: false, exited: false, hasSession: false, chat: false },
     handoff: {},          // sessionId -> {burst, suppressed}
     pendingFullPane: null,
     lastFocusButton: null,
@@ -111,19 +138,37 @@
       document.head.appendChild(s);
     });
   }
+  function loadFirst(urls) {
+    return urls.reduce(function (p, url) {
+      return p.catch(function () { return loadScript(url); });
+    }, Promise.reject(new Error("no source")));
+  }
+  function loadTerminalCss() {
+    return new Promise(function (resolve) {
+      var css = document.createElement("link");
+      css.rel = "stylesheet";
+      css.href = XTERM_CSS;
+      css.onerror = function () {
+        var fallback = document.createElement("link");
+        fallback.rel = "stylesheet";
+        fallback.href = XTERM_CSS_CDN;
+        document.head.appendChild(fallback);
+        resolve();
+      };
+      css.onload = function () { resolve(); };
+      document.head.appendChild(css);
+    });
+  }
 
   function ensureXterm() {
     if (xtermPromise) return xtermPromise;
-    var css = document.createElement("link");
-    css.rel = "stylesheet";
-    css.href = XTERM_CSS;
-    document.head.appendChild(css);
-    xtermPromise = loadScript(XTERM_JS).then(function () {
-      return loadScript(FIT_JS).catch(function () {});
+    loadTerminalCss();
+    xtermPromise = loadFirst([XTERM_JS, XTERM_JS_CDN]).then(function () {
+      return loadFirst([FIT_JS, FIT_JS_CDN]).catch(function () {});
     }).then(function () {
-      return loadScript(UNICODE_JS).catch(function () {});
+      return loadFirst([UNICODE_JS, UNICODE_JS_CDN]).catch(function () {});
     }).then(function () {
-      return loadScript(WEBGL_JS).catch(function () {});
+      return loadFirst([WEBGL_JS, WEBGL_JS_CDN]).catch(function () {});
     });
     return xtermPromise;
   }
@@ -145,6 +190,19 @@
       onStatus: null,
       onExit: null,
       onHandoff: null,
+      // PTY output is coalesced into a single xterm.write per animation frame
+      // instead of one write per WebSocket frame. Fast TUIs (OpenCode et al.)
+      // redraw in tight bursts; writing each 64KB chunk separately made
+      // scrolling janky and could starve the render loop.
+      _pending: "",
+      _flushRaf: null,
+      _wheelAt: 0,
+      // Reconnect bookkeeping so a dropped socket revives instead of leaving
+      // the terminal frozen on its last frame ("CLI stopped").
+      _reconnectTimer: null,
+      _reconnectAttempts: 0,
+      _disposed: false,
+      _pingTimer: null,
     };
 
     view.element = document.createElement("div");
@@ -170,8 +228,36 @@
       }
       return false;
     };
-    view.write = function (chunk) { if (view.term) view.term.write(chunk); };
+    view.write = function (chunk) {
+      if (!view.term || !chunk) return;
+      view._pending += chunk;
+      if (view._flushRaf !== null) return;
+      view._flushRaf = (window.requestAnimationFrame || function (fn) { return setTimeout(fn, 16); })(function () {
+        view._flushRaf = null;
+        var data = view._pending;
+        view._pending = "";
+        if (data && view.term) {
+          try { view.term.write(data); } catch (e) { /* terminal disposed */ }
+        }
+      });
+    };
+    view.flushNow = function () {
+      if (view._flushRaf !== null) {
+        (window.cancelAnimationFrame || clearTimeout)(view._flushRaf);
+        view._flushRaf = null;
+      }
+      var data = view._pending;
+      view._pending = "";
+      if (data && view.term) {
+        try { view.term.write(data); } catch (e) { /* terminal disposed */ }
+      }
+    };
     view.dispose = function () {
+      view._disposed = true;
+      if (view._reconnectTimer) { clearTimeout(view._reconnectTimer); view._reconnectTimer = null; }
+      if (view._pingTimer) { clearInterval(view._pingTimer); view._pingTimer = null; }
+      if (view._flushRaf !== null) { (window.cancelAnimationFrame || clearTimeout)(view._flushRaf); view._flushRaf = null; }
+      view._pending = "";
       if (view.ws) { try { view.ws.close(); } catch (e) {} view.ws = null; }
       if (view.term) { try { view.term.dispose(); } catch (e) {} view.term = null; }
       if (view.element && view.element.parentNode) view.element.parentNode.removeChild(view.element);
@@ -221,6 +307,27 @@
           } catch (e) { /* falls back to the canvas/DOM renderer */ }
         }
         view.term.open(view.element);
+        // Wheel fallback for full-screen TUIs that do not enable mouse
+        // tracking. xterm.js has no scrollback in the alternate buffer and
+        // turns the wheel into Up/Down arrows, which most TUIs treat as prompt
+        // history rather than scrolling. PageUp/PageDown is what those CLIs
+        // actually scroll their own view with.
+        view.onWheel = function (ev) {
+          var t = view.term;
+          if (!t || !t.buffer) return;
+          var mode = t.modes && t.modes.mouseTrackingMode;
+          if (mode && mode !== "none") return;   // xterm reports this wheel as a mouse event
+          if (t.buffer.hasScrollback) return;    // normal buffer: keep local scrollback
+          if (ev.ctrlKey || ev.metaKey) return;  // never steal browser zoom
+          ev.preventDefault();
+          ev.stopPropagation();
+          var now = Date.now();
+          if (now - (view._wheelAt || 0) < 70) return;
+          view._wheelAt = now;
+          var seq = ev.deltaY < 0 ? "\x1b[5~" : "\x1b[6~";
+          if (registry) registry.inputTo(sessionId, seq);
+        };
+        view.element.addEventListener("wheel", view.onWheel, { passive: false, capture: true });
         view.term.onData(function (data) {
           // Always this session's own process, never another dashboard's.
           if (registry) registry.inputTo(sessionId, data);
@@ -233,6 +340,7 @@
     };
 
     view.connect = function () {
+      if (view._disposed) return;
       if (view.ws && (view.ws.readyState === 0 || view.ws.readyState === 1)) return;
       var ws;
       try { ws = new WebSocket(wsUrl(sessionId)); } catch (e) { return; }
@@ -253,10 +361,40 @@
           if (view.onExit) view.onExit(msg.code);
         } else if (msg.type === "handoff") {
           if (view.onHandoff) view.onHandoff(msg);
+        } else if (msg.type === "pong") {
+          view._pongAt = Date.now();
         }
       };
-      ws.onopen = function () { view.fitNow(); };
-      ws.onclose = function () { if (view.ws === ws) view.ws = null; };
+      ws.onopen = function () {
+        view._reconnectAttempts = 0;
+        view.flushNow();
+        view.fitNow();
+        if (view._pingTimer) clearInterval(view._pingTimer);
+        // Keep-alive: a silently half-open socket otherwise freezes the
+        // terminal with no visible error.
+        view._pingTimer = setInterval(function () {
+          if (ws.readyState === 1) {
+            try { ws.send(JSON.stringify({ type: "ping" })); } catch (e) {}
+          }
+        }, 20000);
+      };
+      ws.onclose = function () {
+        if (view._pingTimer) { clearInterval(view._pingTimer); view._pingTimer = null; }
+        if (view.ws === ws) view.ws = null;
+        view.scheduleReconnect();
+      };
+      ws.onerror = function () { /* onclose drives the retry */ };
+    };
+
+    view.scheduleReconnect = function () {
+      if (view._disposed || view._reconnectTimer) return;
+      var attempt = view._reconnectAttempts = (view._reconnectAttempts || 0) + 1;
+      var delay = Math.min(15000, 500 * Math.pow(2, Math.min(attempt - 1, 5)));
+      view._reconnectTimer = setTimeout(function () {
+        view._reconnectTimer = null;
+        if (view._disposed) return;
+        view.connect();
+      }, delay);
     };
 
     view.closeSocket = function () {
@@ -269,15 +407,55 @@
   // -- agents ------------------------------------------------------------
   function loadAgents() {
     return api("/api/agents/availability").then(function (r) {
-      state.agents = (r.data && r.data.agents) || [];
+      state.agents = withRequiredAgents((r.data && r.data.agents) || []);
       if (r.data && r.data.backend_note) state.readyNote = r.data.backend_note;
       renderAgents();
       updateAgentLabel();
     });
   }
 
+  // Keep the two requested integrations visible while an older backend
+  // process is being restarted. The backend remains the source of truth for
+  // availability and model/provider data.
+  function withRequiredAgents(agents) {
+    var list = Array.isArray(agents) ? agents.slice() : [];
+    [
+      { id: "cursor", name: "Cursor", provider: "Cursor", icon_char: "Cu", color_theme: "violet" },
+      { id: "openclaw", name: "OpenClaw", provider: "OpenClaw", icon_char: "OC", color_theme: "orange" },
+    ].forEach(function (required) {
+      if (!list.some(function (agent) { return agent && agent.id === required.id; })) {
+        required.available = false;
+        required.reason = "Backend restart required to detect this CLI";
+        list.splice(Math.min(1, list.length), 0, required);
+      }
+    });
+    return list;
+  }
+
   function agentById(id) {
     return state.agents.filter(function (a) { return a.id === id; })[0] || null;
+  }
+
+  /* Native chat agents (DeepSeek Harness) mount their own dashboard instead of
+   * a PTY/terminal. The backend marks them with transport:"chat". */
+  function isChatAgent(agent) {
+    return !!(agent && agent.transport === "chat");
+  }
+
+  function currentIsChat() {
+    return isChatAgent(agentById(state.agentId));
+  }
+
+  /* The chat dashboard has no project session to store a model on, so the
+   * owner's last pick is remembered locally and restored on agent switch. */
+  function chatModelPref() {
+    try { return window.localStorage.getItem("dennis.deepseek.model") || null; }
+    catch (e) { return null; }
+  }
+  function rememberChatModel(id) {
+    try {
+      if (id) window.localStorage.setItem("dennis.deepseek.model", id);
+    } catch (e) { /* storage unavailable */ }
   }
 
   function renderAgents() {
@@ -292,7 +470,10 @@
         '<span class="ws-agent-dot" style="background:' + (a.available ? "#10b981" : "#ef4444") + '"></span>' +
         '<span class="flex-1 text-left truncate">' + esc(a.name) + "</span>" +
         '<span class="text-[10px] font-mono text-slate-500 shrink-0">' +
-        (a.session_count ? a.session_count + (a.session_count === 1 ? " session" : " sessions") : "") + "</span>";
+        (a.available
+          ? (a.session_count ? a.session_count + (a.session_count === 1 ? " session" : " sessions")
+                             : (a.transport === "chat" ? "built-in" : ""))
+          : (a.reason || "unavailable")) + "</span>";
       btn.title = a.available ? (a.version || "Available") : (a.reason || "Unavailable");
       if (a.available) {
         btn.addEventListener("click", function () { selectAgent(a.id); closeMenus(); });
@@ -308,15 +489,575 @@
     if (el) el.textContent = "Agent: " + (a ? a.name : "\u2014");
   }
 
+  // -- providers (CLI-reported, never invented) --------------------------
+  var PROVIDER_KEY = "dennis.workspace.provider"; // agentId -> providerId
+  var providerSetupSig = null;                    // avoid re-rendering on keystrokes
+
+  function recallProvider(agentId) {
+    try {
+      var raw = window.localStorage.getItem(PROVIDER_KEY);
+      if (!raw) return null;
+      var map = JSON.parse(raw);
+      if (map && typeof map === "object" && map[agentId]) return String(map[agentId]);
+    } catch (e) { /* storage unavailable */ }
+    return null;
+  }
+
+  function rememberProvider(agentId, providerId) {
+    if (!agentId) return;
+    try {
+      var raw = window.localStorage.getItem(PROVIDER_KEY);
+      var map = raw ? JSON.parse(raw) : {};
+      if (!map || typeof map !== "object") map = {};
+      if (providerId) map[agentId] = providerId;
+      else delete map[agentId];
+      window.localStorage.setItem(PROVIDER_KEY, JSON.stringify(map));
+    } catch (e) { /* storage unavailable */ }
+  }
+
+  function providerById(id) {
+    if (!id) return null;
+    var list = state.providers || [];
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].id === id) return list[i];
+    }
+    return null;
+  }
+
+  /* Pick the provider to show: an explicit (still valid) choice wins, then the
+   * current session's model, then the provider this agent was last used with. */
+  function resolveProviderId(providers, items) {
+    var known = function (id) {
+      return (providers || []).some(function (p) { return p.id === id; });
+    };
+    // An explicit pick wins, including an explicit "All providers" (null).
+    if (state.providerLocked) {
+      if (!state.providerId) return null;
+      if (known(state.providerId)) return state.providerId;
+    }
+    if (state.providerId && known(state.providerId)) return state.providerId;
+    var current = state.models.current || state.modelId;
+    for (var i = 0; i < (items || []).length; i++) {
+      if (items[i].id === current && items[i].provider) return items[i].provider;
+    }
+    var remembered = recallProvider(state.agentId);
+    if (remembered && known(remembered)) return remembered;
+    if ((providers || []).length === 1) return providers[0].id;
+    return null;
+  }
+
+  function providerDisabledReason() {
+    if (!state.agentId) return "Select an agent first.";
+    if (state.screen.starting) return "Agent is starting.";
+    return "";
+  }
+
+  function updateProviderAvailability() {
+    var btn = $("ws-provider-btn");
+    if (!btn) return;
+    var reason = providerDisabledReason();
+    var disabled = !!reason;
+    btn.disabled = disabled;
+    btn.classList.toggle("ws-dropdown-disabled", disabled);
+    btn.title = disabled ? reason : "Provider for this agent";
+    if (disabled && $("ws-provider-menu")) $("ws-provider-menu").classList.add("hidden");
+  }
+
+  var WEB_MODELS = [
+    { id: "chatgpt", name: "ChatGPT", url: "https://chatgpt.com/", color: "#10a37f" },
+    { id: "gemini", name: "Gemini", url: "https://gemini.google.com/", color: "#8ab4f8" },
+    { id: "claude", name: "Claude", url: "https://claude.ai/", color: "#d97757" },
+    { id: "deepseek", name: "DeepSeek", url: "https://chat.deepseek.com/", color: "#4d6bfe" },
+    { id: "copilot", name: "Microsoft Copilot", url: "https://copilot.microsoft.com/", color: "#60a5fa" },
+    { id: "perplexity", name: "Perplexity", url: "https://www.perplexity.ai/", color: "#20b8cd" },
+    { id: "grok", name: "Grok", url: "https://grok.com/", color: "#d1d5db" },
+    { id: "qwen", name: "Qwen Chat", url: "https://chat.qwen.ai/", color: "#7c3aed" },
+    { id: "kimi", name: "Kimi", url: "https://www.kimi.com/", color: "#3b82f6" },
+    { id: "mistral", name: "Le Chat (Mistral)", url: "https://chat.mistral.ai/", color: "#f97316" },
+    { id: "poe", name: "Poe", url: "https://poe.com/", color: "#8b5cf6" }
+  ];
+
+  function renderWebModels() {
+    var host = $("ws-web-model-options");
+    if (!host) return;
+    host.innerHTML = "";
+    WEB_MODELS.forEach(function (model) {
+      var btn = document.createElement("button");
+      btn.className = "ws-menu-item";
+      btn.innerHTML =
+        '<span class="ws-agent-dot" style="background:' + model.color + '"></span>' +
+        '<span class="flex-1 text-left truncate">' + esc(model.name) + "</span>" +
+        '<i data-lucide="panels-top-left" class="w-3 h-3 text-slate-500"></i>';
+      btn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        if (!window.dennisDesktop || !window.dennisDesktop.openWebModel) {
+          note("Open DENNIS Desktop to use the Web Model Dashboard.");
+        } else {
+          window.dennisDesktop.openWebModel(model.id).catch(function () {
+            note("Couldn't open the Web Model Dashboard.");
+          });
+        }
+        var menu = $("ws-web-model-menu");
+        var toggle = $("ws-web-model-btn");
+        if (menu) menu.classList.add("hidden");
+        if (toggle) toggle.setAttribute("aria-expanded", "false");
+      });
+      host.appendChild(btn);
+    });
+    icons();
+  }
+
+  function updateProviderLabel() {
+    var el = $("ws-provider-label");
+    if (!el) return;
+    if (!state.agentId) { el.textContent = "Provider: \u2014"; return; }
+    var p = providerById(state.providerId);
+    if (p) { el.textContent = "Provider: " + (p.label || p.id); return; }
+    var count = (state.providers || []).length;
+    el.textContent = count > 1 ? "Provider: All (" + count + ")" : "Provider: \u2014";
+  }
+
+  function providerRow(label, countText, active, opts) {
+    opts = opts || {};
+    var btn = document.createElement("button");
+    btn.className = "ws-menu-item" + (active ? " ws-menu-item-active" : "") +
+      (opts.available === false ? " ws-menu-item-disabled" : "");
+    btn.innerHTML =
+      '<span class="ws-agent-dot" style="background:' +
+        (opts.available === false ? "#ef4444" : "#f59e0b") + '"></span>' +
+      '<span class="flex-1 text-left truncate">' + esc(label) + "</span>" +
+      '<span class="text-[10px] font-mono text-slate-500 shrink-0">' + esc(countText) + "</span>";
+    if (opts.title) btn.title = opts.title;
+    if (opts.available !== false) {
+      btn.addEventListener("click", function (e) {
+        // Keep this click from reaching the document handler, which would
+        // immediately close the model menu selectProvider opens.
+        e.stopPropagation();
+        selectProvider(opts.id || null);
+      });
+    }
+    return btn;
+  }
+
+  function renderProviders() {
+    var host = $("ws-provider-options");
+    if (!host) return;
+    host.innerHTML = "";
+    renderProviderSetup();
+
+    if (!state.agentId) {
+      host.innerHTML = '<div class="px-3 py-2 text-[11px] text-slate-500">Select an agent first.</div>';
+      return;
+    }
+    if (state.models.status === "loading" || state.models.status === "idle") {
+      host.innerHTML = '<div class="px-3 py-2 text-[11px] text-slate-500">Loading providers\u2026</div>';
+      return;
+    }
+    if (state.models.status === "error") {
+      host.innerHTML = '<div class="px-3 py-2 text-[11px] text-rose-300">' +
+        esc(state.models.error || "Couldn't load providers for this agent.") + "</div>";
+      return;
+    }
+
+    var providers = state.providers || [];
+    if (!providers.length) {
+      host.innerHTML = '<div class="px-3 py-2 text-[11px] text-slate-500">' +
+        "This agent did not report any provider. Configure it below, then press Refresh.</div>";
+      return;
+    }
+
+    if (providers.length > 1) {
+      var total = providers.reduce(function (n, p) { return n + (p.model_count || 0); }, 0);
+      host.appendChild(providerRow(
+        "All providers",
+        total + (total === 1 ? " model" : " models"),
+        !state.providerId,
+        { id: null, title: "Show models from every provider this agent reports." }
+      ));
+    }
+    providers.forEach(function (p) {
+      var count = p.model_count || 0;
+      host.appendChild(providerRow(
+        p.label || p.id,
+        count + (count === 1 ? " model" : " models"),
+        state.providerId === p.id,
+        { id: p.id, available: p.available !== false }
+      ));
+    });
+    icons();
+  }
+
+  /* Show CLI-native setup commands or app-managed provider forms beside the
+   * provider list. This keeps account setup in the same menu as model choice. */
+  function renderProviderSetup() {
+    var host = $("ws-provider-setup");
+    if (!host) return;
+    var setup = state.providerSetup;
+    var sig = setup
+      ? [setup.label || "", setup.command || "", setup.hint || "", setup.form || ""].join("\u0001")
+      : "";
+    if (sig === providerSetupSig) return;   // already rendered (model search keystroke)
+    providerSetupSig = sig;
+    host.innerHTML = "";
+    if (!setup || (!setup.command && !setup.hint && !setup.form)) {
+      host.classList.add("hidden");
+      return;
+    }
+    host.classList.remove("hidden");
+
+    var title = document.createElement("div");
+    title.className = "text-[10px] font-semibold text-slate-300";
+    title.textContent = setup.label || "Configure provider";
+    host.appendChild(title);
+
+    if (setup.command) {
+      var row = document.createElement("div");
+      row.className = "flex items-center gap-1.5";
+      var code = document.createElement("code");
+      code.className = "flex-1 min-w-0 truncate px-2 py-1 rounded-md bg-[#0b1226] border border-[#22304f] text-[10.5px] font-mono text-cyan-300";
+      code.textContent = setup.command;
+      code.title = setup.command;
+      var copy = document.createElement("button");
+      copy.className = "ws-icon-btn";
+      copy.title = "Copy command";
+      copy.innerHTML = '<i data-lucide="copy" class="w-3 h-3"></i>';
+      copy.addEventListener("click", function (e) {
+        e.stopPropagation();
+        function done() { note("Copied: " + setup.command); }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(setup.command).then(done, function () {});
+        }
+      });
+      row.appendChild(code);
+      row.appendChild(copy);
+      host.appendChild(row);
+    }
+    if (setup.hint) {
+      var hint = document.createElement("div");
+      hint.className = "text-[10px] text-slate-500 leading-snug";
+      hint.textContent = setup.hint;
+      host.appendChild(hint);
+    }
+    if (setup.form === "api_key" && state.agentId === "deepseek-harness") renderDeepSeekAuth(host);
+    if (setup.form === "freellmapi") renderFreeLLMAPIAuth(host);
+    icons();
+  }
+
+  function renderFreeLLMAPIAuth(host) {
+    var box = document.createElement("div");
+    box.className = "ws-setup-auth";
+    box.innerHTML =
+      '<div class="ws-setup-state" id="ws-free-state">Checking FreeLLMAPI…</div>' +
+      '<div class="space-y-1.5" id="ws-free-form">' +
+        '<input class="ws-setup-input" id="ws-free-url" type="url" autocomplete="url" placeholder="https://api.groq.com/openai/v1" aria-label="Free API base URL">' +
+        '<input class="ws-setup-input" id="ws-free-model" type="text" autocomplete="off" placeholder="Model ID from the FreeLLMAPI repo" aria-label="Free API model ID">' +
+        '<input class="ws-setup-input" id="ws-free-key" type="password" autocomplete="new-password" spellcheck="false" placeholder="Provider API key" aria-label="Free API key">' +
+        '<div class="ws-setup-row"><button class="ws-setup-btn ws-setup-btn-primary" id="ws-free-connect" type="button">Connect</button>' +
+        '<button class="ws-setup-btn ws-setup-btn-danger hidden" id="ws-free-disconnect" type="button">Disconnect</button></div>' +
+      '</div>' +
+      '<div class="ws-setup-msg" id="ws-free-msg" role="status"></div>';
+    host.appendChild(box);
+    var stateEl = $("ws-free-state"), url = $("ws-free-url"), model = $("ws-free-model");
+    var key = $("ws-free-key"), connect = $("ws-free-connect"), disconnect = $("ws-free-disconnect");
+    var msg = $("ws-free-msg");
+    function message(text) { if (msg) msg.textContent = text || ""; }
+    function paint(s) {
+      if (!stateEl) return;
+      if (s && s.configured) {
+        stateEl.textContent = "Connected to " + s.base_url + " · key " + (s.key_hint || "saved");
+        stateEl.className = "ws-setup-state ws-setup-state-ok";
+        url.value = s.base_url || "";
+        model.value = s.model || "";
+        key.placeholder = "Saved key (leave blank to keep)";
+        disconnect.classList.remove("hidden");
+      } else {
+        stateEl.textContent = "Connect one provider and model from the FreeLLMAPI catalog.";
+        stateEl.className = "ws-setup-state ws-setup-state-missing";
+        key.placeholder = "Provider API key";
+        disconnect.classList.add("hidden");
+      }
+    }
+    connect.addEventListener("click", function (e) {
+      e.stopPropagation();
+      if (!url.value.trim() || !model.value.trim() || (!key.value.trim() && !key.placeholder.startsWith("Saved key"))) {
+        message("Enter the provider base URL, model ID, and API key."); return;
+      }
+      connect.disabled = true; message("Saving connection…");
+      api("/api/freellmapi", { method: "POST", body: {
+        agent_id: state.agentId,
+        base_url: url.value.trim(), model: model.value.trim(), api_key: key.value.trim()
+      }}).then(function (r) {
+        if (!r.ok) { message((r.data && r.data.error) || "Could not save the provider."); return; }
+        key.value = ""; paint((r.data && r.data.settings) || {}); message("Connected. Refreshing agent models…");
+        return loadModels(true).then(function () { message("Connected. Choose the FreeLLMAPI model from the model menu."); });
+      }).catch(function () { message("Backend unreachable."); })
+        .then(function () { connect.disabled = false; });
+    });
+    disconnect.addEventListener("click", function (e) {
+      e.stopPropagation(); disconnect.disabled = true; message("Disconnecting…");
+      api("/api/freellmapi?agent_id=" + encodeURIComponent(state.agentId), { method: "DELETE" }).then(function (r) {
+        if (!r.ok) { message((r.data && r.data.error) || "Could not disconnect."); return; }
+        key.value = ""; paint((r.data && r.data.settings) || {}); message("Disconnected.");
+        return loadModels(true);
+      }).catch(function () { message("Backend unreachable."); })
+        .then(function () { disconnect.disabled = false; });
+    });
+    api("/api/freellmapi?agent_id=" + encodeURIComponent(state.agentId)).then(function (r) {
+      if (r.ok) paint((r.data && r.data.settings) || {});
+      else if (stateEl) stateEl.textContent = "Could not check FreeLLMAPI settings.";
+    }).catch(function () { if (stateEl) stateEl.textContent = "Could not check FreeLLMAPI settings."; });
+  }
+
+  /* Inline credential form for the native DeepSeek agent. Mirrors the chat
+   * panel's setup card, but lives in the Provider dropdown so account
+   * configuration sits next to the provider/model it belongs to. */
+  function renderDeepSeekAuth(host) {
+    var box = document.createElement("div");
+    box.className = "ws-setup-auth";
+    box.innerHTML =
+      '<div class="ws-setup-state" id="ws-ds-auth-state">Checking connection\u2026</div>' +
+      '<div class="ws-setup-row hidden" id="ws-ds-auth-form">' +
+        '<input class="ws-setup-input" id="ws-ds-key" type="password" autocomplete="off" ' +
+          'spellcheck="false" placeholder="sk-\u2026" aria-label="DeepSeek API key">' +
+        '<button class="ws-setup-btn ws-setup-btn-primary" id="ws-ds-connect" type="button">Connect</button>' +
+      '</div>' +
+      '<div class="ws-setup-row hidden" id="ws-ds-auth-foot">' +
+        '<button class="ws-setup-btn ws-setup-btn-danger" id="ws-ds-disconnect" type="button">Disconnect</button>' +
+      '</div>' +
+      '<div class="ws-setup-msg" id="ws-ds-auth-msg" role="status"></div>';
+    host.appendChild(box);
+
+    var stateEl = $("ws-ds-auth-state");
+    var formEl = $("ws-ds-auth-form");
+    var footEl = $("ws-ds-auth-foot");
+    var msgEl = $("ws-ds-auth-msg");
+    var input = $("ws-ds-key");
+    var connectBtn = $("ws-ds-connect");
+    var disconnectBtn = $("ws-ds-disconnect");
+
+    function message(text) {
+      if (!msgEl) return;
+      msgEl.textContent = text || "";
+    }
+    function paint(status) {
+      var s = status || {};
+      if (!stateEl) return;
+      if (s.configured) {
+        stateEl.textContent = "Connected" + (s.hint ? " " + s.hint : "") +
+          (s.source === "environment" ? " (environment variable)" : "");
+        stateEl.className = "ws-setup-state ws-setup-state-ok";
+        formEl.classList.add("hidden");
+        if (s.source === "environment") {
+          footEl.classList.add("hidden");
+        } else {
+          footEl.classList.remove("hidden");
+        }
+      } else {
+        stateEl.textContent = "Not connected. Paste a DeepSeek API key to enable this agent.";
+        stateEl.className = "ws-setup-state ws-setup-state-missing";
+        formEl.classList.remove("hidden");
+        footEl.classList.add("hidden");
+      }
+    }
+    function lock(btn, busy) {
+      if (btn) btn.disabled = !!busy;
+    }
+
+    connectBtn.addEventListener("click", function () {
+      var key = input.value.trim();
+      if (!key) { message("Paste a key first."); input.focus(); return; }
+      lock(connectBtn, true);
+      message("Connecting\u2026");
+      api("/api/deepseek/credentials", { method: "POST", body: { api_key: key } })
+        .then(function (r) {
+          if (!r.ok) {
+            message((r.data && r.data.error) || "Could not connect that key.");
+            return;
+          }
+          input.value = "";
+          message("Connected.");
+          paint((r.data && r.data.credentials) || { configured: true });
+          if (window.DeepSeekChat && window.DeepSeekChat.refreshStatus) {
+            window.DeepSeekChat.refreshStatus();
+          }
+          note("DeepSeek connected. The chat is ready.");
+        })
+        .catch(function () { message("Backend unreachable."); })
+        .then(function () { lock(connectBtn, false); });
+    });
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); connectBtn.click(); }
+    });
+    disconnectBtn.addEventListener("click", function () {
+      lock(disconnectBtn, true);
+      message("Disconnecting\u2026");
+      api("/api/deepseek/credentials", { method: "DELETE" })
+        .then(function (r) {
+          if (!r.ok) {
+            message((r.data && r.data.error) || "Could not disconnect.");
+            return;
+          }
+          var s = (r.data && r.data.credentials) || { configured: false };
+          paint(s);
+          message(s.configured ? "Stored key removed; the environment key is still active."
+                               : "Disconnected.");
+          if (window.DeepSeekChat && window.DeepSeekChat.refreshStatus) {
+            window.DeepSeekChat.refreshStatus();
+          }
+          note(s.configured ? "Stored DeepSeek key removed. DEEPSEEK_API_KEY is still active."
+                            : "DeepSeek disconnected.");
+        })
+        .catch(function () { message("Backend unreachable."); })
+        .then(function () { lock(disconnectBtn, false); });
+    });
+
+    api("/api/deepseek/status").then(function (r) {
+      if (r.ok) paint(r.data);
+      else if (r.status === 401) paint({ configured: false });
+      else if (stateEl) stateEl.textContent = "Could not check the DeepSeek connection.";
+    }).catch(function () {
+      if (stateEl) stateEl.textContent = "Could not check the DeepSeek connection.";
+    });
+  }
+
+  function selectProvider(id) {
+    if (!state.agentId) return;
+    state.providerId = id || null;
+    state.providerLocked = true;
+    state.modelQuery = "";
+    rememberProvider(state.agentId, state.providerId);
+    updateProviderLabel();
+    renderProviders();
+    renderModels();
+    // Complete the switch in the model list: the provider is a filter, the
+    // model is what actually changes. Nothing restarts until a model is picked.
+    closeMenus();
+    toggleMenu("ws-model-menu");
+    var pending = loadModels(false);
+    if (pending && pending.then) pending.then(focusModelSearch, focusModelSearch);
+    else focusModelSearch();
+  }
+
+  // -- last selection (restore agent + session across reloads) -----------
+  var LAST_KEY = "dennis.workspace.last";
+  var OPEN_KEY = "dennis.workspace.open";   // agentId -> sessionId (every warm agent)
+
+  function rememberLast() {
+    try {
+      var open = recallOpen();
+      if (state.agentId && state.sessionId) open[state.agentId] = state.sessionId;
+      window.localStorage.setItem(LAST_KEY, JSON.stringify({
+        agentId: state.agentId,
+        sessionId: state.sessionId,
+      }));
+      window.localStorage.setItem(OPEN_KEY, JSON.stringify(open));
+    } catch (e) { /* storage unavailable */ }
+  }
+
+  function recallLast() {
+    try {
+      var raw = window.localStorage.getItem(LAST_KEY);
+      if (!raw) return null;
+      var v = JSON.parse(raw);
+      if (v && typeof v === "object" && v.agentId) return v;
+    } catch (e) { /* ignore */ }
+    return null;
+  }
+
+  function recallOpen() {
+    try {
+      var raw = window.localStorage.getItem(OPEN_KEY);
+      if (!raw) return {};
+      var v = JSON.parse(raw);
+      if (v && typeof v === "object") return v;
+    } catch (e) { /* ignore */ }
+    return {};
+  }
+
+  function sessionForAgent(agentId) {
+    var open = recallOpen();
+    return open[agentId] || null;
+  }
+
   function selectAgent(id) {
     var agent = agentById(id);
     if (!agent || !agent.available) return;
-    if (state.agentId === id && state.sessionId) return;
+    var chat = isChatAgent(agent);
+    if (state.agentId === id && (chat ? chatOpen() : state.sessionId)) return;
+    if (!chat) closeChat();
     state.agentId = id;
     state.sessionId = null;
     state.current = null;
     state.modelId = null;
-    state.models = { status: "idle", items: [], error: null, current: null, liveSwitch: false, forAgent: id };
+    state.modelQuery = "";
+    state.providerId = null;
+    state.providerLocked = false;
+    state.providers = [];
+    state.providerSetup = null;
+    state.models = { status: "idle", items: [], error: null, current: null, liveSwitch: false, forAgent: null };
+    state.panel = PanelState.agentSelected(state.panel || PanelState.defaultPanel());
+    updateAgentLabel();
+    renderAgents();
+    renderProjectMenu();
+    if (chat) {
+      state.modelId = chatModelPref();
+      state.screen = { starting: false, exited: false, hasSession: false, chat: true };
+      rememberLast();
+      openChat();
+      renderPanel();
+      loadModels(false);
+      loadSessions();
+      setStatus("idle");
+      renderScreen();
+      return;
+    }
+    resetScreen();
+    renderPanel();
+    loadModels(false);
+    loadSessions().then(function () {
+      // Reopen THIS agent's own previously-live session (not just the newest),
+      // so switching back to an agent resumes its still-running CLI instead of
+      // spawning a new one.
+      if (state.agentId !== id) return;
+      var remembered = sessionForAgent(id);
+      var target = null;
+      if (remembered) {
+        for (var i = 0; i < state.sessions.length; i++) {
+          if (state.sessions[i].id === remembered) { target = state.sessions[i]; break; }
+        }
+      }
+      if (!target) target = state.sessions[0];
+      if (target) openSession(target.id, { auto: true });
+      else {
+        state.screen.hasSession = false;
+        renderScreen();
+      }
+    });
+  }
+
+  // Re-select the last agent and reopen its session so the CLI comes back
+  // immediately after a page refresh (no re-selecting, no extra clicks).
+  function restoreLastSession() {
+    var last = recallLast();
+    if (!last || !last.agentId) return;
+    var agent = agentById(last.agentId);
+    if (!agent || !agent.available) return;
+    if (isChatAgent(agent)) {
+      // Native chat agents have no project session; selecting them restores
+      // their own dashboard and the last conversation it remembers.
+      selectAgent(agent.id);
+      return;
+    }
+    state.agentId = last.agentId;
+    state.sessionId = null;
+    state.current = null;
+    state.modelId = null;
+    state.modelQuery = "";
+    state.providerId = null;
+    state.providerLocked = false;
+    state.providers = [];
+    state.providerSetup = null;
+    state.models = { status: "idle", items: [], error: null, current: null, liveSwitch: false, forAgent: last.agentId };
     state.panel = PanelState.agentSelected(state.panel || PanelState.defaultPanel());
     updateAgentLabel();
     renderAgents();
@@ -325,14 +1066,37 @@
     renderPanel();
     loadModels(false);
     loadSessions().then(function () {
-      // Start the agent's own dashboard using its last open project session.
-      if (state.agentId !== id) return;
-      var latest = state.sessions[0];
-      if (latest) openSession(latest.id, { auto: true });
-      else {
-        state.screen.hasSession = false;
-        renderScreen();
+      if (state.agentId !== last.agentId) return;
+      var target = null;
+      for (var i = 0; i < state.sessions.length; i++) {
+        if (state.sessions[i].id === last.sessionId) { target = state.sessions[i]; break; }
       }
+      if (!target) target = state.sessions[0];
+      if (target) openSession(target.id, { auto: true, collapse: true });
+      else { state.screen.hasSession = false; renderScreen(); }
+      // Warm back every other agent that was live before the refresh so a
+      // switch to any of them stays instant and their CLI isn't reaped.
+      reattachWarmSessions(last.agentId);
+    });
+  }
+
+  // Reconnect the dashboards of agents that were live before a reload, hidden
+  // in the background (the active one keeps the screen). Only sessions the
+  // backend still reports as running are reattached.
+  function reattachWarmSessions(exceptAgentId) {
+    var open = recallOpen();
+    Object.keys(open).forEach(function (agentId) {
+      if (agentId === exceptAgentId) return;
+      var sid = open[agentId];
+      if (!sid || (registry && registry.has(sid))) return;
+      api("/api/project-sessions/" + sid).then(function (r) {
+        if (!r.ok) return;
+        var s = r.data.session;
+        if (!s) return;
+        if (s.status === "running" || s.status === "busy" || s.status === "idle") {
+          attachView(sid, s, true);
+        }
+      }).catch(function () { /* best effort */ });
     });
   }
 
@@ -346,9 +1110,51 @@
   }
 
   function resetScreen() {
-    state.screen = { starting: false, exited: false, hasSession: false };
+    state.screen = { starting: false, exited: false, hasSession: false, chat: false };
     if (registry) registry.select(null);
     renderScreen();
+  }
+
+  /* DeepSeek Harness owns its native Web UI, mounted in the Workspace. */
+  function chatOpen() {
+    var frame = $("ws-deepseek-native-frame");
+    return !!(frame && !frame.classList.contains("hidden"));
+  }
+
+  function openChat() {
+    var host = dashboardsHost();
+    if (!host) return;
+    var frame = $("ws-deepseek-native-frame");
+    if (!frame) {
+      frame = document.createElement("iframe");
+      frame.id = "ws-deepseek-native-frame";
+      frame.title = "DeepSeek Harness";
+      frame.className = "absolute inset-0 w-full h-full border-0 bg-[#050811]";
+      frame.setAttribute("allow", "clipboard-read; clipboard-write; fullscreen");
+      host.appendChild(frame);
+    }
+    frame.classList.remove("hidden");
+    note("Starting DeepSeek Harness inside Workspace…");
+    api("/api/deepseek-native/start", { method: "POST" }).then(function (r) {
+      if (!r.ok) throw new Error((r.data && r.data.error) || "Could not start DeepSeek Harness.");
+      if (state.agentId !== "deepseek-harness") return;
+      if (frame.src !== r.data.url) frame.src = r.data.url;
+      state.screen.chat = true;
+      note("");
+      renderScreen();
+    }).catch(function (err) {
+      frame.classList.add("hidden");
+      state.screen.chat = false;
+      note((err && err.message) || "Could not start DeepSeek Harness.");
+      renderScreen();
+    });
+    state.screen.chat = true;
+  }
+
+  function closeChat() {
+    var frame = $("ws-deepseek-native-frame");
+    if (frame) frame.classList.add("hidden");
+    state.screen.chat = false;
   }
 
   function renderScreen() {
@@ -357,18 +1163,19 @@
     var exited = $("ws-exited");
     var hasAgent = !!state.agentId;
     var hasSession = state.screen.hasSession && !!state.sessionId;
+    var hasChat = !!state.screen.chat && chatOpen();
     if (empty) {
-      empty.classList.toggle("hidden", hasAgent && (hasSession || state.screen.starting || state.screen.exited));
+      empty.classList.toggle("hidden", hasChat || (hasAgent && (hasSession || state.screen.starting || state.screen.exited)));
       empty.innerHTML = hasAgent
         ? '<span class="text-[12px] text-slate-400">No project session yet for this agent.</span>' +
           '<span class="text-[11px] text-slate-500">Use <b>+ New</b> in the Sessions list to start one.</span>'
-        : '<span class="text-[13px] font-semibold text-slate-300">No agent selected</span>' +
-          '<span class="text-[11px] text-slate-500">Pick an agent to open its CLI dashboard.</span>';
+        : '<span class="text-[13px] font-semibold text-slate-300">No agent CLI selected</span>' +
+          '<span class="text-[11px] text-slate-500">Pick an agent to open its CLI dashboard. Web models have a separate dashboard above.</span>';
     }
     if (starting) starting.classList.toggle("hidden", !state.screen.starting);
     if (exited) exited.classList.toggle("hidden", !state.screen.exited);
     var screen = $("ws-screen");
-    if (screen) screen.setAttribute("data-state", hasAgent ? (state.screen.starting ? "starting" : state.screen.exited ? "exited" : hasSession ? "live" : "empty") : "no-agent");
+    if (screen) screen.setAttribute("data-state", hasAgent ? (state.screen.starting ? "starting" : state.screen.exited ? "exited" : (hasSession || hasChat) ? "live" : "empty") : "no-agent");
   }
 
   function setStatus(s) {
@@ -385,6 +1192,7 @@
     el.setAttribute("data-status", s);
     el.innerHTML = '<span class="w-2 h-2 rounded-full" style="background:' + v[1] + '"></span><span>' + v[0] + "</span>";
     updateModelAvailability();
+    updateProviderAvailability();
   }
 
   function note(text) {
@@ -403,6 +1211,17 @@
   function loadModels(refresh) {
     if (!state.agentId) { renderModels(); return Promise.resolve(); }
     var forAgent = state.agentId;
+    // Switching back to an agent whose list is already loaded must not relaunch
+    // a CLI — reuse the cached list (the server caches it for 5 minutes too).
+    if (!refresh && state.models.forAgent === forAgent &&
+        (state.models.status === "loaded" || state.models.status === "empty") &&
+        state.models.items) {
+      state.providerId = resolveProviderId(state.providers, state.models.items);
+      renderModels();
+      updateModelLabel();
+      if (currentIsChat() && window.DeepSeekChat) window.DeepSeekChat.setModel(state.modelId);
+      return Promise.resolve(state.models);
+    }
     var forProject = projectPathForModels();
     state.models = { status: "loading", items: [], error: null, current: state.models.current, liveSwitch: false, forAgent: forAgent };
     renderModels();
@@ -412,6 +1231,9 @@
     return api("/api/agents/" + forAgent + "/models" + q).then(function (r) {
       if (state.agentId !== forAgent) return;
       if (!r.ok) {
+        state.providers = [];
+        state.providerId = null;
+        state.providerSetup = (r.data && r.data.provider_setup) || null;
         state.models = { status: "error", items: [], error: (r.data && r.data.error) || "Couldn't load models for this agent.", current: state.models.current, liveSwitch: false, forAgent: forAgent };
         renderModels();
         return;
@@ -433,10 +1255,16 @@
             return def ? def.id : null;
           })();
       }
+      state.providers = (r.data && r.data.providers) || [];
+      state.providerSetup = (r.data && r.data.provider_setup) || null;
+      state.providerId = resolveProviderId(state.providers, items);
       renderModels();
       updateModelLabel();
+      if (currentIsChat() && window.DeepSeekChat) window.DeepSeekChat.setModel(state.modelId);
     }).catch(function () {
       if (state.agentId !== forAgent) return;
+      state.providers = [];
+      state.providerId = null;
       state.models = { status: "error", items: [], error: "Couldn't load models for this agent.", current: state.models.current, liveSwitch: false, forAgent: forAgent };
       renderModels();
     });
@@ -444,10 +1272,23 @@
 
   function modelName(id) {
     var m = state.models.items.filter(function (x) { return x.id === id; })[0];
-    return m ? (m.name || m.id) : (id || null);
+    return m ? modelDisplay(m) : (id || null);
+  }
+
+  /* OpenCode reports names as ``provider/model``. The provider is already in
+   * its own dropdown, so show just the model part there. */
+  function modelDisplay(m) {
+    if (!m) return "";
+    var name = m.name || m.id || "";
+    var prefix = (m.provider || "") + "/";
+    if (m.provider && name.indexOf(prefix) === 0) return name.slice(prefix.length);
+    return name;
   }
 
   function renderModels() {
+    renderProviders();
+    updateProviderLabel();
+    updateProviderAvailability();
     var host = $("ws-model-options");
     var currentEl = $("ws-model-current");
     var searchWrap = $("ws-model-search-wrap");
@@ -455,7 +1296,7 @@
     if (!host) return;
     host.innerHTML = "";
     if (searchWrap) {
-      searchWrap.classList.toggle("hidden", !(state.models.status === "loaded" && state.models.items.length > MAX_AUTO_OPEN_MODELS));
+      searchWrap.classList.toggle("hidden", !(state.models.status === "loaded" && state.models.items.length > 0));
     }
     if (searchInput && searchInput.value !== state.modelQuery) searchInput.value = state.modelQuery;
 
@@ -484,18 +1325,21 @@
     }
     if (currentEl) {
       var current = state.models.current || state.modelId;
-      currentEl.textContent = current ? ("Current: " + (modelName(current) || current)) : "";
+      var currentModel = state.models.items.filter(function (x) { return x.id === current; })[0];
+      var currentLabel = current ? ((currentModel && currentModel.provider ? currentModel.provider + " \u00b7 " : "") + (modelName(current) || current)) : "";
+      currentEl.textContent = currentLabel ? ("Current: " + currentLabel) : "";
       currentEl.classList.toggle("hidden", !current);
     }
     if (state.models.status === "empty") {
       host.innerHTML = '<div class="px-3 py-2 text-[11px] text-slate-500">This CLI reported no models.</div>';
       return;
     }
-    var query = state.modelQuery.toLowerCase();
+    var terms = (state.modelQuery || "").toLowerCase().trim().split(/\s+/).filter(Boolean);
     var shown = state.models.items.filter(function (m) {
-      if (!query) return true;
-      return String(m.name || m.id).toLowerCase().indexOf(query) !== -1 ||
-        String(m.id).toLowerCase().indexOf(query) !== -1;
+      if (state.providerId && m.provider !== state.providerId) return false;
+      if (!terms.length) return true;
+      var hay = [m.name || m.id, m.id, m.description || "", m.provider || ""].join(" ").toLowerCase();
+      return terms.every(function (t) { return hay.indexOf(t) !== -1; });
     });
     if (!shown.length) {
       host.innerHTML = '<div class="px-3 py-2 text-[11px] text-slate-500">No matching model.</div>';
@@ -507,7 +1351,7 @@
       btn.className = "ws-menu-item" + (isCurrent ? " ws-menu-item-active" : "") +
         (m.available ? "" : " ws-menu-item-disabled");
       btn.innerHTML =
-        '<span class="flex-1 text-left truncate">' + esc(m.name || m.id) + "</span>" +
+        '<span class="flex-1 text-left truncate">' + esc(modelDisplay(m)) + "</span>" +
         (m.is_default ? '<span class="text-[9px] font-mono text-cyan-400 shrink-0">default</span>' : "") +
         (m.available ? "" : '<span class="text-[10px] text-amber-400 shrink-0">' +
           esc(m.reason || "unavailable") + "</span>");
@@ -515,6 +1359,13 @@
       if (m.available) btn.addEventListener("click", function () { selectModel(m.id); closeMenus(); });
       host.appendChild(btn);
     });
+  }
+
+  function focusModelSearch() {
+    var wrap = $("ws-model-search-wrap");
+    var input = $("ws-model-search");
+    if (!wrap || !input || wrap.classList.contains("hidden")) return;
+    window.setTimeout(function () { input.focus(); }, 0);
   }
 
   function updateModelLabel() {
@@ -548,10 +1399,15 @@
   function selectModel(id) {
     var m = state.models.items.filter(function (x) { return x.id === id; })[0];
     if (!m || !m.available) return;
+    state.modelQuery = "";
     if (!state.sessionId) {  // applied when a session starts
       state.modelId = id;
       updateModelLabel();
       renderModels();
+      if (currentIsChat()) {
+        rememberChatModel(id);
+        if (window.DeepSeekChat) window.DeepSeekChat.setModel(id);
+      }
       return;
     }
     var previous = state.models.current || state.current && state.current.model_id || null;
@@ -608,6 +1464,28 @@
     host.innerHTML = "";
     if (!state.agentId) {
       host.innerHTML = '<div class="px-3 py-2 text-[11px] text-slate-500">Select an agent first.</div>';
+      return;
+    }
+    if (currentIsChat()) {
+      var chatTitle = document.createElement("div");
+      chatTitle.className = "ws-menu-title";
+      chatTitle.textContent = "DeepSeek Harness";
+      host.appendChild(chatTitle);
+      var chatHint = document.createElement("div");
+      chatHint.className = "px-3 py-2 text-[10px] text-slate-400 leading-snug";
+      chatHint.textContent = "Create and switch Harness sessions in its native workspace below.";
+      host.appendChild(chatHint);
+      var chatBtn = document.createElement("button");
+      chatBtn.className = "ws-menu-item";
+      chatBtn.innerHTML = '<span class="flex-1 text-left truncate">Open Harness workspace</span>' +
+        '<i data-lucide="panels-top-left" class="w-3 h-3 text-cyan-400"></i>';
+      chatBtn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        closeMenus();
+        openChat();
+      });
+      host.appendChild(chatBtn);
+      icons();
       return;
     }
     var title = document.createElement("div");
@@ -696,6 +1574,11 @@
       host.innerHTML = '<div class="text-[10px] text-slate-600 px-2 py-1 font-mono">Select an agent to see its project sessions.</div>';
       return;
     }
+    if (currentIsChat()) {
+      host.innerHTML = '<div class="text-[10px] text-slate-600 px-2 py-1 font-mono">' +
+        "Harness sessions are managed in the native UI embedded in Workspace.</div>";
+      return;
+    }
     if (!state.sessions.length) {
       host.innerHTML = '<div class="text-[10px] text-slate-600 px-2 py-1 font-mono">No sessions yet. Use + New.</div>';
       return;
@@ -725,6 +1608,10 @@
   function createSession(projectPath, title) {
     if (!state.agentId) return;
     closeMenus();
+    if (currentIsChat()) {
+      openChat();
+      return;
+    }
     var body = { agent_id: state.agentId, project: projectPath, model_id: state.modelId };
     var cleanTitle = (title || "").trim();
     if (cleanTitle) body.title = cleanTitle;
@@ -743,7 +1630,7 @@
       note("");
       loadSessions().then(function () { openSession(s.id); }, function () { openSession(s.id); });
     }, function () {
-      note("Backend not reachable. Start it with: python server.py 8080, then reload this page.");
+      note(backendHint());
     });
   }
 
@@ -768,27 +1655,40 @@
     return api("/api/project-sessions/" + id).then(function (r) {
       if (!r.ok) return;
       var s = r.data.session;
+      if (state.sessionId && state.sessionId !== id) closeHistory();
       state.sessionId = id;
       state.current = s;
       state.agentId = s.agent_id;
       state.modelId = s.current_model || s.model_id;
+      // Derive the provider from this session's model instead of keeping a
+      // filter from a different session.
+      state.providerId = null;
+      state.providerLocked = false;
+      state.modelQuery = "";
+      rememberLast();
       state.models.current = s.current_model || null;
       state.panel = PanelState.normalize(s.panel);
       if (state.panel.overlay) state.panel = PanelState.exitFullscreen(state.panel);
       if (state.panel.noAgent) state.panel = PanelState.agentSelected(state.panel);
+      // On a refresh-restore the Code & Preview panes stay collapsed until the
+      // user clicks, even if the session left them expanded.
+      if (opts.collapse) state.panel = PanelState.collapse(state.panel);
       state.handoff[id] = state.handoff[id] || { burst: 0, suppressed: 0 };
       updateAgentLabel();
       renderAgents();
       renderSessions();
       renderPanel();
       state.autoPreviewed = null;
-      if (state.panel.code_file) loadCodeFile(state.panel.code_file);
+      if (state.panel.code_file && !opts.collapse) loadCodeFile(state.panel.code_file);
       pollRun();
       ensureRegistrySelection();
       loadModels(false);
-      if (s.status === "running" || s.status === "busy" || s.status === "idle") {
+      // Prefer reusing an already-live dashboard (its terminal + WebSocket are
+      // still attached) over spawning a fresh CLI, even if the metadata read
+      // raced and reported "stopped".
+      if (hasLiveView(id) || s.status === "running" || s.status === "busy" || s.status === "idle") {
         state.screen = { starting: false, exited: false, hasSession: true };
-        setStatus(s.status);
+        setStatus(s.status === "stopped" ? "running" : s.status);
         attachView(id, s);
       } else {
         startSession(id, s);
@@ -796,7 +1696,14 @@
     });
   }
 
-  function attachView(id, s) {
+  function hasLiveView(id) {
+    if (!registry || typeof registry.has !== "function" || !registry.has(id)) return false;
+    var rec = registry.get(id);
+    var ws = rec && rec.view && rec.view.ws;
+    return !!(ws && (ws.readyState === 0 || ws.readyState === 1));
+  }
+
+  function attachView(id, s, hidden) {
     var host = dashboardsHost();
     if (!host) return;
     ensureRegistry();
@@ -830,11 +1737,11 @@
       view.fitNow();
     };
     view.mount().then(function () {
-      registry.select(id);
+      if (!hidden) registry.select(id);
       view.connect();
-      view.fitNow();
+      if (!hidden) view.fitNow();
     }).catch(function () {
-      if (state.sessionId === id) {
+      if (!hidden && state.sessionId === id) {
         note("Terminal failed to load. Check your connection and reload.");
         state.screen.starting = false;
         renderScreen();
@@ -878,7 +1785,7 @@
       state.screen.starting = false;
       state.screen.exited = true;
       renderScreen();
-      note("Backend not reachable. Start it with: python server.py 8080, then reload this page.");
+      note(backendHint());
     });
   }
 
@@ -901,7 +1808,7 @@
     startSession(state.sessionId, state.current);
   }
 
-  // -- handoff (auto-expand on a real backend signal) --------------------
+  // -- handoff (backend signal; never opens the panel on its own) --------
   function onHandoff(sessionId, msg) {
     var track = state.handoff[sessionId] || (state.handoff[sessionId] = { burst: 0, suppressed: 0 });
     var burst = msg.burst || 0;
@@ -910,6 +1817,10 @@
     if (burst <= track.suppressed) return;      // user closed/collapsed: stay shut
     if (state.sessionId !== sessionId) return;  // background dashboard: keep state
     var p = state.panel || PanelState.defaultPanel();
+    // The Code & Preview panes only expand when the user clicks. If the user
+    // has the panel collapsed, a handoff must not pop it open; only follow the
+    // agent while the panel is already expanded.
+    if (!PanelState.describe(p).expanded) return;
     if (msg.reason === "preview" && msg.preview_url) {
       p = PanelState.openPreview(p, msg.preview_url);
       loadPreview(msg.preview_url);
@@ -1234,10 +2145,10 @@
     var abs = absoluteUrl(url);
     if (frame.getAttribute("src") === abs) return;
     if (state.autoPreviewed === abs) return;
+    // The Code & Preview panes only expand when the user clicks: never force
+    // the panel open for a running URL, only follow it while it is expanded.
+    if (!PanelState.describe(state.panel || PanelState.defaultPanel()).expanded) return;
     state.autoPreviewed = abs;
-    if (state.panel && (state.panel.state === PanelState.S0 || state.panel.state === PanelState.S1)) {
-      state.panel = PanelState.expand(state.panel);
-    }
     state.panel = PanelState.openPreview(state.panel, abs);
     renderPanel();
     persistPanel();
@@ -1280,6 +2191,143 @@
       }
     }
     if (running && st.url) autoPreview(st.url);
+  }
+
+  // -- terminal history drawer -------------------------------------------
+  // Full-screen agent TUIs run in the terminal's alternate screen buffer, so
+  // xterm.js keeps no scrollback for them. The backend keeps the PTY output;
+  // this drawer exposes it as scrollable, searchable plain text.
+  var historyText = "";
+  var historyTimer = null;
+
+  function closeHistory() {
+    var panel = $("ws-history");
+    if (panel) panel.classList.add("hidden");
+  }
+
+  function historyCount(shown, total) {
+    var el = $("ws-history-count");
+    if (!el) return;
+    el.textContent = !total ? "" : (shown === total ? total + " lines" : shown + " / " + total + " lines");
+  }
+
+  function highlightLine(el, line, needle) {
+    var lower = line.toLowerCase();
+    var at = 0;
+    var i;
+    while ((i = lower.indexOf(needle, at)) !== -1) {
+      if (i > at) el.appendChild(document.createTextNode(line.slice(at, i)));
+      var mark = document.createElement("mark");
+      mark.textContent = line.slice(i, i + needle.length);
+      el.appendChild(mark);
+      at = i + needle.length;
+    }
+    if (at === 0) { el.textContent = line || " "; return; }
+    if (at < line.length) el.appendChild(document.createTextNode(line.slice(at)));
+  }
+
+  function renderHistory() {
+    var body = $("ws-history-body");
+    if (!body) return;
+    var search = $("ws-history-search");
+    var needle = ((search && search.value) || "").trim().toLowerCase();
+    var lines = historyText ? historyText.split("\n") : [];
+    body.innerHTML = "";
+    if (!lines.length) {
+      var empty = document.createElement("div");
+      empty.className = "ws-history-empty";
+      empty.textContent = state.sessionId
+        ? "No terminal output recorded for this session yet."
+        : "Start a session to see its terminal history.";
+      body.appendChild(empty);
+      historyCount(0, 0);
+      return;
+    }
+    var frag = document.createDocumentFragment();
+    var shown = 0;
+    lines.forEach(function (line, i) {
+      if (needle && line.toLowerCase().indexOf(needle) === -1) return;
+      shown++;
+      var row = document.createElement("div");
+      row.className = "ws-history-line";
+      var gutter = document.createElement("span");
+      gutter.className = "ws-history-ln";
+      gutter.textContent = String(i + 1);
+      var text = document.createElement("span");
+      text.className = "ws-history-text";
+      if (needle) highlightLine(text, line, needle);
+      else text.textContent = line || " ";
+      row.appendChild(gutter);
+      row.appendChild(text);
+      frag.appendChild(row);
+    });
+    body.appendChild(frag);
+    historyCount(shown, lines.length);
+  }
+
+  function loadHistory() {
+    if (!state.sessionId) {
+      historyText = "";
+      renderHistory();
+      return;
+    }
+    var sid = state.sessionId;
+    api("/api/project-sessions/" + sid + "/history").then(function (r) {
+      if (sid !== state.sessionId) return;
+      if (!r.ok) {
+        note((r.data && r.data.error) || "Couldn't load terminal history.");
+        return;
+      }
+      historyText = (r.data && r.data.text) || "";
+      renderHistory();
+      var body = $("ws-history-body");
+      if (body) body.scrollTop = body.scrollHeight;
+    }, function () {
+      note(backendHint());
+    });
+  }
+
+  function openHistory() {
+    var panel = $("ws-history");
+    if (!panel) return;
+    if (currentIsChat()) {
+      note("DeepSeek conversations are in the dashboard rail.");
+      return;
+    }
+    panel.classList.remove("hidden");
+    icons();
+    var search = $("ws-history-search");
+    if (search) {
+      search.value = "";
+      search.focus();
+    }
+    historyText = "";
+    renderHistory();
+    loadHistory();
+  }
+
+  function copyHistory() {
+    if (!historyText) { note("Nothing to copy yet."); return; }
+    var done = function () { note("Terminal history copied."); };
+    var fail = function () { note("Couldn't copy the terminal history."); };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(historyText).then(done, fail);
+      return;
+    }
+    var area = document.createElement("textarea");
+    area.value = historyText;
+    area.setAttribute("readonly", "readonly");
+    area.style.position = "fixed";
+    area.style.opacity = "0";
+    document.body.appendChild(area);
+    area.select();
+    try {
+      document.execCommand("copy");
+      done();
+    } catch (e) {
+      fail();
+    }
+    document.body.removeChild(area);
   }
 
   function pollRun() {
@@ -1383,6 +2431,12 @@
 
   function onKeydown(e) {
     if (e.key !== "Escape") return;
+    var history = $("ws-history");
+    if (history && !history.classList.contains("hidden")) {
+      e.preventDefault();
+      closeHistory();
+      return;
+    }
     var result = PanelState.escape(state.panel || PanelState.defaultPanel());
     if (result.handled) {
       e.preventDefault();
@@ -1405,7 +2459,7 @@
 
   // -- menus -------------------------------------------------------------
   function closeMenus() {
-    ["ws-agent-menu", "ws-model-menu", "ws-new-project-menu"].forEach(function (id) {
+    ["ws-agent-menu", "ws-provider-menu", "ws-model-menu", "ws-web-model-menu", "ws-new-project-menu"].forEach(function (id) {
       var el = $(id);
       if (el) el.classList.add("hidden");
     });
@@ -1440,12 +2494,43 @@
       e.stopPropagation();
       if (!e.currentTarget.disabled) toggleMenu("ws-agent-menu");
     });
+    bind("ws-web-model-btn", "click", function (e) {
+      e.stopPropagation();
+      var menu = $("ws-web-model-menu");
+      if (!menu) return;
+      var opening = menu.classList.contains("hidden");
+      closeMenus();
+      menu.classList.toggle("hidden", !opening);
+      var toggle = $("ws-web-model-btn");
+      if (toggle) toggle.setAttribute("aria-expanded", opening ? "true" : "false");
+      if (opening) renderWebModels();
+    });
+    bind("ws-provider-btn", "click", function (e) {
+      e.stopPropagation();
+      if (e.currentTarget.disabled) return;
+      var wasHidden = $("ws-provider-menu").classList.contains("hidden");
+      toggleMenu("ws-provider-menu");
+      if (wasHidden) {
+        providerSetupSig = null;   // refresh the account/setup block every open
+        var pending = loadModels(false);
+        if (pending && pending.then) pending.then(renderProviders, renderProviders);
+        else renderProviders();
+      }
+    });
+    bind("ws-provider-refresh", "click", function (e) {
+      e.stopPropagation();
+      loadModels(true);
+    });
     bind("ws-model-btn", "click", function (e) {
       e.stopPropagation();
       if (e.currentTarget.disabled) return;
       var wasHidden = $("ws-model-menu").classList.contains("hidden");
       toggleMenu("ws-model-menu");
-      if (wasHidden) loadModels(false);
+      if (wasHidden) {
+        var pending = loadModels(false);
+        if (pending && pending.then) pending.then(focusModelSearch, focusModelSearch);
+        else focusModelSearch();
+      }
     });
     bind("ws-model-refresh", "click", function (e) { e.stopPropagation(); loadModels(true); });
     bind("ws-model-search", "input", function (e) { state.modelQuery = e.target.value || ""; renderModels(); });
@@ -1499,12 +2584,26 @@
     bind("ws-code-path", "keydown", function (e) { if (e.key === "Enter") loadCodeFile(); });
     bind("ws-start-session", "click", startCurrentSession);
 
+    bind("ws-history-btn", "click", openHistory);
+    bind("ws-history-close", "click", closeHistory);
+    bind("ws-history-refresh", "click", loadHistory);
+    bind("ws-history-copy", "click", copyHistory);
+    bind("ws-history-search", "input", function () {
+      if (historyTimer) clearTimeout(historyTimer);
+      historyTimer = setTimeout(function () {
+        historyTimer = null;
+        renderHistory();
+        var body = $("ws-history-body");
+        if (body) body.scrollTop = 0;
+      }, 120);
+    });
+
     ensureEditor();
 
     // Close menus on an outside click only: clicks inside an open menu (e.g. the
     // model search box, refresh) must not dismiss it.
     document.addEventListener("click", function (e) {
-      var open = ["ws-agent-menu", "ws-model-menu", "ws-new-project-menu"];
+      var open = ["ws-agent-menu", "ws-provider-menu", "ws-model-menu", "ws-web-model-menu", "ws-new-project-menu"];
       for (var i = 0; i < open.length; i++) {
         var menu = $(open[i]);
         if (menu && !menu.classList.contains("hidden") && menu.contains(e.target)) return;
@@ -1517,11 +2616,23 @@
     window.addEventListener("resize", function () {
       if (registry) registry.resizeActive();
     });
+    // Sleep/wake or a background tab can silently kill the terminal socket.
+    // On return, revive the active dashboard instead of showing a frozen
+    // "stopped" frame.
+    document.addEventListener("visibilitychange", function () {
+      if (document.hidden || !registry) return;
+      var rec = registry.active();
+      if (!rec || !rec.view || !rec.view.connect) return;
+      if (!rec.view.ws || rec.view.ws.readyState === 2 || rec.view.ws.readyState === 3) {
+        rec.view.connect();
+      }
+      if (rec.view.resize) rec.view.resize();
+    });
 
     api("/api/auth/session").then(function (r) {
       state.token = r.data && r.data.token;
       if (!state.token) {
-        note("Backend not reachable. Start it with: python server.py 8080, then reload this page.");
+        note(backendHint());
         renderPanel();
         setStatus("stopped");
         renderScreen();
@@ -1548,6 +2659,7 @@
       setStatus("stopped");
       renderScreen();
       icons();
+      restoreLastSession();
     });
   }
 

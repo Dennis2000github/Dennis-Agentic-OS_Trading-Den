@@ -24,7 +24,8 @@ class OpenCodeModelSource(ModelSource):
                 continue
             seen.add(line)
             provider = line.split("/", 1)[0]
-            models.append(self._norm(line, name=line, description=provider))
+            models.append(self._norm(line, name=line, description=provider,
+                                     provider=provider))
         if not models:
             raise ModelListError("No models parsed from `opencode models`")
         return models

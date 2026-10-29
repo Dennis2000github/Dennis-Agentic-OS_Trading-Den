@@ -1,0 +1,17 @@
+* { box-sizing: border-box; }
+html, body { margin: 0; width: 100%; height: 100%; background: #060913; color: #e2e8f0; font: 13px Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+.toolbar { height: 64px; padding: 0 12px; display: flex; align-items: center; gap: 14px; border-bottom: 1px solid #1b2744; background: #080d1b; }
+.brand { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.mark { display: grid; place-items: center; width: 25px; height: 25px; border-radius: 8px; color: #06101b; background: linear-gradient(135deg,#00e5ff,#8b5cf6); }
+#provider-tabs { display: flex; align-items: center; gap: 5px; min-width: 0; overflow-x: auto; scrollbar-width: thin; }
+.tab, .actions button { border: 1px solid #26334f; border-radius: 8px; background: #0d1426; color: #aebbd0; cursor: pointer; }
+.tab { padding: 7px 10px; white-space: nowrap; font-size: 11px; }
+.tab:hover, .actions button:hover { border-color: #3b82f6; color: #fff; }
+.tab.active { color: #dbeafe; background: #122343; border-color: #2563eb; }
+.actions { display: flex; gap: 5px; margin-left: auto; }
+.actions button { width: 30px; height: 30px; font-size: 18px; }
+#workspace { position: absolute; top: 64px; bottom: 0; left: 0; right: 0; display: grid; place-items: center; background: #060913; }
+.welcome { max-width: 480px; padding: 28px; text-align: center; color: #8b9bb5; }
+.welcome-icon { color: #22d3ee; font-size: 32px; }
+h1 { margin: 12px 0; color: #e2e8f0; font-size: 20px; }
+p { line-height: 1.6; }

@@ -1,0 +1,14 @@
+{
+  "name": "dennis-agentic-os",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DENNIS Agentic OS desktop shell",
+  "main": "electron/main.js",
+  "scripts": {
+    "start": "python3 app.py",
+    "desktop": "electron ."
+  },
+  "devDependencies": {
+    "electron": "45.1.0"
+  }
+}

@@ -18,10 +18,15 @@ Store shape::
     }
 """
 
+import threading
 import time
 import uuid
 
 from . import config
+
+# The threaded HTTP server calls these helpers from many request threads; the
+# lock keeps a read-modify-write of the single JSON store from losing updates.
+_LOCK = threading.RLock()
 
 DEFAULT_PANEL = {
     "state": "S1",
@@ -70,35 +75,37 @@ def get_session(owner, session_id):
 
 
 def create_session(owner, agent_id, project_name, project_path, model_id=None, title=None):
-    data = _load()
-    bucket = _owner_bucket(data, owner, create=True)
-    ts = config.now_iso()
-    session = {
-        "id": _new_id(),
-        "owner": owner,
-        "agent_id": agent_id,
-        "project": project_name,
-        "project_path": project_path,
-        "title": title or f"{project_name}",
-        "model_id": model_id,
-        "cli_session_id": None,
-        "created_at": ts,
-        "last_active": ts,
-        "panel": dict(DEFAULT_PANEL),
-    }
-    bucket["sessions"].insert(0, session)
-    _save(data)
-    return session
+    with _LOCK:
+        data = _load()
+        bucket = _owner_bucket(data, owner, create=True)
+        ts = config.now_iso()
+        session = {
+            "id": _new_id(),
+            "owner": owner,
+            "agent_id": agent_id,
+            "project": project_name,
+            "project_path": project_path,
+            "title": title or f"{project_name}",
+            "model_id": model_id,
+            "cli_session_id": None,
+            "created_at": ts,
+            "last_active": ts,
+            "panel": dict(DEFAULT_PANEL),
+        }
+        bucket["sessions"].insert(0, session)
+        _save(data)
+        return session
 
 
 def _mutate(owner, session_id, fn):
-    data = _load()
-    for s in _owner_bucket(data, owner, create=True).get("sessions", []):
-        if s.get("id") == session_id:
-            fn(s)
-            _save(data)
-            return s
-    return None
+    with _LOCK:
+        data = _load()
+        for s in _owner_bucket(data, owner, create=True).get("sessions", []):
+            if s.get("id") == session_id:
+                fn(s)
+                _save(data)
+                return s
+        return None
 
 
 def touch(owner, session_id):
@@ -145,12 +152,13 @@ def reset_panel(owner, session_id):
 
 
 def delete_session(owner, session_id):
-    data = _load()
-    bucket = _owner_bucket(data, owner, create=True)
-    before = len(bucket["sessions"])
-    bucket["sessions"] = [s for s in bucket["sessions"] if s.get("id") != session_id]
-    _save(data)
-    return len(bucket["sessions"]) != before
+    with _LOCK:
+        data = _load()
+        bucket = _owner_bucket(data, owner, create=True)
+        before = len(bucket["sessions"])
+        bucket["sessions"] = [s for s in bucket["sessions"] if s.get("id") != session_id]
+        _save(data)
+        return len(bucket["sessions"]) != before
 
 
 def counts_by_agent(owner):

@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initSidebar();
   initTradingDen();
 
-  // 4. Registries & Filters (Model, MCP Connectors, Router)
+  // 4. Registries & Filters (Model, Router)
   initRegistries();
 
   // 5. Agent Registry & In-OS Installer / Discovery Workflow
@@ -56,12 +56,16 @@ function initClock() {
       let greeting = 'Good evening,';
       if (h < 12) greeting = 'Good morning,';
       else if (h < 18) greeting = 'Good afternoon,';
-      greetingEl.innerHTML = `${greeting}<br><span class="text-cyan-400 glow-cyan">Dennis.</span>`;
+      if (greeting !== lastGreeting) {
+        greetingEl.innerHTML = `${greeting}<br><span class="text-cyan-400 glow-cyan">Dennis.</span>`;
+        lastGreeting = greeting;
+      }
     }
   }
 
+  let lastGreeting = null;
   updateTime();
-  setInterval(updateTime, 1000);
+  setInterval(() => { if (!document.hidden) updateTime(); }, 1000);
 }
 
 /* ----------------------------------------------------
@@ -89,39 +93,57 @@ function switchMainView(viewName) {
   const workspaceSection = document.getElementById('agent-workspace');
   const registrySection = document.getElementById('registry-section');
   const tradingDenView = document.getElementById('trading-den-view');
+  const vaultView = document.getElementById('vault-view');
+  const hermesView = document.getElementById('hermes-view');
+  const studioView = document.getElementById('studio-view');
+  const skillBuilderView = document.getElementById('skill-builder-view');
+  const pluginsView = document.getElementById('plugins-view');
   const workspaceNav = document.getElementById('sidebar-nav-workspace');
   const tradingNav = document.getElementById('sidebar-nav-trading');
+  const vaultNav = document.getElementById('sidebar-nav-vault');
+  const hermesNav = document.getElementById('sidebar-nav-hermes');
+  const skillBuilderNav = document.getElementById('sidebar-nav-skillbuilder');
+  const pluginsNav = document.getElementById('sidebar-nav-plugins');
 
-  if (viewName === 'trading-den') {
-    if (heroSection) heroSection.classList.add('hidden');
-    if (workspaceSection) workspaceSection.classList.add('hidden');
-    if (registrySection) registrySection.classList.add('hidden');
-    if (tradingDenView) tradingDenView.classList.remove('hidden');
+  const navs = [
+    { nav: workspaceNav, view: 'workspace' },
+    { nav: tradingNav, view: 'trading-den' },
+    { nav: vaultNav, view: 'vault' },
+    { nav: hermesNav, view: 'hermes' },
+    { nav: skillBuilderNav, view: 'skill-builder' },
+    { nav: pluginsNav, view: 'plugins' }
+  ];
+  const VIEWS = ['workspace', 'trading-den', 'vault', 'hermes', 'studio', 'skill-builder', 'plugins'];
+  const active = VIEWS.includes(viewName) ? viewName : 'workspace';
 
-    if (tradingNav) {
-      tradingNav.classList.remove('text-slate-400', 'hover:bg-slate-800/40', 'hover:text-slate-200');
-      tradingNav.classList.add('bg-blue-600', 'text-white', 'shadow-lg', 'shadow-blue-500/20');
-    }
-    if (workspaceNav) {
-      workspaceNav.classList.remove('bg-blue-600', 'text-white', 'shadow-lg', 'shadow-blue-500/20');
-      workspaceNav.classList.add('text-slate-400', 'hover:bg-slate-800/40', 'hover:text-slate-200');
-    }
-  } else {
-    // Default to workspace
-    if (heroSection) heroSection.classList.remove('hidden');
-    if (workspaceSection) workspaceSection.classList.remove('hidden');
-    if (registrySection) registrySection.classList.remove('hidden');
-    if (tradingDenView) tradingDenView.classList.add('hidden');
+  // Highlight the active sidebar item, dim the others.
+  navs.forEach(({ nav, view }) => {
+    if (!nav) return;
+    const on = view === active;
+    nav.classList.toggle('bg-blue-600', on);
+    nav.classList.toggle('text-white', on);
+    nav.classList.toggle('shadow-lg', on);
+    nav.classList.toggle('shadow-blue-500/20', on);
+    nav.classList.toggle('text-slate-400', !on);
+    nav.classList.toggle('hover:bg-slate-800/40', !on);
+    nav.classList.toggle('hover:text-slate-200', !on);
+  });
 
-    if (workspaceNav) {
-      workspaceNav.classList.remove('text-slate-400', 'hover:bg-slate-800/40', 'hover:text-slate-200');
-      workspaceNav.classList.add('bg-blue-600', 'text-white', 'shadow-lg', 'shadow-blue-500/20');
-    }
-    if (tradingNav) {
-      tradingNav.classList.remove('bg-blue-600', 'text-white', 'shadow-lg', 'shadow-blue-500/20');
-      tradingNav.classList.add('text-slate-400', 'hover:bg-slate-800/40', 'hover:text-slate-200');
-    }
-  }
+  const isWorkspace = active === 'workspace';
+  if (heroSection) heroSection.classList.toggle('hidden', !isWorkspace);
+  if (workspaceSection) workspaceSection.classList.toggle('hidden', !isWorkspace);
+  if (registrySection) registrySection.classList.toggle('hidden', !isWorkspace);
+  if (tradingDenView) tradingDenView.classList.toggle('hidden', active !== 'trading-den');
+  if (vaultView) vaultView.classList.toggle('hidden', active !== 'vault');
+  if (hermesView) hermesView.classList.toggle('hidden', active !== 'hermes');
+  if (studioView) studioView.classList.toggle('hidden', active !== 'studio');
+  if (skillBuilderView) skillBuilderView.classList.toggle('hidden', active !== 'skill-builder');
+  if (pluginsView) pluginsView.classList.toggle('hidden', active !== 'plugins');
+  if (active === 'hermes' && window.Hermes) window.Hermes.reload();
+  if (active === 'studio' && window.Studio) window.Studio.refresh();
+  if (active === 'skill-builder' && window.SkillBuilder) window.SkillBuilder.refresh();
+  if (active === 'plugins' && window.Plugins) window.Plugins.refresh();
+  if (active === 'plugins' && window.Composio) window.Composio.refresh();
 }
 window.switchMainView = switchMainView;
 
@@ -130,6 +152,7 @@ function initSidebar() {
   sidebarItems.forEach(item => {
     item.addEventListener('click', (e) => {
       e.preventDefault();
+
       sidebarItems.forEach(i => {
         i.classList.remove('bg-blue-600', 'text-white', 'shadow-lg', 'shadow-blue-500/20');
         i.classList.add('text-slate-400', 'hover:bg-slate-800/40', 'hover:text-slate-200');
@@ -140,6 +163,14 @@ function initSidebar() {
       const label = item.textContent.toLowerCase();
       if (label.includes('trading den')) {
         switchMainView('trading-den');
+      } else if (label.includes('vault')) {
+        switchMainView('vault');
+      } else if (label.includes('hermes')) {
+        switchMainView('hermes');
+      } else if (label.includes('skill builder')) {
+        switchMainView('skill-builder');
+      } else if (label.includes('plugins')) {
+        switchMainView('plugins');
       } else if (label.includes('workspace')) {
         switchMainView('workspace');
       }
@@ -289,7 +320,8 @@ function initTradingDen() {
   if (dashTab) dashTab.addEventListener('click', refreshBackendStatus);
 
   refreshBackendStatus();
-  setInterval(refreshBackendStatus, 5000);
+  setInterval(() => { if (!document.hidden) refreshBackendStatus(); }, 5000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshBackendStatus(); });
 }
 
 /* ----------------------------------------------------
@@ -424,6 +456,14 @@ async function loadModelsIntoSwitcher(agentId) {
           localStorage.setItem('dennisActiveModelId', model.id);
           updateChatLabels();
           showToast(`Model switched to: ${model.name}`);
+
+          // Persist the model switch to the backend for the active session.
+          // This ensures that subsequent CLI invocations use the selected model.
+          fetch('/api/project-sessions/active/model', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model_id: model.id })
+          }).catch(err => console.error('Failed to persist model switch:', err));
         }
         const menu = document.getElementById('model-switcher-menu');
         if (menu) menu.classList.add('hidden');
@@ -729,150 +769,7 @@ function initChat() {
 }
 
 /* ----------------------------------------------------
-   5. CODE EDITOR & FILE EXPLORER
----------------------------------------------------- */
-const codeSamples = {
-  'main.py': `from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-
-from auth import router as auth_router
-from routers import router as api_router
-
-app = FastAPI(
-    title="Full Stack App",
-    description="AI Generated App",
-    version="1.0.0"
-)
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-app.include_router(auth_router, prefix="/auth")
-app.include_router(api_router, prefix="/api")
-
-@app.get("/")
-async def root():
-    return {"message": "Hello from DENEVO"}`,
-
-  'models.py': `from pydantic import BaseModel, EmailStr
-from typing import Optional
-from datetime import datetime
-
-class UserBase(BaseModel):
-    email: EmailStr
-    is_active: bool = True
-    full_name: Optional[str] = None
-
-class UserCreate(UserBase):
-    password: str
-
-class UserInDB(UserBase):
-    id: int
-    created_at: datetime = datetime.utcnow()
-
-    class Config:
-        orm_mode = True`,
-
-  'routes.py': `from fastapi import APIRouter, Depends, HTTPException
-from typing import List
-
-router = APIRouter()
-
-@router.get("/items")
-async def read_items():
-    return [
-        {"id": 1, "name": "Neural Brain Agent", "status": "online"},
-        {"id": 2, "name": "Vercel Deploy Runner", "status": "ready"}
-    ]
-
-@router.post("/items")
-async def create_item(item_data: dict):
-    return {"message": "Item registered successfully", "data": item_data}`,
-
-  'auth.py': `from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel
-
-router = APIRouter()
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-
-@router.post("/login", response_model=Token)
-async def login_for_access_token():
-    return {
-        "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-        "token_type": "bearer"
-    }`,
-
-  'requirements.txt': `fastapi==0.111.0
-uvicorn[standard]==0.30.1
-pydantic==2.7.4
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-python-multipart==0.0.9`,
-
-  'README.md': `# Full Stack AI App
-Generated by **DENNIS Agentic OS** & **DENEVO Engine**.
-
-### Architecture
-- **Backend**: FastAPI + Uvicorn + JWT
-- **Frontend**: Next.js App Router
-- **Deployment**: Vercel & Render
-- **Framework**: LangGraph Multi-Agent Workflows`
-};
-
-function initCodeEditor() {
-  const codeContentEl = document.getElementById('code-content');
-  const currentFileNameEl = document.getElementById('current-file-name');
-  const fileTreeItems = document.querySelectorAll('.file-tree-item');
-
-  function renderCode(fileName) {
-    if (!codeContentEl) return;
-    const rawCode = codeSamples[fileName] || `# File: ${fileName}\n# Content ready for editing...`;
-    
-    // Highlight lines and add line numbers
-    const lines = rawCode.split('\n');
-    let html = '';
-    lines.forEach((line, index) => {
-      const lineNum = index + 1;
-      let highlighted = escapeHtml(line)
-        .replace(/\b(from|import|as|return|def|async|class)\b/g, '<span class="syn-keyword">$1</span>')
-        .replace(/(["'])(.*?)\1/g, '<span class="syn-string">$1$2$1</span>')
-        .replace(/(@\w+)/g, '<span class="syn-def">$1</span>')
-        .replace(/(#.*$)/g, '<span class="syn-comment">$1</span>');
-
-      html += `<div class="flex hover:bg-slate-800/40 px-2 py-[1px]">
-        <span class="w-6 text-right pr-3 select-none text-slate-600">${lineNum}</span>
-        <span class="flex-1">${highlighted || ' '}</span>
-      </div>`;
-    });
-
-    codeContentEl.innerHTML = html;
-    if (currentFileNameEl) currentFileNameEl.textContent = fileName;
-  }
-
-  fileTreeItems.forEach(item => {
-    item.addEventListener('click', (e) => {
-      e.stopPropagation();
-      fileTreeItems.forEach(f => f.classList.remove('bg-blue-900/30', 'text-cyan-400', 'font-medium'));
-      item.classList.add('bg-blue-900/30', 'text-cyan-400', 'font-medium');
-      const fileName = item.getAttribute('data-filename');
-      if (fileName) renderCode(fileName);
-    });
-  });
-
-  // Render initial code
-  renderCode('main.py');
-}
-
-/* ----------------------------------------------------
-   6. REGISTRIES & FILTERS (Model, MCP Connectors, Router)
+   5. REGISTRIES & FILTERS (Model, Router)
 ---------------------------------------------------- */
 function initRegistries() {
   // Model Registry Filter Tabs
@@ -914,6 +811,11 @@ function initRegistries() {
 ---------------------------------------------------- */
 let currentWizardStep = 1;
 let currentConfigAgent = null;
+// Canonical id of the agent being configured (e.g. "hermes-cli"). The
+// display name must never be slugified into the id for known agents: a
+// name like "Hermes Agent" would create "hermes-agent" and lose the
+// profile/model-source mapping keyed to "hermes-cli".
+let currentAgentCanonicalId = null;
 let detectedAgentsList = [];
 let catalogAgentsList = [];
 let isDiagnosticVerified = false;
@@ -1024,13 +926,17 @@ function initAgentRegistryAndWorkflows() {
   if (tabCustom) tabCustom.addEventListener('click', () => updateHubTabs('custom'));
 
   if (searchInput) {
+    let searchTimer = null;
     searchInput.addEventListener('input', () => {
-      const q = searchInput.value.toLowerCase().trim();
-      if (activeHubTab === 'detected') {
-        renderDetectedCards(q);
-      } else {
-        renderCatalogCards(q);
-      }
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        const q = searchInput.value.toLowerCase().trim();
+        if (activeHubTab === 'detected') {
+          renderDetectedCards(q);
+        } else {
+          renderCatalogCards(q);
+        }
+      }, 150);
     });
   }
 
@@ -1414,6 +1320,14 @@ async function setActiveAgent(agentId) {
       showToast(`Active OS Agent switched to: ${data.agent.name}`);
       loadAgentRegistry();
 
+      // Persist the agent switch to the backend for the active session.
+      // This ensures the current live terminal session restarts with the new agent.
+      fetch('/api/project-sessions/active/agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agent_id: data.agent.id })
+      }).catch(err => console.error('Failed to persist agent switch:', err));
+
       // Refresh model switcher dropdown with recommendations for new agent
       allModelsCache = []; // force reload to re-sort
       loadModelsIntoSwitcher(data.agent.id);
@@ -1453,6 +1367,8 @@ async function openDiscoveryHub() {
   const wizardView = document.getElementById('setup-wizard-view');
 
   if (!modal) return;
+  currentConfigAgent = null;
+  currentAgentCanonicalId = null;
   modal.classList.remove('hidden');
   discoveryView.classList.remove('hidden');
   wizardView.classList.add('hidden');
@@ -1641,6 +1557,12 @@ function renderCatalogCards(query = '') {
 /* Wizard Flow Transition */
 function startWizardWithAgent(agent) {
   currentConfigAgent = agent;
+  // Keep the catalog/probe id for known agents. Custom agents are the only
+  // ones whose id should be derived from the user-supplied name.
+  var detectedId = agent && agent.id ? String(agent.id) : "";
+  currentAgentCanonicalId = detectedId && detectedId.indexOf("custom") !== 0
+    ? detectedId
+    : null;
   isDiagnosticVerified = false;
 
   const discoveryView = document.getElementById('discovery-screen-view');
@@ -1759,7 +1681,7 @@ async function finalizeAgentRegistration() {
   const setActive = document.getElementById('wiz-set-active-checkbox')?.checked || false;
 
   const agentPayload = {
-    id: name.toLowerCase().replace(/\s+/g, '-'),
+    id: currentAgentCanonicalId || name.toLowerCase().replace(/\s+/g, '-'),
     name: name,
     provider: provider || 'Autonomous AI',
     binary_path: binary_path,
@@ -1800,6 +1722,16 @@ function initQuickToolsAndModals() {
       const toolName = tool.getAttribute('data-tool-name') || 'Tool';
       if (toolName === 'Terminal') {
         if (window.openAgentTerminalPanel) window.openAgentTerminalPanel();
+        return;
+      }
+      if (toolName === 'Obsidian') {
+        if (window.Vault) window.Vault.open();
+        else showToast('Vault is not available');
+        return;
+      }
+      if (toolName === 'Graphify') {
+        if (window.Vault) window.Vault.openGraph();
+        else showToast('Vault is not available');
         return;
       }
       showToast(`Launching ${toolName}...`);
@@ -1900,12 +1832,12 @@ function ensureXterm(cb) {
   }
   const link = document.createElement('link');
   link.rel = 'stylesheet';
-  link.href = 'https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css';
+  link.href = '/vendor/xterm/xterm.css';
   document.head.appendChild(link);
 
   const script = document.createElement('script');
   script.id = 'xterm-script';
-  script.src = 'https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js';
+  script.src = '/vendor/xterm/xterm.js';
   script.onload = () => { script.dataset.loaded = '1'; cb(); };
   document.head.appendChild(script);
 }
@@ -2010,25 +1942,6 @@ function setChatPanelTab(tab) {
     if (inputBar) inputBar.classList.remove('hidden');
     termView.classList.add('hidden');
   }
-}
-
-function initChatPanelTerminal() {
-  const chatBtn = document.getElementById('chat-tab-chat');
-  const termBtn = document.getElementById('chat-tab-terminal');
-  if (chatBtn) chatBtn.addEventListener('click', () => setChatPanelTab('chat'));
-  if (termBtn) termBtn.addEventListener('click', () => setChatPanelTab('terminal'));
-
-  // Keep the PTY sized to the panel when the window resizes.
-  let resizeTimer;
-  window.addEventListener('resize', () => {
-    const view = document.getElementById('chat-terminal-view');
-    if (!agentTerm || !view || view.classList.contains('hidden')) return;
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => {
-      const host = document.getElementById('chat-terminal-host');
-      if (host) { const s = agentTermSize(host); agentTerm.resize(s.cols, s.rows); }
-    }, 200);
-  });
 }
 
 // Exposed for the Quick Tools "Run Terminal" action in the management grid.

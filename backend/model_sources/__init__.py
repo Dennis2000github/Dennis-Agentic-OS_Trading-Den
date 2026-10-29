@@ -6,7 +6,8 @@ The Model Registry is intentionally *not* consulted anywhere in this package.
 """
 
 from .base import ModelListError, ModelSource
-from .registry import get_source, list_models, validate_model, clear_cache
+from .registry import (get_source, list_models, validate_model, clear_cache,
+                       providers, provider_label)
 
 __all__ = [
     "ModelListError",
@@ -15,4 +16,6 @@ __all__ = [
     "list_models",
     "validate_model",
     "clear_cache",
+    "providers",
+    "provider_label",
 ]

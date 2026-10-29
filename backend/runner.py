@@ -11,6 +11,7 @@ Dependency-free (stdlib only), mirroring the rest of ``backend/``.
 
 import os
 import re
+import signal
 import subprocess
 import sys
 import threading
@@ -96,15 +97,20 @@ class ProjectRun:
             if match:
                 self.url = match.group(0).rstrip(".,)")
 
-    def _pump(self, stream):
+    def _pump(self, proc):
         try:
-            for raw in iter(stream.readline, b""):
+            for raw in iter(proc.stdout.readline, b""):
                 self._append(raw.decode("utf-8", "replace").rstrip("\n"))
         except Exception:
             pass
         finally:
             try:
-                stream.close()
+                proc.stdout.close()
+            except Exception:
+                pass
+            # Reap the child so an exited dev server does not linger as a zombie.
+            try:
+                proc.wait(timeout=5)
             except Exception:
                 pass
 
@@ -139,7 +145,7 @@ class ProjectRun:
                 self.proc = None
                 return
             self.started_at = time.time()
-            threading.Thread(target=self._pump, args=(self.proc.stdout,), daemon=True).start()
+            threading.Thread(target=self._pump, args=(self.proc,), daemon=True).start()
 
     def stop(self, timeout=8.0):
         with self._lock:
@@ -147,13 +153,32 @@ class ProjectRun:
             self.proc = None
             self.static = False
         if proc and proc.poll() is None:
-            try:
+            self._terminate_process_group(proc, timeout)
+
+    @staticmethod
+    def _terminate_process_group(proc, timeout=8.0):
+        """Stop the whole process group (dev servers spawn children)."""
+        try:
+            pgid = os.getpgid(proc.pid)
+        except OSError:
+            pgid = None
+        try:
+            if pgid is not None:
+                os.killpg(pgid, signal.SIGTERM)
+            else:
                 proc.terminate()
-                proc.wait(timeout=timeout)
-            except subprocess.TimeoutExpired:
-                proc.kill()
+            proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            try:
+                if pgid is not None:
+                    os.killpg(pgid, signal.SIGKILL)
+                else:
+                    proc.kill()
+                proc.wait(timeout=5)
             except Exception:
                 pass
+        except Exception:
+            pass
 
     def status(self):
         running = self._alive() or self.static

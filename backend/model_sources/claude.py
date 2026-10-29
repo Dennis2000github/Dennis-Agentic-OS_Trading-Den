@@ -12,7 +12,7 @@ Parsing notes (this is a TUI, not a machine interface):
   means the keystrokes feed the *command palette* instead of executing the
   command, so we wait for the "auto mode on" status line first.
 * The renderer moves the cursor by column instead of printing spaces, so the
-  sanitised text collapses words (``OpusOpus5.5``, ``9routerfallbackcombo``
+  sanitised text collapses words (``OpusOpus5.5``, ````
   with the checkmark glued on). We therefore only trust the *numbered* picker
   rows, take the leading run of ``[A-Za-z0-9._-]`` as the token, strip any
   glued-on suffix, and collapse a duplicated name prefix (``OpusOpus5.5`` ->
@@ -56,7 +56,7 @@ def _collapse(token):
     """Split a space-collapsed token into (alias, display name).
 
     ``OpusOpus5.5`` -> ``("opus", "Opus 5.5")``; a token with no doubled prefix
-    (``9routerfallbackcombo``) is returned unchanged (alias lower-cased).
+    (``freellmapi``) is returned unchanged (alias lower-cased).
     """
     n = len(token)
     for k in range(1, n // 2 + 1):
@@ -111,7 +111,11 @@ class ClaudeModelSource(ModelSource):
             if mid in seen:
                 continue
             seen.add(mid)
-            models.append(self._norm(mid, name=name))
+            # FreeLLMAPI registers itself as a model alias in the Claude picker.
+            # Preserve that source in the provider dropdown instead of labeling it
+            # as Anthropic, while keeping native Claude models unchanged.
+            provider = "FreeLLMAPI" if mid == "freellmapi" else "Anthropic"
+            models.append(self._norm(mid, name=name, provider=provider))
 
         if not models:
             raise ModelListError("Could not read Claude's /model picker")

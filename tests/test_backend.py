@@ -16,10 +16,12 @@ from unittest import mock
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from backend import (config, projects, session_store, sandbox, ws, filewatch,
-                     docker_runtime, preflight, agent_registry)
+                     docker_runtime, preflight, agent_registry, vault, hermes,
+                     skill_builder)
 from backend import session_manager as sm
 from backend.model_sources import (antigravity, claude, codex, opencode,
-                                   registry, base)
+                                   cursor, openclaw, registry, base)
+from backend.model_sources import hermes as hermes_source
 
 
 class FakeCtx:
@@ -109,12 +111,146 @@ class SessionStoreTests(unittest.TestCase):
         self.assertEqual(len(session_store.list_sessions("local", agent_id="opencode")), 1)
 
 
+class AgentRegistryDiscoveryTests(unittest.TestCase):
+    """Installed host CLIs must appear in every agent dropdown."""
+
+    def setUp(self):
+        agent_registry.clear_detection_cache()
+
+    def tearDown(self):
+        agent_registry.clear_detection_cache()
+
+    def _detected(self, agent_id="claude-code", name="Claude Code", binary="claude"):
+        return {
+            "id": agent_id, "name": name, "provider": "Anthropic",
+            "version": "Installed", "icon_char": "C", "color_theme": "amber",
+            "binary_path": "/usr/local/bin/" + binary, "type": "Coding CLI",
+            "detected": True, "registered": False,
+        }
+
+    def test_availability_does_not_require_model_listing(self):
+        with mock.patch.object(agent_registry, "resolve_binary", lambda a: "/bin/echo"):
+            ok, reason = agent_registry.availability({"id": "unknown-cli"})
+        self.assertTrue(ok)
+        self.assertEqual(reason, "Ready")
+
+    def test_available_agents_merges_detected_cli(self):
+        registered = [{"id": "opencode", "name": "OpenCode", "binary_path": "/bin/echo"}]
+        with mock.patch.object(agent_registry, "load_agents", lambda: registered), \
+                mock.patch.object(agent_registry, "resolve_binary", lambda a: a.get("binary_path")), \
+                mock.patch.object(agent_registry, "detect_installed",
+                                  lambda **kw: [self._detected()]):
+            agents = agent_registry.available_agents()
+        by_id = {a["id"]: a for a in agents}
+        self.assertIn("claude-code", by_id)
+        self.assertTrue(by_id["claude-code"]["available"])
+        self.assertFalse(by_id["claude-code"]["registered"])
+        self.assertTrue(by_id["opencode"]["registered"])
+
+    def test_available_agents_dedupes_registered_binary_alias(self):
+        registered = [{"id": "codex-cli", "name": "Codex CLI", "binary_path": "/bin/codex"}]
+        detected = [self._detected("codex", "Codex CLI", "codex"),
+                    self._detected("claude-code", "Claude Code", "claude")]
+        with mock.patch.object(agent_registry, "load_agents", lambda: registered), \
+                mock.patch.object(agent_registry, "resolve_binary", lambda a: a.get("binary_path")), \
+                mock.patch.object(agent_registry, "detect_installed", lambda **kw: detected):
+            ids = [a["id"] for a in agent_registry.available_agents()]
+        self.assertEqual(ids, ["codex-cli", "deepseek-harness", "claude-code"])
+
+    def test_get_agent_falls_back_to_detected(self):
+        with mock.patch.object(agent_registry, "load_agents", lambda: []), \
+                mock.patch.object(agent_registry, "detect_installed",
+                                  lambda **kw: [self._detected()]):
+            agent = agent_registry.get_agent("claude-code")
+        self.assertIsNotNone(agent)
+        self.assertTrue(agent["detected"])
+        self.assertEqual(agent["binary_path"], "/usr/local/bin/claude")
+        with mock.patch.object(agent_registry, "load_agents", lambda: []), \
+                mock.patch.object(agent_registry, "detect_installed", lambda **kw: []):
+            self.assertIsNone(agent_registry.get_agent("missing"))
+
+    def test_unsupported_clis_are_not_probed(self):
+        probes = {p["id"] for p in agent_registry.host_agent_probes()}
+        for unsupported in ("junie", "qoder-cli", "devin-cli"):
+            self.assertNotIn(unsupported, probes)
+            self.assertEqual(agent_registry.profile(unsupported), {})
+
+    def test_hermes_cli_is_a_distinct_probe(self):
+        probes = {p["id"]: p for p in agent_registry.host_agent_probes()}
+        self.assertIn("hermes-cli", probes)
+        self.assertEqual(probes["hermes-cli"]["binary"], "hermes")
+        # The OS orchestrator owns the bare "hermes" id; the CLI must not.
+        self.assertNotIn("hermes", probes)
+
+    def test_hermes_cli_profile_and_one_shot(self):
+        prof = agent_registry.profile("hermes-cli")
+        self.assertEqual(prof["model_flag"], ["-m"])
+        self.assertEqual(prof["resume_flag"], ["--resume"])
+        argv = agent_registry.one_shot_argv(
+            {"id": "hermes-cli", "binary_path": "/bin/echo"}, "task")
+        self.assertEqual(argv, ["/bin/echo", "-z", "task"])
+        argv = agent_registry.one_shot_argv(
+            {"id": "hermes-cli", "binary_path": "/bin/echo"}, "task",
+            model_id="deepseek-v4-flash")
+        self.assertEqual(
+            argv, ["/bin/echo", "-m", "deepseek-v4-flash", "-z", "task"])
+
+    def test_cursor_and_openclaw_are_registered(self):
+        self.assertIn("model_flag", agent_registry.profile("cursor"))
+        self.assertIn("models_cmd", agent_registry.profile("openclaw"))
+        self.assertEqual(agent_registry.profile("openclaw")["base_args"],
+                         ["tui", "--local"])
+        probes = {p["id"] for p in agent_registry.host_agent_probes()}
+        self.assertTrue({"cursor", "openclaw"}.issubset(probes))
+
+    def test_cursor_and_openclaw_one_shot_commands(self):
+        self.assertEqual(
+            agent_registry.one_shot_argv(
+                {"id": "cursor", "binary_path": "/bin/echo"},
+                "task", model_id="gpt-5"),
+            ["/bin/echo", "-p", "task", "--model", "gpt-5"])
+        self.assertEqual(
+            agent_registry.one_shot_argv(
+                {"id": "openclaw", "binary_path": "/bin/echo"},
+                "task", model_id="openai/gpt-5"),
+            ["/bin/echo", "agent", "exec", "--model", "openai/gpt-5", "task"])
+
+    def test_skill_builder_hermes_fallback_uses_oneshot(self):
+        self.assertEqual(skill_builder.AGENT_BINARIES["hermes-cli"], "hermes")
+        argv = skill_builder._agent_argv("hermes-cli", "/bin/echo", "", "task")
+        self.assertEqual(argv, ["/bin/echo", "-z", "task"])
+        argv = skill_builder._agent_argv(
+            "hermes-cli", "/bin/echo", "deepseek-v4-flash", "task")
+        self.assertEqual(
+            argv, ["/bin/echo", "-m", "deepseek-v4-flash", "-z", "task"])
+
+
 class ModelSourceTests(unittest.TestCase):
     def test_opencode_parses_provider_slash_model(self):
         out = "Fetching...\nopencode/big-pickle\nopenai/gpt-6\n\n# comment\nnot-a-model\n"
         models = opencode.OpenCodeModelSource().list_models(FakeCtx(stdout=out))
         ids = [m["id"] for m in models]
         self.assertEqual(ids, ["opencode/big-pickle", "openai/gpt-6"])
+        self.assertEqual([m["provider"] for m in models], ["opencode", "openai"])
+
+    def test_providers_group_reported_providers_only(self):
+        models = [
+            {"id": "openai/gpt-6", "provider": "openai", "available": True},
+            {"id": "openai/gpt-6-mini", "provider": "openai", "available": False},
+            {"id": "anthropic/claude", "provider": "anthropic", "available": True},
+            {"id": "no-provider", "available": True},
+        ]
+        providers = registry.providers(models)
+        self.assertEqual([p["id"] for p in providers], ["openai", "anthropic"])
+        self.assertEqual(providers[0]["label"], "OpenAI")
+        self.assertEqual(providers[0]["model_count"], 2)
+        self.assertTrue(providers[0]["available"])
+        self.assertEqual(providers[1]["label"], "Anthropic")
+
+    def test_provider_label_keeps_unknown_ids_verbatim(self):
+        self.assertEqual(registry.provider_label("ollama-cloud"), "Ollama Cloud")
+        self.assertEqual(registry.provider_label("some-local-gateway"),
+                         "some-local-gateway")
 
     def test_opencode_empty_raises(self):
         with self.assertRaises(base.ModelListError):
@@ -138,6 +274,24 @@ class ModelSourceTests(unittest.TestCase):
     def test_codex_bad_json_raises(self):
         with self.assertRaises(base.ModelListError):
             codex.CodexModelSource().list_models(FakeCtx(stdout="{not json"))
+
+    def test_openclaw_json_models(self):
+        payload = json.dumps({"models": [
+            {"key": "openai/gpt-5", "name": "GPT-5", "provider": "openai",
+             "default": True},
+            {"key": "anthropic/claude", "provider": "anthropic"},
+        ]})
+        models = openclaw.OpenClawModelSource().list_models(FakeCtx(stdout=payload))
+        self.assertEqual([m["id"] for m in models],
+                         ["openai/gpt-5", "anthropic/claude"])
+        self.assertEqual(models[0]["provider"], "openai")
+        self.assertTrue(models[0]["is_default"])
+
+    def test_cursor_interactive_models(self):
+        raw = "Select model\n> 1. auto\n  2. anthropic/claude-sonnet\n"
+        models = cursor.CursorModelSource().list_models(FakeCtx(interactive=raw))
+        self.assertEqual([m["id"] for m in models],
+                         ["auto", "anthropic/claude-sonnet"])
 
     def test_claude_numbered_menu(self):
         # Mirrors real /model output: a "Select model" section, cursor-collapsed
@@ -170,6 +324,52 @@ class ModelSourceTests(unittest.TestCase):
         raw = "some banner\nexport TERM\nyes itrustworkspace"
         with self.assertRaises(base.ModelListError):
             claude.ClaudeModelSource().list_models(FakeCtx(interactive=raw))
+
+    def _with_hermes_home(self, config, cache):
+        home = tempfile.mkdtemp(prefix="hermes-home-")
+        old = os.environ.get("HERMES_HOME")
+        os.environ["HERMES_HOME"] = home
+        self.addCleanup(lambda: (os.environ.__setitem__("HERMES_HOME", old)
+                                 if old is not None
+                                 else os.environ.pop("HERMES_HOME", None)))
+        if config is not None:
+            with open(os.path.join(home, "config.yaml"), "w", encoding="utf-8") as fh:
+                fh.write(config)
+        if cache is not None:
+            with open(os.path.join(home, "provider_models_cache.json"), "w",
+                      encoding="utf-8") as fh:
+                json.dump(cache, fh)
+        return home
+
+    def test_hermes_reads_config_and_provider_cache(self):
+        self._with_hermes_home(
+            "model:\n"
+            "  default: deepseek-v4-flash\n"
+            "  provider: ollama-cloud\n"
+            "  base_url: https://ollama.com/v1\n"
+            "fallback_providers: []\n",
+            {"ollama-cloud": {"models": ["gpt-oss:120b", "deepseek-v4-flash",
+                                         "glm-5.3"]},
+             "copilot-acp": {"models": ["gpt-5.4"]}},
+        )
+        models = hermes_source.HermesModelSource().list_models(FakeCtx())
+        self.assertEqual([m["id"] for m in models],
+                         ["deepseek-v4-flash", "gpt-oss:120b", "glm-5.3"])
+        self.assertTrue(models[0]["is_default"])
+        self.assertEqual({m["provider"] for m in models}, {"ollama-cloud"})
+        # Only the active provider's models are exposed.
+        self.assertNotIn("gpt-5.4", [m["id"] for m in models])
+
+    def test_hermes_falls_back_to_single_cached_provider(self):
+        self._with_hermes_home(None, {"ollama-cloud": {"models": ["glm-5.3"]}})
+        models = hermes_source.HermesModelSource().list_models(FakeCtx())
+        self.assertEqual([m["id"] for m in models], ["glm-5.3"])
+
+    def test_hermes_missing_cache_raises_actionable(self):
+        self._with_hermes_home("model:\n  provider: ollama-cloud\n", None)
+        with self.assertRaises(base.ModelListError) as cm:
+            hermes_source.HermesModelSource().list_models(FakeCtx())
+        self.assertIn("hermes model --refresh", str(cm.exception))
 
     def test_registry_unknown_agent_raises(self):
         with self.assertRaises(base.ModelListError):
@@ -430,44 +630,103 @@ class SessionManagerTests(unittest.TestCase):
         a._on_data("hello")
         self.assertIsInstance(a.timings["first_output_ms"], int)
 
+    def test_screen_replays_cursor_positioned_output(self):
+        screen = sm._Screen(6, 24)
+        screen.feed("\x1b[1;1Hhello\x1b[2;3Hworld")
+        text = screen.snapshot()
+        self.assertIn("hello", text)
+        self.assertIn("  world", text)
+        self.assertNotIn("\x1b", text)
+
+    def test_screen_handles_split_sequences_erase_and_alt_screen(self):
+        screen = sm._Screen(4, 16)
+        screen.feed("\x1b[2")
+        screen.feed(";3HOK")
+        self.assertIn("OK", screen.snapshot())
+        screen.feed("\x1b[2J")
+        self.assertEqual(screen.snapshot(), "")
+        screen.feed("ready\x1b[?1049h")
+        self.assertEqual(screen.snapshot(), "")
+
+    def test_history_archives_settled_screens_without_escape_codes(self):
+        a = sm.AgentSession("A", "opencode", self.tmp)
+        a._on_data("\x1b[1;1Hfirst screen\x1b[2;1Hwith a line")
+        a._capture_screen()
+        a._on_data("\x1b[2J\x1b[1;1Hsecond screen")
+        a._capture_screen()
+        text = a.history()
+        self.assertIn("first screen", text)
+        self.assertIn("with a line", text)
+        self.assertIn("second screen", text)
+        self.assertNotIn("\x1b", text)
+        self.assertIn("\u2500\u2500", text)  # timestamped snapshot separator
+
+    def test_history_deduplicates_unchanged_screens(self):
+        a = sm.AgentSession("A", "opencode", self.tmp)
+        a._on_data("steady\x1b[1;1Hsteady")
+        a._capture_screen()
+        a._capture_screen()
+        self.assertEqual(a.history().count("steady"), 1)
+
+    def test_history_keeps_only_the_tail(self):
+        a = sm.AgentSession("A", "opencode", self.tmp)
+        a._on_data("\x1b[1;1Hfirst screen")
+        a._capture_screen()
+        a._on_data("\x1b[2J\x1b[1;1Hlast screen")
+        a._capture_screen()
+        text = a.history(limit=20)
+        self.assertIn("last screen", text)
+        self.assertNotIn("first screen", text)
+
     def test_current_model_is_what_the_backend_launched_with(self):
+        a = sm.AgentSession("A", "claude-code", self.tmp)
+        a._runner = self.manager.runner
+        a.start(self._agent("claude-code"), "claude-code/big-pickle")
+        self.assertEqual(a.snapshot()["current_model"], "claude-code/big-pickle")
+        self.assertIn("--model", a.proc.argv)
+        self.assertIn("claude-code/big-pickle", a.proc.argv)
+
+    def test_opencode_launches_without_an_unsupported_model_flag(self):
+        # OpenCode v2's interactive TUI rejects -m/--model ("Unrecognized flag"),
+        # which used to abort the CLI on launch. It must start bare and let the
+        # TUI's /model picker choose the model.
         a = sm.AgentSession("A", "opencode", self.tmp)
         a._runner = self.manager.runner
         a.start(self._agent(), "opencode/big-pickle")
-        self.assertEqual(a.snapshot()["current_model"], "opencode/big-pickle")
-        self.assertIn("-m", a.proc.argv)
-        self.assertIn("opencode/big-pickle", a.proc.argv)
+        self.assertNotIn("-m", a.proc.argv)
+        self.assertNotIn("--model", a.proc.argv)
+        self.assertNotIn("opencode/big-pickle", a.proc.argv)
 
     def test_same_model_restart_continues_the_conversation(self):
-        a = sm.AgentSession("A", "opencode", self.tmp)
+        a = sm.AgentSession("A", "claude-code", self.tmp)
         a._runner = self.manager.runner
-        a.start(self._agent(), "opencode/beam-free")
-        self.assertNotIn("-c", a.proc.argv, "a brand-new session must not resume")
+        a.start(self._agent("claude-code"), "claude-code/beam-free")
+        self.assertNotIn("--continue", a.proc.argv, "a brand-new session must not resume")
         a.stop()
-        a.start(self._agent(), "opencode/beam-free")  # same model: safe to resume
-        self.assertIn("-c", a.proc.argv, "a same-model restart continues the conversation")
-        self.assertIn("opencode/beam-free", a.proc.argv)
+        a.start(self._agent("claude-code"), "claude-code/beam-free")  # same model: safe to resume
+        self.assertIn("--continue", a.proc.argv, "a same-model restart continues the conversation")
+        self.assertIn("claude-code/beam-free", a.proc.argv)
 
     def test_model_change_restarts_fresh_so_the_new_model_applies(self):
         # OpenCode (and other CLIs) ignore the model flag when resuming, so a
         # model change must NOT carry the continue/resume flags or the CLI would
         # keep its old model.
-        a = sm.AgentSession("A", "opencode", self.tmp)
+        a = sm.AgentSession("A", "claude-code", self.tmp)
         a._runner = self.manager.runner
-        a.start(self._agent(), "opencode/beam-free")
+        a.start(self._agent("claude-code"), "claude-code/beam-free")
         a.stop()
-        a.start(self._agent(), "opencode/big-pickle")  # model change
-        self.assertNotIn("-c", a.proc.argv, "a model change must start fresh")
-        self.assertNotIn("-s", a.proc.argv, "a model change must not resume a session id")
-        self.assertIn("-m", a.proc.argv)
-        self.assertIn("opencode/big-pickle", a.proc.argv)
+        a.start(self._agent("claude-code"), "claude-code/big-pickle")  # model change
+        self.assertNotIn("--continue", a.proc.argv, "a model change must start fresh")
+        self.assertNotIn("--resume", a.proc.argv, "a model change must not resume a session id")
+        self.assertIn("--model", a.proc.argv)
+        self.assertIn("claude-code/big-pickle", a.proc.argv)
         # And from "no model" to a specific model is also a change.
-        b = sm.AgentSession("B", "opencode", self.tmp)
+        b = sm.AgentSession("B", "claude-code", self.tmp)
         b._runner = self.manager.runner
-        b.start(self._agent(), None)
+        b.start(self._agent("claude-code"), None)
         b.stop()
-        b.start(self._agent(), "opencode/beam-free")
-        self.assertNotIn("-c", b.proc.argv)
+        b.start(self._agent("claude-code"), "claude-code/beam-free")
+        self.assertNotIn("--continue", b.proc.argv)
 
     def test_preview_url_emits_one_handoff_per_burst(self):
         a = sm.AgentSession("A", "opencode", self.tmp)
@@ -560,119 +819,243 @@ class ReadinessTests(unittest.TestCase):
         self.assertFalse(report["docker"]["cli_found"])
 
 
-class McpConnectorTests(unittest.TestCase):
+class VaultTests(unittest.TestCase):
     def setUp(self):
-        import backend.mcp as mcp
-        self.mcp = mcp
-        fd, self.path = tempfile.mkstemp(prefix="dennis-mcp-", suffix=".json")
-        os.close(fd)
-        with open(self.path, "w", encoding="utf-8") as fh:
-            fh.write('{"servers": []}')
-        self._old = mcp.MCP_FILE
-        mcp.MCP_FILE = self.path
+        import backend.vault as vault
+        self.vault = vault
+        self._old = vault.VAULT_DIR
+        self.tmp = tempfile.mkdtemp(prefix="dennis-vault-")
+        vault.VAULT_DIR = self.tmp
 
     def tearDown(self):
-        self.mcp.MCP_FILE = self._old
-        if os.path.exists(self.path):
-            os.remove(self.path)
+        self.vault.VAULT_DIR = self._old
 
-    def test_policy_presets(self):
-        ro = self.mcp.default_policy("read-only")
-        self.assertFalse(ro["allow_write"])
-        self.assertEqual(ro["risk_level"], "low")
-        trusted = self.mcp.default_policy("trusted")
-        self.assertTrue(trusted["allow_write"])
-        self.assertFalse(trusted["require_approval"])
+    def test_seed_and_tree(self):
+        self.vault.ensure_vault()
+        tree = self.vault.list_tree()
+        names = {n["name"] for n in tree}
+        self.assertIn("Welcome.md", names)
+        self.assertTrue(os.path.isfile(os.path.join(self.tmp, "Welcome.md")))
 
-    def test_create_validation_and_persistence(self):
-        with self.assertRaises(ValueError):
-            self.mcp.create_server({"name": ""})
-        with self.assertRaises(ValueError):
-            self.mcp.create_server({"name": "No URL", "transport": "streamable-http"})
-        with self.assertRaises(ValueError):
-            self.mcp.create_server({"name": "Bad transport", "transport": "carrier-pigeon"})
-        server = self.mcp.create_server({
-            "name": "Acme", "transport": "stdio", "command": "npx",
-            "args": "-y pkg", "auth_type": "none",
-        })
-        self.assertEqual(server["status"], "policy_review")
-        self.assertEqual(server["args"], ["-y", "pkg"])
-        stored = self.mcp.load_servers()["servers"]
-        self.assertEqual(len(stored), 1)
+    def test_write_read_roundtrip(self):
+        self.vault.ensure_vault()
+        self.vault.write_note("Notes/Deep.md", "# Deep\n\nBody.\n")
+        note = self.vault.read_note("Notes/Deep.md")
+        self.assertEqual(note["title"], "Deep")
+        self.assertIn("Body.", note["content"])
 
-    def test_public_view_hides_tokens(self):
-        server = self.mcp.create_server({
-            "name": "Token test", "transport": "streamable-http",
-            "url": "https://mcp.example.com/mcp", "auth_type": "oauth",
-        })
-        server["oauth"] = {"access_token": "secret-1234", "refresh_token": "r"}
-        self.mcp._upsert(server)
-        public = self.mcp.list_public()[0]
-        self.assertNotIn("access_token", public)
-        self.assertTrue(public["has_token"])
-        self.assertEqual(public["access_token_preview"], "••••1234")
+    def test_path_escape_rejected(self):
+        self.vault.ensure_vault()
+        with self.assertRaises(self.vault.VaultError):
+            self.vault.write_note("../escape.md", "nope")
+        with self.assertRaises(self.vault.VaultError):
+            self.vault.read_note("../../etc/passwd")
 
-    def test_registry_discovery_parsing_and_fallback(self):
-        payload = {"servers": [{"server": {
-            "name": "io.test/tool", "title": "Tool", "description": "d",
-            "version": "1.0.0", "remotes": [{"url": "https://x/mcp", "type": "streamable-http"}],
-        }}, {"server": {
-            "name": "io.test/local", "version": "1.0.0",
-            "packages": [{"identifier": "npx", "transport": {"type": "stdio", "args": ["-y", "pkg"]}}],
-        }}]}
-        with mock.patch.object(self.mcp, "_http_json", return_value=payload):
-            result = self.mcp.discover("tool")
-        self.assertEqual(result["source"], "registry")
-        self.assertEqual(result["results"][0]["id"], "io.test/tool")
-        self.assertEqual(result["results"][0]["url"], "https://x/mcp")
-        self.assertEqual(result["results"][1]["transport"], "stdio")
-        with mock.patch.object(self.mcp, "_http_json", side_effect=OSError("offline")):
-            offline = self.mcp.discover("github")
-        self.assertEqual(offline["source"], "builtin")
-        self.assertTrue(offline["error"])
-        self.assertTrue(offline["results"])
+    def test_rename_and_soft_delete(self):
+        self.vault.ensure_vault()
+        self.vault.write_note("A.md", "# A\n")
+        self.vault.rename_note("A.md", "B.md")
+        self.assertTrue(os.path.isfile(os.path.join(self.tmp, "B.md")))
+        res = self.vault.delete_note("B.md")
+        self.assertFalse(os.path.isfile(os.path.join(self.tmp, "B.md")))
+        self.assertTrue(os.path.isfile(os.path.join(self.tmp, res["trashed"])))
 
-    def test_oauth_discovery_and_authorization_url(self):
-        server = self.mcp.create_server({
-            "name": "Remote", "transport": "streamable-http",
-            "url": "https://mcp.example.com/mcp", "auth_type": "oauth",
-        })
-        prm = {"authorization_servers": ["https://auth.example.com"],
-               "scopes_supported": ["mcp:tools", "mcp:write"]}
-        asm = {"authorization_endpoint": "https://auth.example.com/authorize",
-               "token_endpoint": "https://auth.example.com/token",
-               "registration_endpoint": "https://auth.example.com/register"}
-        reg = {"client_id": "client-abc"}
+    def test_wikilink_graph_and_backlinks(self):
+        self.vault.ensure_vault()
+        self.vault.write_note("Alpha.md", "# Alpha\n\nLinks to [[Beta]].\n")
+        self.vault.write_note("Beta.md", "# Beta\n")
+        g = self.vault.graph()
+        edges = {(l["source"], l["target"]) for l in g["links"]}
+        self.assertIn(("Alpha.md", "Beta.md"), edges)
+        backs = self.vault.backlinks("Beta.md")
+        self.assertEqual([b["path"] for b in backs], ["Alpha.md"])
 
-        def fake(url, method="GET", data=None, headers=None, timeout=None):
-            if "oauth-protected-resource" in url:
-                return prm
-            if "oauth-authorization-server" in url:
-                return asm
-            if url.endswith("/register"):
-                return reg
-            raise AssertionError(url)
+    def test_search_scores_and_snippets(self):
+        self.vault.ensure_vault()
+        self.vault.write_note("Gamma.md", "# Gamma\n\nThe needle is here.\n")
+        results = self.vault.search("needle")
+        self.assertEqual(results[0]["path"], "Gamma.md")
+        self.assertIn("needle", results[0]["snippet"])
 
-        with mock.patch.object(self.mcp, "_http_json", side_effect=fake):
-            result = self.mcp.begin_oauth(server["id"])
-        self.assertEqual(result["client_id"], "client-abc")
-        self.assertIn("client_id=client-abc", result["authorization_url"])
-        self.assertIn("code_challenge_method=S256", result["authorization_url"])
-        self.assertIn("resource=https%3A%2F%2Fmcp.example.com%2Fmcp",
-                      result["authorization_url"])
-        stored = self.mcp.get_server(server["id"])
-        self.assertEqual(stored["status"], "authorizing")
 
-    def test_complete_connection_requires_accepted_policy(self):
-        server = self.mcp.create_server({
-            "name": "Stdio", "transport": "stdio", "command": "npx",
-            "args": ["-y", "pkg"], "auth_type": "none",
-        })
-        with self.assertRaises(ValueError):
-            self.mcp.complete_connection(server["id"])
-        self.mcp.update_policy(server["id"], {"accepted": True})
-        connected = self.mcp.complete_connection(server["id"])
-        self.assertEqual(connected["status"], "connected")
+class _FakeRegistry:
+    """Minimal stand-in for backend.agent_registry's read API."""
+
+    def __init__(self, ids):
+        self.ids = list(ids)
+
+    def available_agents(self):
+        return [{"id": i, "name": i.title(), "provider": "test",
+                 "icon_char": "x", "available": True, "reason": "Ready"}
+                for i in self.ids]
+
+    def get_agent(self, agent_id):
+        if agent_id in self.ids:
+            return {"id": agent_id, "name": agent_id.title()}
+        return None
+
+
+class _FakeHermesRunner:
+    """Runs instantly in a thread; records emissions."""
+
+    def __init__(self, task, emit, done):
+        self.task = task
+        self.emit = emit
+        self.done = done
+        self._buf = ""
+        self.stopped = False
+
+    def buffer(self):
+        return self._buf
+
+    def start(self):
+        import threading
+
+        def work():
+            time.sleep(0.02)
+            self._buf = "result:" + self.task["title"]
+            self.emit(self._buf)
+            self.done(self._buf, "")
+
+        threading.Thread(target=work, daemon=True).start()
+        return True
+
+    def stop(self):
+        self.stopped = True
+
+
+class HermesTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="dennis-hermes-")
+        self._old_vault = vault.VAULT_DIR
+        vault.VAULT_DIR = os.path.join(self.tmp, "vault")
+        self.registry = _FakeRegistry(["antigravity", "opencode", "codex-cli"])
+        self.path = os.path.join(self.tmp, "hermes.json")
+
+    def tearDown(self):
+        vault.VAULT_DIR = self._old_vault
+
+    def _make(self, planner=None, runner_factory=None, concurrency=2):
+        return hermes.HermesOrchestrator(
+            path=self.path, vault_module=vault, registry=self.registry,
+            planner=planner, runner_factory=runner_factory, concurrency=concurrency)
+
+    def test_decompose_is_five_role_pipeline(self):
+        spec = hermes.decompose("Ship the billing feature")
+        self.assertEqual([t["role"] for t in spec],
+                         ["research", "plan", "implement", "verify", "document"])
+        self.assertTrue(all(t["title"] and t["detail"] for t in spec))
+
+    def test_decompose_requires_a_goal(self):
+        with self.assertRaises(hermes.HermesError):
+            hermes.decompose("  ")
+
+    def test_normalize_plan_filters_and_falls_back(self):
+        self.assertEqual(hermes._normalize_plan(None, "g"),
+                         hermes.decompose("g"))
+        cleaned = hermes._normalize_plan(
+            [{"title": "Good", "role": "bogus"}, "junk", {}], "g")
+        self.assertEqual(len(cleaned), 1)
+        self.assertEqual(cleaned[0]["role"], "implement")  # unknown -> implement
+
+    def test_route_verify_avoids_implementer(self):
+        h = self._make()
+        task = {"role": "verify", "implemented_by": "antigravity"}
+        chosen = h.route(task, available=["antigravity", "opencode"])
+        self.assertNotEqual(chosen, "antigravity")
+
+    def test_route_is_least_loaded_and_deterministic(self):
+        h = self._make()
+        chosen = h.route({"role": "implement"},
+                         available=["antigravity", "opencode"],
+                         in_use=["antigravity", "antigravity"])
+        self.assertEqual(chosen, "opencode")
+
+    def test_route_returns_none_without_agents(self):
+        h = self._make()
+        self.assertIsNone(h.route({"role": "implement"}, available=[]))
+
+    def test_plan_assigns_autonomously_and_writes_vault(self):
+        h = self._make(planner=lambda g, c: None)
+        result = h.plan("Build a login page")
+        self.assertEqual(result["run"]["planner"], "vault")
+        self.assertEqual(len(result["tasks"]), 5)
+        for t in result["tasks"]:
+            self.assertEqual(t["assignment"], "autonomous")
+            self.assertIn(t["agent_id"], self.registry.ids)
+            self.assertEqual(t["status"], "assigned")
+        # second brain note created under Hermes/Plans
+        plans = os.path.join(vault.VAULT_DIR, "Hermes", "Plans")
+        self.assertTrue(os.listdir(plans))
+
+    def test_plan_spreads_load_across_subagents(self):
+        h = self._make(planner=lambda g, c: None)
+        h.plan("Distribute the work")
+        used = {t["agent_id"] for t in h.list_tasks()}
+        self.assertGreaterEqual(len(used), 2)  # not all on one agent
+
+    def test_plan_uses_cli_brain_when_requested(self):
+        calls = {}
+
+        def planner(goal, context):
+            calls["goal"] = goal
+            return [{"title": "Only task", "detail": "d", "role": "implement"}]
+
+        h = self._make(planner=planner)
+        result = h.plan("Do the thing", brain="cli")
+        self.assertEqual(result["run"]["planner"], "cli")
+        self.assertEqual(len(result["tasks"]), 1)
+        self.assertEqual(calls["goal"], "Do the thing")
+
+    def test_run_fans_out_and_aggregates(self):
+        h = self._make(planner=lambda g, c: None,
+                       runner_factory=lambda task, agent, emit, done: _FakeHermesRunner(task, emit, done))
+        h.run("Refactor auth", wait=True)
+        run = h.list_runs()[0]
+        self.assertEqual(run["status"], "complete")
+        statuses = {t["role"]: t["status"] for t in h.list_tasks()}
+        self.assertEqual(statuses["verify"], "done")
+        self.assertEqual(statuses["document"], "done")
+        self.assertEqual(statuses["implement"], "review")  # awaits human review
+        runs_dir = os.path.join(vault.VAULT_DIR, "Hermes", "Runs")
+        self.assertTrue(os.listdir(runs_dir))
+
+    def test_manual_assign_and_status_move(self):
+        h = self._make()
+        task = h.create_task("Wire the API", role="implement")
+        self.assertEqual(task["status"], "backlog")
+        h.assign_task(task["id"], "opencode")
+        self.assertEqual(h.list_tasks()[0]["agent_id"], "opencode")
+        self.assertEqual(h.list_tasks()[0]["assignment"], "manual")
+        h.set_status(task["id"], "done")
+        self.assertEqual(h.list_tasks()[0]["status"], "done")
+        with self.assertRaises(hermes.HermesError):
+            h.set_status(task["id"], "nonsense")
+
+    def test_board_groups_by_column(self):
+        h = self._make()
+        h.create_task("A", role="implement")
+        t2 = h.create_task("B", role="verify", agent_id="opencode")
+        h.set_status(t2["id"], "running")
+        cols = {c["id"]: c["count"] for c in h.board()["columns"]}
+        self.assertEqual(cols["backlog"], 1)
+        self.assertEqual(cols["running"], 1)
+
+    def test_memory_roundtrip(self):
+        h = self._make()
+        h.remember("Architecture Decision", "We chose the Vault as the second brain.")
+        hits = h.recall("second brain")
+        self.assertTrue(any("architecture-decision" in x["path"] for x in hits))
+
+    def test_subagents_excludes_orchestrator(self):
+        h = hermes.HermesOrchestrator(
+            path=self.path, vault_module=vault,
+            registry=_FakeRegistry(["hermes", "opencode"]))
+        ids = [a["id"] for a in h.subagents()]
+        self.assertNotIn("hermes", ids)
+        self.assertIn("opencode", ids)
+        self.assertEqual(h.identity()["id"], "hermes")
+        self.assertEqual(h.identity()["role"], "orchestrator")
 
 
 if __name__ == "__main__":

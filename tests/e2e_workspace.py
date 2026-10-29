@@ -151,8 +151,9 @@ def phase1(r):
             r.ev("document.getElementById('ws-status').textContent.trim()") == "Stopped")
     r.ev("document.getElementById('ws-agent-btn').click()")
     time.sleep(0.4)
-    r.check("agent dropdown lists registry agents",
-            r.ev("document.querySelectorAll('#ws-agent-options .ws-menu-item').length") == 4)
+    agents_text = (r.ev("document.getElementById('ws-agent-options').innerText") or "").lower()
+    r.check("agent dropdown lists registered + detected CLIs",
+            all(w in agents_text for w in ("antigravity", "opencode", "codex", "claude code")))
     r.check("model dropdown disabled with no agent",
             bool(r.ev("document.getElementById('ws-model-btn').disabled")))
     r.check("panel hidden and handle hidden without an agent (S0)",

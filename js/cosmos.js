@@ -10,6 +10,9 @@ class NeuralCosmos {
     this.width = 0;
     this.height = 0;
     this.mouse = { x: -1000, y: -1000, active: false };
+    this.paused = false;
+    this.visible = true;
+    this._raf = null;
 
     this.init();
   }
@@ -31,7 +34,33 @@ class NeuralCosmos {
 
     this.createStars();
     this.createBrainNodes();
-    this.animate();
+
+    // Stop burning frames while the tab is hidden or the hero banner is off
+    // screen (it is hidden entirely when another OS view is active).
+    document.addEventListener('visibilitychange', () => {
+      this.setPaused(document.hidden || !this.visible);
+    });
+    if ('IntersectionObserver' in window) {
+      this._observer = new IntersectionObserver((entries) => {
+        this.visible = entries.some((entry) => entry.isIntersecting);
+        this.setPaused(document.hidden || !this.visible);
+      }, { threshold: 0 });
+      this._observer.observe(this.canvas);
+    }
+
+    this.start();
+  }
+
+  start() {
+    if (this._raf === null && !this.paused) {
+      this._raf = requestAnimationFrame(() => this.animate());
+    }
+  }
+
+  setPaused(paused) {
+    if (paused === this.paused) return;
+    this.paused = paused;
+    if (!paused) this.start();
   }
 
   resize() {
@@ -133,7 +162,8 @@ class NeuralCosmos {
   }
 
   animate() {
-    requestAnimationFrame(() => this.animate());
+    if (this.paused) { this._raf = null; return; }
+    this._raf = requestAnimationFrame(() => this.animate());
 
     this.ctx.clearRect(0, 0, this.width, this.height);
 

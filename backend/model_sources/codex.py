@@ -36,6 +36,7 @@ class CodexModelSource(ModelSource):
                 description=item.get("description") or "",
                 available=available,
                 reason=None if available else "Not selectable in this CLI",
+                provider="OpenAI",
             ))
         if not models:
             raise ModelListError("No models parsed from codex catalog")

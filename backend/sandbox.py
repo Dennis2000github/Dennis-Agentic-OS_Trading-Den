@@ -33,6 +33,7 @@ import threading
 import time
 
 from . import config, docker_runtime
+from . import freellmapi
 
 # Minimal ANSI/escape stripper used only for readiness detection here. Keeping a
 # local copy avoids a backend.sandbox -> backend.model_sources import cycle.
@@ -67,9 +68,14 @@ def docker_status():
     return docker_runtime.status()
 
 
-def secret_env():
+def secret_env(agent_id=None, model_id=None):
     """Provider credentials from the host env, for container injection only."""
-    return {k: os.environ[k] for k in SECRET_ENV_ALLOWLIST if os.environ.get(k)}
+    env = (freellmapi.apply_agent_env(os.environ, agent_id, model_id)
+           if agent_id else os.environ)
+    allowed = SECRET_ENV_ALLOWLIST + (
+        "ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL", "OPENAI_BASE_URL",
+    )
+    return {k: env[k] for k in allowed if env.get(k)}
 
 
 def build_docker_argv(container_name, image, project_path, inner_argv,
@@ -140,6 +146,21 @@ class PtyProcess:
             env.setdefault("COLORTERM", "truecolor")
             env.setdefault("LANG", "en_US.UTF-8")
             env.setdefault("LC_ALL", env["LANG"])
+            # ``pty.fork()`` cannot report an error from the child: a failed
+            # chdir/exec only shows up as exit code 127, which used to look
+            # like the agent silently quitting. Validate first so the caller
+            # gets an actionable message instead.
+            cwd = cwd or config.DIRECTORY
+            if not os.path.isdir(cwd):
+                return False, f"Working directory does not exist: {cwd}"
+            if not argv:
+                return False, "No command to run."
+            binary = argv[0]
+            if os.path.isabs(binary):
+                if not (os.path.exists(binary) and os.access(binary, os.X_OK)):
+                    return False, f"Agent executable is not runnable: {binary}"
+            elif not shutil.which(binary, path=env.get("PATH")):
+                return False, f"Agent executable not found on PATH: {binary}"
             try:
                 pid, fd = pty.fork()
             except Exception as exc:  # pragma: no cover - platform dependent
@@ -235,13 +256,7 @@ class PtyProcess:
         self.running = False
         self.pid = None
         if pid:
-            try:
-                os.killpg(os.getpgid(pid), signal.SIGTERM)
-            except Exception:
-                try:
-                    os.kill(pid, signal.SIGTERM)
-                except Exception:
-                    pass
+            self._terminate_process_group(pid)
         fd = self.master_fd
         self.master_fd = None
         if fd is not None:
@@ -249,6 +264,36 @@ class PtyProcess:
                 os.close(fd)
             except Exception:
                 pass
+
+    @staticmethod
+    def _terminate_process_group(pid, grace=3.0):
+        """SIGTERM the process group, then SIGKILL it if it outlives ``grace``.
+
+        A CLI that ignores SIGTERM would otherwise keep running (and keep the
+        project folder locked) forever.
+        """
+        def signal_group(sig):
+            try:
+                os.killpg(os.getpgid(pid), sig)
+            except Exception:
+                try:
+                    os.kill(pid, sig)
+                except Exception:
+                    pass
+
+        signal_group(signal.SIGTERM)
+
+        def escalate():
+            deadline = time.time() + grace
+            while time.time() < deadline:
+                try:
+                    os.kill(pid, 0)
+                except OSError:
+                    return  # already gone
+                time.sleep(0.1)
+            signal_group(signal.SIGKILL)
+
+        threading.Thread(target=escalate, daemon=True).start()
 
     def is_alive(self):
         return self.running
@@ -260,7 +305,7 @@ class LocalPtyRunner:
     uses_docker = False
 
     def build_argv(self, agent_binary, argv, project_path, session_id, rows, cols,
-                   agent_id=None):
+                   agent_id=None, model_id=None):
         return [agent_binary] + list(argv)
 
     def container_name(self, session_id):
@@ -320,12 +365,17 @@ class DockerRunner:
         return f"{self.home_volume_prefix}-{safe}"
 
     def build_argv(self, agent_binary, argv, project_path, session_id, rows, cols,
-                   agent_id=None):
+                   agent_id=None, model_id=None):
         inner = [os.path.basename(agent_binary)] + list(argv)
+        if model_id is None:
+            for index, value in enumerate(argv[:-1]):
+                if value in ("--model", "-m"):
+                    model_id = argv[index + 1]
+                    break
         return build_docker_argv(
             self.container_name(session_id), self.image(agent_id), project_path, inner,
             rows=rows, cols=cols, cpus=self.cpus, memory=self.memory,
-            network=self.network, extra_env=secret_env(),
+            network=self.network, extra_env=secret_env(agent_id, model_id),
             home_volume=self.home_volume(agent_id),
         )
 

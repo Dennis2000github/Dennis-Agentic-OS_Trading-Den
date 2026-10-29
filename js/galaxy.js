@@ -26,6 +26,9 @@ class HermesGalaxy {
     this.audioCtx = null;
     this.preferredVoice = null;
     this.toastTimer = null;
+    this.paused = false;
+    this.visible = true;
+    this._raf = null;
 
     this.init();
     this.initAudioAndVoice();
@@ -39,7 +42,32 @@ class HermesGalaxy {
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(this.canvas);
     this.bindDomElements();
-    this.animate();
+
+    // Pause the animation while the tab is hidden or the widget is off screen.
+    document.addEventListener('visibilitychange', () => {
+      this.setPaused(document.hidden || !this.visible);
+    });
+    if ('IntersectionObserver' in window) {
+      this._observer = new IntersectionObserver((entries) => {
+        this.visible = entries.some((entry) => entry.isIntersecting);
+        this.setPaused(document.hidden || !this.visible);
+      }, { threshold: 0 });
+      this._observer.observe(this.canvas);
+    }
+
+    this.start();
+  }
+
+  start() {
+    if (this._raf === null && !this.paused) {
+      this._raf = requestAnimationFrame(() => this.animate());
+    }
+  }
+
+  setPaused(paused) {
+    if (paused === this.paused) return;
+    this.paused = paused;
+    if (!paused) this.start();
   }
 
   resize() {
@@ -401,9 +429,34 @@ class HermesGalaxy {
     }
 
     // 3. Vault
-    if (lower.includes('vault') || lower.includes('security')) {
-      this.triggerNavigation('Vault');
-      this.respond('Opening Vault secure credentials.');
+    if (lower.includes('vault') || lower.includes('obsidian') || lower.includes('note')) {
+      if (window.switchMainView) {
+        window.switchMainView('vault');
+      } else {
+        this.triggerNavigation('Vault');
+      }
+      this.respond('Opening your Obsidian vault, Dennis.');
+      return;
+    }
+
+    // 3b. Hermes Orchestrator
+    if (lower.includes('hermes') || lower.includes('orchestrat') || lower.includes('delegate') || lower.includes('sub agent') || lower.includes('subagent')) {
+      if (window.Hermes) {
+        window.Hermes.open();
+      } else if (window.switchMainView) {
+        window.switchMainView('hermes');
+      } else {
+        this.triggerNavigation('Hermes');
+      }
+      this.respond('Hermes orchestrator online. I will plan the goal and assign roles to the sub-agents, Dennis.');
+      return;
+    }
+
+    // 3c. Kanban board (in-OS Hermes view)
+    if (lower.includes('kanban') || lower.includes('task board') || lower.includes('board')) {
+      if (window.Hermes && window.Hermes.open) window.Hermes.open();
+      else if (window.switchMainView) window.switchMainView('hermes');
+      this.respond('Opening the Hermes board, Dennis.');
       return;
     }
 
@@ -709,7 +762,8 @@ class HermesGalaxy {
   // 8. REAL-TIME CANVAS ANIMATION LOOP (GALAXY & ARC CORE)
   // -----------------------------------------------------------------------
   animate() {
-    requestAnimationFrame(() => this.animate());
+    if (this.paused) { this._raf = null; return; }
+    this._raf = requestAnimationFrame(() => this.animate());
 
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     const cx = this.canvas.width / 2;

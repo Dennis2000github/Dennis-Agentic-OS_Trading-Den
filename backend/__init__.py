@@ -10,5 +10,7 @@ Modules are intentionally kept small and single-purpose:
 - model_sources   : CLI-native model listing / selection (one module per agent)
 - sandbox         : process runners (local PTY and Docker) behind one interface
 - session_manager : lives sessions, streaming fan-out, idle timeout, status
+- vault           : Obsidian-compatible markdown vault (Hermes second brain)
+- hermes          : orchestrator agent - plan/route/delegate sub-agents, Kanban
 - ws              : minimal RFC6455 WebSocket server for authenticated streaming
 """

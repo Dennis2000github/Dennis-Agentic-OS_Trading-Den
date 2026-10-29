@@ -35,7 +35,8 @@ class AntigravityModelSource(ModelSource):
             if not ident or ident in seen:
                 continue
             seen.add(ident)
-            models.append(self._norm(ident, name=name.strip()))
+            models.append(self._norm(ident, name=name.strip(),
+                                     provider="Google DeepMind"))
         if not models:
             raise ModelListError("No models parsed from `agy models`")
         return models
