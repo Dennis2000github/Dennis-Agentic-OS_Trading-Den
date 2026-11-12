@@ -146,7 +146,7 @@ class StudioRouteTests(unittest.TestCase):
         self.assertFalse(official["capabilities"]["progress"])
         self.assertEqual(
             set(official["credentials"]),
-            {"configured", "source", "hint", "updated_at", "missing", "env_override"},
+            {"configured", "source", "hint", "updated_at", "missing", "env_override", "env", "fields"},
         )
         self.assertNotIn("super-secret", json.dumps(data))
 

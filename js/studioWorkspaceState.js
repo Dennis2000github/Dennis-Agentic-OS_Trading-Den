@@ -13,31 +13,54 @@
   // relies on them.
   var ADS_SECTIONS = ["fashion", "assets", "library", "playlists", "preset", "history", "setup"];
 
+  // YouTube Studio sections (master spec v1.0). The default landing page is
+  // Create. Settings holds channel connection, defaults and providers.
   var YOUTUBE_SECTIONS = [
-    "overview",
+    "create",
+    "templates",
     "projects",
-    "channel-manager",
-    "research",
-    "topics",
-    "scripts",
-    "storyboard",
-    "assets",
-    "voice",
-    "animation",
-    "thumbnails",
+    "backlog",
     "publishing",
     "analytics",
-    "calendar"
+    "intelligence",
+    "settings"
   ];
+
+  // Pre-restructure deep links keep working: legacy section ids map onto the
+  // closest new home for their content.
+  var LEGACY_SECTIONS = {
+    overview: "create",
+    "channel-manager": "settings",
+    research: "backlog",
+    topics: "backlog",
+    scripts: "projects",
+    storyboard: "projects",
+    assets: "projects",
+    voice: "projects",
+    animation: "projects",
+    thumbnails: "projects",
+    calendar: "publishing"
+  };
 
   var DEFAULTS = {
     ads: "fashion",
-    youtube: "overview"
+    youtube: "create"
   };
 
+  // Backlog and Projects expose secondary tabs once inside the section.
+  var BACKLOG_TABS = ["topics", "research"];
+  var PROJECT_TABS = ["projects", "scripts"];
+
   var SECTION_LABELS = {
-    overview: "Overview",
+    create: "Create",
+    templates: "Templates",
     projects: "Projects",
+    backlog: "Topic Backlog",
+    publishing: "Publishing",
+    analytics: "Analytics",
+    intelligence: "YouTube Intelligence",
+    settings: "Settings",
+    overview: "Overview",
     "channel-manager": "Channel Manager",
     research: "Niche Research",
     topics: "Topic Studio",
@@ -47,8 +70,6 @@
     voice: "Voice Studio",
     animation: "Animation Studio",
     thumbnails: "Thumbnail Studio",
-    publishing: "Publishing Manager",
-    analytics: "Analytics",
     calendar: "Publishing Calendar",
     fashion: "Generate",
     library: "Library",
@@ -70,12 +91,25 @@
 
   function normalizeSection(workspace, value) {
     var text = String(value || "").trim().toLowerCase();
+    if (workspace === "youtube" && LEGACY_SECTIONS[text]) text = LEGACY_SECTIONS[text];
     if (sectionsFor(workspace).indexOf(text) !== -1) return text;
     return DEFAULTS[workspace] || DEFAULTS.ads;
   }
 
   function isKnownSection(workspace, value) {
-    return sectionsFor(workspace).indexOf(String(value || "").trim().toLowerCase()) !== -1;
+    var text = String(value || "").trim().toLowerCase();
+    if (workspace === "youtube" && LEGACY_SECTIONS[text]) text = LEGACY_SECTIONS[text];
+    return sectionsFor(workspace).indexOf(text) !== -1;
+  }
+
+  function normalizeBacklogTab(value) {
+    var text = String(value || "").trim().toLowerCase();
+    return BACKLOG_TABS.indexOf(text) !== -1 ? text : "topics";
+  }
+
+  function normalizeProjectTab(value) {
+    var text = String(value || "").trim().toLowerCase();
+    return PROJECT_TABS.indexOf(text) !== -1 ? text : "projects";
   }
 
   function defaultSection(workspace) {
@@ -145,10 +179,15 @@
     WORKSPACES: WORKSPACES,
     ADS_SECTIONS: ADS_SECTIONS,
     YOUTUBE_SECTIONS: YOUTUBE_SECTIONS,
+    LEGACY_SECTIONS: LEGACY_SECTIONS,
+    BACKLOG_TABS: BACKLOG_TABS,
+    PROJECT_TABS: PROJECT_TABS,
     normalizeWorkspace: normalizeWorkspace,
     sectionsFor: sectionsFor,
     normalizeSection: normalizeSection,
     isKnownSection: isKnownSection,
+    normalizeBacklogTab: normalizeBacklogTab,
+    normalizeProjectTab: normalizeProjectTab,
     defaultSection: defaultSection,
     parseHash: parseHash,
     buildHash: buildHash,

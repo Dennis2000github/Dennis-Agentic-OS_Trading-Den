@@ -53,8 +53,11 @@ class WorkspaceStoreTests(unittest.TestCase):
     def test_youtube_descriptor_has_stage_sections(self):
         descriptor = workspaces.descriptor("youtube")
         section_ids = [s["id"] for s in descriptor["sections"]]
-        self.assertIn("overview", section_ids)
-        self.assertIn("channel-manager", section_ids)
+        self.assertIn("create", section_ids)
+        self.assertIn("templates", section_ids)
+        self.assertIn("backlog", section_ids)
+        self.assertIn("intelligence", section_ids)
+        self.assertIn("settings", section_ids)
         self.assertIn("publishing", section_ids)
         ads = workspaces.descriptor("ads")
         self.assertEqual(ads["sections"], [])
