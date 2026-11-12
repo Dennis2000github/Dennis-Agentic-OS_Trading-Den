@@ -52,7 +52,7 @@
   <!-- Studio cinematic workspace skin -->
   <link rel="stylesheet" href="css/studio-v2.css?v=20261028-studio-kit1">
   <!-- YouTube Studio workspace skin -->
-  <link rel="stylesheet" href="css/studio-youtube.css?v=20261109-yt-stage2">
+  <link rel="stylesheet" href="css/studio-youtube.css?v=20261112-yt-phase2">
   <!-- UI UX Pro Max design system skin (design-system/dennis-agentic-os/MASTER.md) -->
   <link rel="stylesheet" href="css/theme-uiuxpro.css?v=20261112-uupm1">
 </head>
@@ -2171,6 +2171,17 @@
         <!-- Setup -->
         <div id="studio-panel-setup" class="studio-panel studio-panel-setup hidden">
           <div class="studio-setup-grid">
+            <!-- Provider diagnostics: staged, non-billable verification. -->
+            <section class="studio-setup-card glass-panel">
+              <div class="studio-setup-head">
+                <div class="studio-setup-title"><i data-lucide="activity" class="w-4 h-4 text-emerald-300"></i>Provider diagnostics</div>
+                <button id="studio-diagnostics-check-all" class="studio-btn studio-btn-ghost"><i data-lucide="stethoscope" class="w-3.5 h-3.5"></i>Check all</button>
+              </div>
+              <p class="studio-setup-copy">Verifies each provider stage by stage — configuration, authentication, API reachability, model catalog and upload issuance — using non-billable requests only. A green “Connected” here always means a real authenticated round-trip, not just saved credentials. Generation itself is never triggered by a check.</p>
+              <div id="studio-diagnostics" class="studio-diagnostics"><p class="studio-setup-status">Run “Check all” to verify each provider.</p></div>
+              <p id="studio-diagnostics-message" class="studio-setup-message"></p>
+            </section>
+
             <section class="studio-setup-card glass-panel">
               <div class="studio-setup-title"><i data-lucide="plug-zap" class="w-4 h-4 text-cyan-300"></i>Provider registry</div>
               <p class="studio-setup-copy">Every generation provider in one place. Save credentials to connect a provider — connected providers appear in the per-step <b>Provider</b> dropdown with a <b>classified Model</b> dropdown beside it (image vs video, grouped by mode). Secrets are stored server-side with owner-only permissions and never returned to this page. Free engines (Auto, Pollinations) need no credentials.</p>
@@ -2673,122 +2684,107 @@
                 <i data-lucide="alert-triangle" class="w-4 h-4"></i><span id="yt-error-text"></span>
               </div>
 
-              <!-- ============================ OVERVIEW ============================ -->
-              <section class="yt-panel" data-yt-panel="overview">
+              <!-- ============================ CREATE ============================ -->
+              <section class="yt-panel" data-yt-panel="create">
                 <div class="yt-hero">
                   <div class="yt-hero-copy">
                     <span class="yt-hero-kicker">YOUTUBE STUDIO</span>
-                    <h2>Research. Script. Visualize. Animate. Publish.</h2>
-                    <p>An independent workspace for educational long-form and short-form videos. Ads campaigns never appear here, and YouTube publishing never appears in Ads Studio.</p>
+                    <h2>What should we make next?</h2>
+                    <p>Describe the video you want. It becomes a topic in your Topic Backlog with the channel default applied — packaging and production follow from there.</p>
                   </div>
                   <div class="yt-hero-actions">
                     <button id="yt-create-video" type="button" class="collart-btn">
-                      <i data-lucide="plus" class="w-4 h-4"></i><span>Create New Video</span>
-                    </button>
-                    <button id="yt-new-research" type="button" class="collart-btn-soft" disabled title="Niche Research arrives in Stage 3">
-                      <i data-lucide="search" class="w-4 h-4"></i><span>New Research Project</span>
+                      <i data-lucide="plus" class="w-4 h-4"></i><span>New Blank Project</span>
                     </button>
                   </div>
                 </div>
 
-                <div class="yt-action-grid">
-                  <article class="yt-action-card">
-                    <span class="yt-action-icon"><i data-lucide="youtube" class="w-4 h-4"></i></span>
-                    <div><span class="yt-action-label">Active channel</span>
-                      <b id="yt-active-channel">No channel configured</b>
-                      <em id="yt-active-channel-note">Create a channel profile in Channel Manager (Stage 3).</em>
-                    </div>
-                  </article>
-                  <article class="yt-action-card">
-                    <span class="yt-action-icon"><i data-lucide="list-checks" class="w-4 h-4"></i></span>
-                    <div><span class="yt-action-label">Production Queue</span>
-                      <b><span id="yt-queue-production">0</span> in production</b>
-                      <em>Stages update as projects move through the pipeline.</em>
-                    </div>
-                  </article>
-                  <article class="yt-action-card">
-                    <span class="yt-action-icon"><i data-lucide="calendar-days" class="w-4 h-4"></i></span>
-                    <div><span class="yt-action-label">Publishing Calendar</span>
-                      <b><span id="yt-queue-scheduled">0</span> scheduled</b>
-                      <em>Default strategy: Monday, Wednesday, Friday.</em>
-                    </div>
-                  </article>
-                  <article class="yt-action-card">
-                    <span class="yt-action-icon"><i data-lucide="search" class="w-4 h-4"></i></span>
-                    <div><span class="yt-action-label">Research Queue</span>
-                      <b><span id="yt-queue-research">0</span> waiting</b>
-                      <em>Niche Research and Topic Studio arrive in Stage 3.</em>
-                    </div>
-                  </article>
-                </div>
+                <section class="yt-card yt-composer">
+                  <div class="yt-card-head">
+                    <div><h3>Video prompt</h3><p>One clear idea works best — the question your audience actually asks.</p></div>
+                  </div>
+                  <textarea id="yt-create-prompt" rows="4" maxlength="2000" placeholder="e.g. 5 tax deductions self-employed owners miss every filing season"></textarea>
+                  <div class="yt-composer-grid">
+                    <label class="yt-field"><span>Channel</span>
+                      <select id="yt-create-channel" aria-label="Channel"></select>
+                    </label>
+                    <label class="yt-field"><span>Template</span>
+                      <select id="yt-create-template" aria-label="Template" disabled>
+                        <option value="">Channel default — Templates arrive in Phase 3</option>
+                      </select>
+                    </label>
+                    <label class="yt-field"><span>Format</span>
+                      <select id="yt-create-format" aria-label="Video format">
+                        <option value="longform" selected>Long-form animated video</option>
+                        <option value="shorts">Shorts</option>
+                      </select>
+                    </label>
+                    <label class="yt-field"><span>Style</span>
+                      <select id="yt-create-style" aria-label="Video style">
+                        <option value="animated-explainer" selected>Animated Explainer</option>
+                        <option value="stickman">Stickman Stories</option>
+                        <option value="financial-infographics">Financial Infographics</option>
+                        <option value="character-storytelling">Character Storytelling</option>
+                      </select>
+                    </label>
+                    <label class="yt-field"><span>Aspect ratio</span>
+                      <select id="yt-create-aspect" aria-label="Aspect ratio">
+                        <option value="16:9" selected>16:9</option>
+                        <option value="9:16">9:16</option>
+                      </select>
+                    </label>
+                    <label class="yt-field"><span>Target duration</span>
+                      <select id="yt-create-duration" aria-label="Target duration">
+                        <option value="8">8 minutes</option>
+                        <option value="10">10 minutes</option>
+                        <option value="12" selected>12 minutes</option>
+                        <option value="15">15 minutes</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="yt-composer-meta">
+                    <span class="yt-meta-chip"><i data-lucide="bot" class="w-3.5 h-3.5"></i> Agent: OpenCode</span>
+                    <span class="yt-meta-chip"><i data-lucide="cpu" class="w-3.5 h-3.5"></i> Model: <b id="yt-create-model">GLM-5.3-Flash</b></span>
+                    <span class="yt-meta-chip"><i data-lucide="mic" class="w-3.5 h-3.5"></i> Voice: Kokoro</span>
+                    <span class="yt-meta-chip"><i data-lucide="map-pin" class="w-3.5 h-3.5"></i> Audience: United States</span>
+                  </div>
+                  <p id="yt-create-error" class="yt-form-error is-hidden"></p>
+                  <div class="yt-composer-foot">
+                    <p class="yt-hint">Saved as a backlog topic. Template recommendations attach in Phase 4; packaging in Phase 6.</p>
+                    <button id="yt-create-submit" type="button" class="collart-btn yt-create-btn">
+                      <i data-lucide="wand-2" class="w-4 h-4"></i><span>Create</span>
+                    </button>
+                  </div>
+                </section>
 
-                <!-- Voiceover workspace (same centralized TTS registry) -->
-                <div id="yt-voiceover" data-voiceover-studio="youtube"></div>
-
-                <div class="yt-stat-grid">
-                  <article class="yt-stat"><span class="yt-stat-icon"><i data-lucide="video" class="w-4 h-4"></i></span><div><span class="yt-stat-value" id="yt-stat-total">0</span><span class="yt-stat-label">Total Projects</span></div></article>
-                  <article class="yt-stat"><span class="yt-stat-icon"><i data-lucide="file-text" class="w-4 h-4"></i></span><div><span class="yt-stat-value" id="yt-stat-scripts">0</span><span class="yt-stat-label">Scripts in Progress</span></div></article>
-                  <article class="yt-stat"><span class="yt-stat-icon"><i data-lucide="clapperboard" class="w-4 h-4"></i></span><div><span class="yt-stat-value" id="yt-stat-production">0</span><span class="yt-stat-label">Videos in Production</span></div></article>
-                  <article class="yt-stat"><span class="yt-stat-icon"><i data-lucide="badge-check" class="w-4 h-4"></i></span><div><span class="yt-stat-value" id="yt-stat-approval">0</span><span class="yt-stat-label">Awaiting Approval</span></div></article>
-                  <article class="yt-stat"><span class="yt-stat-icon"><i data-lucide="check-circle-2" class="w-4 h-4"></i></span><div><span class="yt-stat-value" id="yt-stat-published">0</span><span class="yt-stat-label">Published Videos</span></div></article>
-                  <article class="yt-stat"><span class="yt-stat-icon"><i data-lucide="calendar-clock" class="w-4 h-4"></i></span><div><span class="yt-stat-value" id="yt-stat-scheduled">0</span><span class="yt-stat-label">Scheduled Videos</span></div></article>
-                </div>
-
-                <div class="yt-grid-2">
-                  <section class="yt-card yt-card-wide">
-                    <div class="yt-card-head">
-                      <div><h3>Recent Projects</h3><p>Latest activity in this workspace only.</p></div>
-                      <button type="button" class="yt-link" data-yt-section="projects">View all</button>
-                    </div>
-                    <div id="yt-recent-projects" class="yt-project-list"></div>
-                    <div id="yt-recent-empty" class="yt-empty">
-                      <div class="yt-empty-icon"><i data-lucide="video" class="w-6 h-6"></i></div>
-                      <h3>No YouTube projects yet</h3>
-                      <p>Create your first video project to start the production pipeline.</p>
-                      <button id="yt-overview-create" type="button" class="collart-btn">Create New Video</button>
-                    </div>
-                  </section>
-
-                  <section class="yt-card">
-                    <div class="yt-card-head">
-                      <div><h3>Upcoming Publishing</h3><p>Real scheduled projects only.</p></div>
-                    </div>
-                    <div id="yt-upcoming-schedule"></div>
-                  </section>
-                </div>
-
-                <div class="yt-grid-2">
-                  <section class="yt-card">
-                    <div class="yt-card-head">
-                      <div><h3>Production Pipeline</h3><p>Projects by current stage.</p></div>
-                    </div>
-                    <div id="yt-pipeline"></div>
-                  </section>
-
-                  <section class="yt-card">
-                    <div class="yt-card-head">
-                      <div><h3>Research Queue</h3><p>Projects still in research.</p></div>
-                    </div>
-                    <div id="yt-research-queue"></div>
-                  </section>
-                </div>
-
-                <div class="yt-grid-3">
-                  <section class="yt-card">
-                    <div class="yt-card-head"><div><h3>Recently Generated Assets</h3></div></div>
-                    <p class="yt-panel-note">No YouTube assets yet. Asset Studio arrives in Stage 4.</p>
-                  </section>
-                  <section class="yt-card">
-                    <div class="yt-card-head"><div><h3>Performance Overview</h3></div></div>
-                    <p class="yt-panel-note">No analytics connected. YouTube Analytics integration arrives in Stage 5; no placeholder numbers are shown.</p>
-                  </section>
-                  <section class="yt-card">
-                    <div class="yt-card-head"><div><h3>Channel Health</h3></div></div>
-                    <p class="yt-panel-note">No channel profile configured. Channel Manager arrives in Stage 3.</p>
-                  </section>
-                </div>
+                <section class="yt-card yt-card-wide">
+                  <div class="yt-card-head">
+                    <div><h3>Recent projects</h3><p>Latest activity in this workspace only.</p></div>
+                    <button type="button" class="yt-link" data-yt-section="projects">View all</button>
+                  </div>
+                  <div id="yt-recent-projects" class="yt-project-list"></div>
+                  <div id="yt-recent-empty" class="yt-empty">
+                    <div class="yt-empty-icon"><i data-lucide="video" class="w-6 h-6"></i></div>
+                    <h3>No YouTube projects yet</h3>
+                    <p>Create your first video project to start the production pipeline.</p>
+                    <button id="yt-overview-create" type="button" class="collart-btn">New Blank Project</button>
+                  </div>
+                </section>
 
                 <p id="yt-overview-loading" class="yt-loading"></p>
+              </section>
+
+              <!-- =========================== TEMPLATES =========================== -->
+              <section class="yt-panel is-hidden" data-yt-panel="templates">
+                <div class="yt-placeholder">
+                  <span class="yt-badge yt-badge-stage">Phase 3</span>
+                  <h2>Template Library</h2>
+                  <p>The visual template gallery — Animated Explainer, Business Documentary, Financial Infographics, Stickman Stories and more — arrives in Phase 3 together with the channel default template and the AI top-three recommendations per topic.</p>
+                  <div class="yt-placeholder-foot">
+                    <span>Until then every topic uses the channel default configuration.</span>
+                    <span>No placeholder templates are shown.</span>
+                  </div>
+                </div>
               </section>
 
               <!-- ============================ PROJECTS ============================ -->
@@ -2802,29 +2798,279 @@
                     <i data-lucide="plus" class="w-4 h-4"></i><span>New Video Project</span>
                   </button>
                 </div>
-
-                <div class="yt-toolbar">
-                  <label class="yt-search">
-                    <i data-lucide="search" class="w-4 h-4"></i>
-                    <input id="yt-projects-search" type="search" placeholder="Search projects…" aria-label="Search YouTube projects">
-                  </label>
-                  <label class="yt-select">
-                    <select id="yt-projects-status" aria-label="Filter by status">
-                      <option value="">All statuses</option>
-                      <option value="draft">Draft</option>
-                      <option value="in_progress">In Progress</option>
-                      <option value="review">Awaiting Approval</option>
-                      <option value="approved">Approved</option>
-                      <option value="scheduled">Scheduled</option>
-                      <option value="published">Published</option>
-                      <option value="archived">Archived</option>
-                    </select>
-                  </label>
-                  <label class="yt-check"><input type="checkbox" id="yt-projects-archived"><span>Show archived</span></label>
-                  <span id="yt-projects-count" class="yt-count"></span>
+                <div class="yt-subtabs" role="tablist" aria-label="Project views">
+                  <button type="button" class="yt-subtab is-active" data-yt-ptab="projects">Projects</button>
+                  <button type="button" class="yt-subtab" data-yt-ptab="scripts">Scripts</button>
                 </div>
 
-                <div id="yt-projects-list" class="yt-projects"></div>
+                <div data-yt-ptab-panel="projects">
+                  <div class="yt-toolbar">
+                    <label class="yt-search">
+                      <i data-lucide="search" class="w-4 h-4"></i>
+                      <input id="yt-projects-search" type="search" placeholder="Search projects…" aria-label="Search YouTube projects">
+                    </label>
+                    <label class="yt-select">
+                      <select id="yt-projects-status" aria-label="Filter by status">
+                        <option value="">All statuses</option>
+                        <option value="draft">Draft</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="review">Awaiting Approval</option>
+                        <option value="approved">Approved</option>
+                        <option value="scheduled">Scheduled</option>
+                        <option value="published">Published</option>
+                        <option value="archived">Archived</option>
+                      </select>
+                    </label>
+                    <label class="yt-check"><input type="checkbox" id="yt-projects-archived"><span>Show archived</span></label>
+                    <span id="yt-projects-count" class="yt-count"></span>
+                  </div>
+                  <div id="yt-projects-list" class="yt-projects"></div>
+                </div>
+
+                <div class="is-hidden" data-yt-ptab-panel="scripts">
+                  <div class="yt-panel-head yt-panel-head-sub">
+                    <div>
+                      <h3>Scripts</h3>
+                      <p>Versioned long-form scripts with fact-check gating. Approval requires every checklist item verified and at least one recorded source.</p>
+                    </div>
+                    <div class="yt-topbar-actions">
+                      <button id="yt-script-generate" type="button" class="collart-btn-soft"><i data-lucide="sparkles" class="w-4 h-4"></i><span>Generate with AI</span></button>
+                      <button id="yt-script-create" type="button" class="collart-btn"><i data-lucide="plus" class="w-4 h-4"></i><span>New Script</span></button>
+                    </div>
+                  </div>
+                  <div id="yt-scripts-error" class="yt-error-banner is-hidden"><i data-lucide="alert-triangle" class="w-4 h-4"></i><span id="yt-scripts-error-text"></span></div>
+                  <div class="yt-split">
+                    <aside class="yt-side">
+                      <div class="yt-toolbar yt-toolbar-side">
+                        <label class="yt-search">
+                          <i data-lucide="search" class="w-4 h-4"></i>
+                          <input id="yt-scripts-search" type="search" placeholder="Search scripts…" aria-label="Search scripts">
+                        </label>
+                        <label class="yt-select"><select id="yt-scripts-status" aria-label="Filter by status">
+                          <option value="">All</option>
+                          <option value="draft">Draft</option>
+                          <option value="in_review">In Review</option>
+                          <option value="approved">Approved</option>
+                          <option value="needs_revision">Needs Revision</option>
+                        </select></label>
+                      </div>
+                      <div id="yt-script-list" class="yt-script-list"></div>
+                    </aside>
+                    <div class="yt-side-main" id="yt-script-editor"></div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- ========================== TOPIC BACKLOG ======================== -->
+              <section class="yt-panel is-hidden" data-yt-panel="backlog">
+                <div class="yt-panel-head">
+                  <div>
+                    <h2>Topic Backlog</h2>
+                    <p>Idea → Researching → Validated → Approved → Scripted → In Production → Published. Approval requires a validation score of at least 18/25.</p>
+                  </div>
+                  <button id="yt-topic-create" type="button" class="collart-btn"><i data-lucide="plus" class="w-4 h-4"></i><span>New Topic</span></button>
+                </div>
+                <div class="yt-subtabs" role="tablist" aria-label="Backlog views">
+                  <button type="button" class="yt-subtab is-active" data-yt-btab="topics">Topics</button>
+                  <button type="button" class="yt-subtab" data-yt-btab="research">Research & Validation</button>
+                </div>
+
+                <div data-yt-btab-panel="topics">
+                  <div id="yt-topics-error" class="yt-error-banner is-hidden"><i data-lucide="alert-triangle" class="w-4 h-4"></i><span id="yt-topics-error-text"></span></div>
+                  <div id="yt-topic-pipeline" class="yt-pipeline-chips"></div>
+                  <div class="yt-toolbar">
+                    <label class="yt-search">
+                      <i data-lucide="search" class="w-4 h-4"></i>
+                      <input id="yt-topics-search" type="search" placeholder="Search topics…" aria-label="Search topics">
+                    </label>
+                    <label class="yt-select"><select id="yt-topics-status" aria-label="Filter by status">
+                      <option value="">All statuses</option>
+                    </select></label>
+                    <label class="yt-select"><select id="yt-topics-pillar" aria-label="Filter by pillar">
+                      <option value="">All pillars</option>
+                    </select></label>
+                    <label class="yt-select"><select id="yt-topics-priority" aria-label="Filter by priority">
+                      <option value="">All priorities</option>
+                      <option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option>
+                    </select></label>
+                    <label class="yt-check"><span>Min score</span><input id="yt-topics-min-score" type="number" min="0" max="25" class="yt-number" aria-label="Minimum validation score"></label>
+                    <span id="yt-topics-count" class="yt-count"></span>
+                  </div>
+                  <div id="yt-topics-list" class="yt-projects"></div>
+                </div>
+
+                <div class="is-hidden" data-yt-btab-panel="research">
+                  <div class="yt-panel-head yt-panel-head-sub">
+                    <div>
+                      <h3>Research & Validation</h3>
+                      <p>Five-criteria validation (18/25 threshold), sources with provenance, and competitor intelligence. Scores are analyst estimates — never measured platform data.</p>
+                    </div>
+                    <button id="yt-validation-create" type="button" class="collart-btn"><i data-lucide="plus" class="w-4 h-4"></i><span>New Validation</span></button>
+                  </div>
+                  <div id="yt-research-error" class="yt-error-banner is-hidden"><i data-lucide="alert-triangle" class="w-4 h-4"></i><span id="yt-research-error-text"></span></div>
+                  <div class="yt-grid-2">
+                    <section class="yt-card yt-card-wide">
+                      <div class="yt-card-head">
+                        <div><h3>Saved Validations</h3><p id="yt-research-rules"></p></div>
+                      </div>
+                      <div id="yt-research-list" class="yt-research-list"></div>
+                    </section>
+                    <section class="yt-card">
+                      <div class="yt-card-head">
+                        <div><h3>Competitor Intelligence</h3><p>Observations must be marked observed or assumed.</p></div>
+                        <button type="button" class="yt-link" data-yt-action="add-competitor">Add competitor</button>
+                      </div>
+                      <div id="yt-competitor-list" class="yt-competitor-list"></div>
+                    </section>
+                  </div>
+                </div>
+              </section>
+
+              <!-- =========================== PUBLISHING ========================== -->
+              <section class="yt-panel is-hidden" data-yt-panel="publishing">
+                <div class="yt-panel-head">
+                  <div>
+                    <h2>Publishing</h2>
+                    <p>Uploads, thumbnails, playlists and scheduling through the official YouTube Data API.</p>
+                  </div>
+                </div>
+                <div id="yt-publishing-flag"></div>
+              </section>
+
+              <!-- ============================ ANALYTICS ========================== -->
+              <section class="yt-panel is-hidden" data-yt-panel="analytics">
+                <div class="yt-panel-head">
+                  <div>
+                    <h2>Analytics</h2>
+                    <p>Views, CTR, watch time and RPM from the official YouTube Analytics API. Only real API data is ever displayed.</p>
+                  </div>
+                </div>
+                <div id="yt-analytics-flag"></div>
+              </section>
+
+              <!-- ========================== INTELLIGENCE ========================= -->
+              <section class="yt-panel is-hidden" data-yt-panel="intelligence">
+                <div class="yt-panel-head">
+                  <div>
+                    <h2>YouTube Intelligence</h2>
+                    <p>Five independent workflows sharing one channel context. They operate behind the scenes and feed the Studio — never the other way around.</p>
+                  </div>
+                </div>
+                <div class="yt-intel-grid">
+                  <article class="yt-card yt-intel-card">
+                    <span class="yt-intel-icon"><i data-lucide="telescope" class="w-5 h-5"></i></span>
+                    <div class="yt-intel-copy">
+                      <h3>Hermes Oracle</h3>
+                      <p>Research intelligence: trending US business topics, evergreen demand, competitor monitoring and content gaps — every result traceable to a source.</p>
+                      <span class="yt-phase-badge">Phase 9</span>
+                    </div>
+                  </article>
+                  <article class="yt-card yt-intel-card">
+                    <span class="yt-intel-icon"><i data-lucide="audio-waveform" class="w-5 h-5"></i></span>
+                    <div class="yt-intel-copy">
+                      <h3>Hermes Muse</h3>
+                      <p>Audience intelligence: reads real channel performance (CTR, retention, RPM) and turns it into topic and template recommendations. Never fabricates analytics.</p>
+                      <span class="yt-phase-badge">Phase 9 · ranking feedback Phase 11</span>
+                    </div>
+                  </article>
+                  <article class="yt-card yt-intel-card">
+                    <span class="yt-intel-icon"><i data-lucide="search-check" class="w-5 h-5"></i></span>
+                    <div class="yt-intel-copy">
+                      <h3>Search OS</h3>
+                      <p>SEO intelligence: keyword research, search intent, long-tail clusters and title recommendations connected to the Topic Backlog.</p>
+                      <span class="yt-phase-badge">Phase 9</span>
+                    </div>
+                  </article>
+                  <article class="yt-card yt-intel-card">
+                    <span class="yt-intel-icon"><i data-lucide="shield-check" class="w-5 h-5"></i></span>
+                    <div class="yt-intel-copy">
+                      <h3>YouTube Review OS</h3>
+                      <p>Quality assurance across research accuracy, script, storytelling, animation, voice and monetization safety. Critical errors block approval.</p>
+                      <span class="yt-phase-badge">Phase 9</span>
+                    </div>
+                  </article>
+                  <article class="yt-card yt-intel-card">
+                    <span class="yt-intel-icon"><i data-lucide="orbit" class="w-5 h-5"></i></span>
+                    <div class="yt-intel-copy">
+                      <h3>Memory Galaxy</h3>
+                      <p>Shared memory on the existing Obsidian-compatible vault: channel identity, editorial guidelines, topic history, approved packages and performance reports.</p>
+                      <button id="yt-open-memory-galaxy" type="button" class="collart-btn-soft"><i data-lucide="orbit" class="w-4 h-4"></i><span>Open Memory Galaxy</span></button>
+                    </div>
+                  </article>
+                </div>
+              </section>
+
+              <!-- ============================ SETTINGS =========================== -->
+              <section class="yt-panel is-hidden" data-yt-panel="settings">
+                <div class="yt-panel-head">
+                  <div>
+                    <h2>Settings</h2>
+                    <p>Channel connection, channel profiles, generation providers and voice. Everything the Studio needs before creating.</p>
+                  </div>
+                </div>
+
+                <div class="yt-grid-2">
+                  <section class="yt-card">
+                    <div class="yt-card-head">
+                      <div><h3>YouTube connection</h3><p>Official Google OAuth 2.0 · YouTube Data API v3.</p></div>
+                    </div>
+                    <div id="yt-connection-status"></div>
+                  </section>
+
+                  <section class="yt-card">
+                    <div class="yt-card-head">
+                      <div><h3>Voice</h3><p>Kokoro is the default voice provider. ElevenLabs is optional.</p></div>
+                    </div>
+                    <div id="yt-voiceover" data-voiceover-studio="youtube"></div>
+                  </section>
+                </div>
+
+                <section class="yt-card">
+                  <div class="yt-card-head">
+                    <div><h3>Text generation</h3><p>Default: GLM-5.3-Flash through the OpenCode CLI. Switch to any OpenAI-compatible API.</p></div>
+                  </div>
+                  <div id="yt-llm-status" class="yt-llm-status"></div>
+                  <div class="yt-composer-grid yt-llm-form">
+                    <label class="yt-field"><span>Provider profile</span>
+                      <select id="yt-llm-provider" aria-label="LLM provider profile">
+                        <option value="opencode">OpenCode CLI — GLM-5.3-Flash (default)</option>
+                        <option value="openai_compatible">OpenAI-compatible API (DeepSeek)</option>
+                      </select>
+                    </label>
+                    <label class="yt-field"><span>Model (optional)</span>
+                      <input id="yt-llm-model" type="text" maxlength="120" placeholder="Profile default">
+                    </label>
+                  </div>
+                  <div class="yt-composer-foot">
+                    <p class="yt-hint">The selection is stored server-side for this workspace. Keys are never stored in the page.</p>
+                    <button id="yt-llm-save" type="button" class="collart-btn-soft"><i data-lucide="save" class="w-4 h-4"></i><span>Save</span></button>
+                  </div>
+                </section>
+
+                <section class="yt-card">
+                  <div class="yt-card-head">
+                    <div>
+                      <h2 class="yt-settings-title">Channel profiles</h2>
+                      <p>Channel identity, brand and the versioned channel master prompt. The master prompt lives in server-side data, never in the page.</p>
+                    </div>
+                    <button id="yt-channel-create" type="button" class="collart-btn"><i data-lucide="plus" class="w-4 h-4"></i><span>New Channel Profile</span></button>
+                  </div>
+                  <div id="yt-channels-error" class="yt-error-banner is-hidden"><i data-lucide="alert-triangle" class="w-4 h-4"></i><span id="yt-channels-error-text"></span></div>
+                  <div class="yt-split">
+                    <aside class="yt-side">
+                      <div id="yt-channel-list" class="yt-channel-list"></div>
+                    </aside>
+                    <div class="yt-side-main" id="yt-channel-editor"></div>
+                  </div>
+                </section>
+
+                <section class="yt-card">
+                  <div class="yt-card-head">
+                    <div><h3>Image & video providers</h3><p>Thumbnails, scene art and animation clips run on the same provider registry as Ads Studio.</p></div>
+                    <button id="yt-open-ads-setup" type="button" class="collart-btn-soft"><i data-lucide="external-link" class="w-4 h-4"></i><span>Open provider setup</span></button>
+                  </div>
+                  <p class="yt-panel-note">Pollinations (keyless) and Google AI (Gemini image, Veo video) are available today; Higgsfield and credential-only providers are configured in the same registry.</p>
+                </section>
               </section>
 
               <!-- ========================= PLACEHOLDER ========================== -->
@@ -2834,120 +3080,9 @@
                   <h2 id="yt-placeholder-title">Coming soon</h2>
                   <p id="yt-placeholder-note">This section is not available in this build yet.</p>
                   <div class="yt-placeholder-foot">
-                    <span>Stage 2 ships the workspace shell and isolated projects.</span>
-                    <span>Stages 3–5 add editorial, production and publishing modules.</span>
+                    <span>Phase 2 ships Create, projects, the topic backlog, settings and the intelligence hub.</span>
+                    <span>Templates, packaging, production, publishing and analytics follow in Phases 3–10.</span>
                   </div>
-                </div>
-              </section>
-
-              <!-- ======================= CHANNEL MANAGER ======================== -->
-              <section class="yt-panel is-hidden" data-yt-panel="channel-manager">
-                <div class="yt-panel-head">
-                  <div>
-                    <h2>Channel Manager</h2>
-                    <p>Channel profiles, brand identity and the versioned channel master prompt. The master prompt lives in server-side data, never in the page.</p>
-                  </div>
-                  <button id="yt-channel-create" type="button" class="collart-btn"><i data-lucide="plus" class="w-4 h-4"></i><span>New Channel Profile</span></button>
-                </div>
-                <div id="yt-channels-error" class="yt-error-banner is-hidden"><i data-lucide="alert-triangle" class="w-4 h-4"></i><span id="yt-channels-error-text"></span></div>
-                <div class="yt-split">
-                  <aside class="yt-side">
-                    <div id="yt-channel-list" class="yt-channel-list"></div>
-                  </aside>
-                  <div class="yt-side-main" id="yt-channel-editor"></div>
-                </div>
-              </section>
-
-              <!-- ========================= NICHE RESEARCH ======================== -->
-              <section class="yt-panel is-hidden" data-yt-panel="research">
-                <div class="yt-panel-head">
-                  <div>
-                    <h2>Niche Research</h2>
-                    <p>Five-criteria validation (18/25 threshold), sources with provenance, and competitor intelligence. Scores are analyst estimates — never measured platform data.</p>
-                  </div>
-                  <button id="yt-validation-create" type="button" class="collart-btn"><i data-lucide="plus" class="w-4 h-4"></i><span>New Validation</span></button>
-                </div>
-                <div id="yt-research-error" class="yt-error-banner is-hidden"><i data-lucide="alert-triangle" class="w-4 h-4"></i><span id="yt-research-error-text"></span></div>
-                <div class="yt-grid-2">
-                  <section class="yt-card yt-card-wide">
-                    <div class="yt-card-head">
-                      <div><h3>Saved Validations</h3><p id="yt-research-rules"></p></div>
-                    </div>
-                    <div id="yt-research-list" class="yt-research-list"></div>
-                  </section>
-                  <section class="yt-card">
-                    <div class="yt-card-head">
-                      <div><h3>Competitor Intelligence</h3><p>Observations must be marked observed or assumed.</p></div>
-                      <button type="button" class="yt-link" data-yt-action="add-competitor">Add competitor</button>
-                    </div>
-                    <div id="yt-competitor-list" class="yt-competitor-list"></div>
-                  </section>
-                </div>
-              </section>
-
-              <!-- ========================== TOPIC STUDIO ========================= -->
-              <section class="yt-panel is-hidden" data-yt-panel="topics">
-                <div class="yt-panel-head">
-                  <div>
-                    <h2>Topic Studio</h2>
-                    <p>Idea → Researching → Validated → Approved → Scripted → In Production → Published. Approval requires a validation score of at least 18/25.</p>
-                  </div>
-                  <button id="yt-topic-create" type="button" class="collart-btn"><i data-lucide="plus" class="w-4 h-4"></i><span>New Topic</span></button>
-                </div>
-                <div id="yt-topics-error" class="yt-error-banner is-hidden"><i data-lucide="alert-triangle" class="w-4 h-4"></i><span id="yt-topics-error-text"></span></div>
-                <div id="yt-topic-pipeline" class="yt-pipeline-chips"></div>
-                <div class="yt-toolbar">
-                  <label class="yt-search">
-                    <i data-lucide="search" class="w-4 h-4"></i>
-                    <input id="yt-topics-search" type="search" placeholder="Search topics…" aria-label="Search topics">
-                  </label>
-                  <label class="yt-select"><select id="yt-topics-status" aria-label="Filter by status">
-                    <option value="">All statuses</option>
-                  </select></label>
-                  <label class="yt-select"><select id="yt-topics-pillar" aria-label="Filter by pillar">
-                    <option value="">All pillars</option>
-                  </select></label>
-                  <label class="yt-select"><select id="yt-topics-priority" aria-label="Filter by priority">
-                    <option value="">All priorities</option>
-                    <option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option>
-                  </select></label>
-                  <label class="yt-check"><span>Min score</span><input id="yt-topics-min-score" type="number" min="0" max="25" class="yt-number" aria-label="Minimum validation score"></label>
-                  <span id="yt-topics-count" class="yt-count"></span>
-                </div>
-                <div id="yt-topics-list" class="yt-projects"></div>
-              </section>
-
-              <!-- ========================== SCRIPT STUDIO ======================== -->
-              <section class="yt-panel is-hidden" data-yt-panel="scripts">
-                <div class="yt-panel-head">
-                  <div>
-                    <h2>Script Studio</h2>
-                    <p>Versioned long-form scripts with fact-check gating. Approval requires every checklist item verified and at least one recorded source.</p>
-                  </div>
-                  <div class="yt-topbar-actions">
-                    <button id="yt-script-generate" type="button" class="collart-btn-soft"><i data-lucide="sparkles" class="w-4 h-4"></i><span>Generate with AI</span></button>
-                    <button id="yt-script-create" type="button" class="collart-btn"><i data-lucide="plus" class="w-4 h-4"></i><span>New Script</span></button>
-                  </div>
-                </div>
-                <div id="yt-scripts-error" class="yt-error-banner is-hidden"><i data-lucide="alert-triangle" class="w-4 h-4"></i><span id="yt-scripts-error-text"></span></div>
-                <div class="yt-split">
-                  <aside class="yt-side">
-                    <div class="yt-toolbar yt-toolbar-side">
-                      <label class="yt-search">
-                        <i data-lucide="search" class="w-4 h-4"></i>
-                        <input id="yt-scripts-search" type="search" placeholder="Search scripts…" aria-label="Search scripts">
-                      </label>
-                      <label class="yt-select"><select id="yt-scripts-status" aria-label="Filter by status">
-                        <option value="">All</option>
-                        <option value="draft">Draft</option>
-                        <option value="in_review">In Review</option>
-                        <option value="approved">Approved</option>
-                        <option value="needs_revision">Needs Revision</option>
-                      </select></label>
-                    </div>
-                    <div id="yt-script-list" class="yt-script-list"></div>
-                  </aside>
-                  <div class="yt-side-main" id="yt-script-editor"></div>
                 </div>
               </section>
 
@@ -4155,9 +4290,9 @@
   <script defer src="js/studioTemplates.js?v=20261112-registry"></script>
   <script defer src="js/studio.js?v=20261112-registry"></script>
   <script defer src="js/studioFashion.js?v=20261112-registry"></script>
-  <script defer src="js/studioWorkspaceState.js?v=20261109-yt-stage2"></script>
-  <script defer src="js/studioYoutube.js?v=20261109-yt-stage2"></script>
-  <script defer src="js/studioWorkspaces.js?v=20261109-yt-stage2"></script>
+  <script defer src="js/studioWorkspaceState.js?v=20261112-yt-phase2"></script>
+  <script defer src="js/studioYoutube.js?v=20261112-yt-phase2"></script>
+  <script defer src="js/studioWorkspaces.js?v=20261112-yt-phase2"></script>
   <script defer src="js/skill-builder.js?v=20261112-video-reverse"></script>
   <script defer src="vendor/marked.min.js"></script>
   <script defer src="js/plugins.js?v=20261023-repo1"></script>

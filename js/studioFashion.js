@@ -1853,8 +1853,14 @@
         reject(new Error("The engine did not return a job."));
         return;
       }
+      // Bounded polling: the backend fails a job after 8 consecutive poll
+      // errors, so the frontend mirrors that instead of spinning forever on
+      // a vanished backend or a deleted job record.
+      var MAX_FAILURES = 8;
+      var failures = 0;
       var timer = window.setInterval(function () {
         api(jobEndpoint(job)).then(function (fresh) {
+          failures = 0;
           fresh._free = !!job._free;
           job = fresh;
           if (onTick) {
@@ -1865,7 +1871,19 @@
             if (job.state === "succeeded") resolve(job);
             else reject(new Error((job.error && job.error.message) || "Generation failed."));
           }
-        }).catch(function () { /* keep polling; transient read error */ });
+        }).catch(function (err) {
+          failures += 1;
+          if (err && err.status === 404) {
+            window.clearInterval(timer);
+            reject(new Error("This job no longer exists on the server."));
+            return;
+          }
+          if (failures >= MAX_FAILURES) {
+            window.clearInterval(timer);
+            reject(new Error("Lost contact with the backend while waiting for this job. Check the connection and reopen History."));
+          }
+          /* transient read error: keep polling within the failure budget */
+        });
       }, POLL_MS);
     });
   }

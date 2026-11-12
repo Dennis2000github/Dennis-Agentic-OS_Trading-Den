@@ -38,6 +38,10 @@
     mcpConfig: null,
     providerId: null,
     provider: null,
+    /* Monotonic request epoch: responses from a superseded provider/model
+       request are dropped instead of overwriting the current selection. */
+    requestSeq: 0,
+    modelsProvider: null,
     agents: [],
     agentId: null,
     agent: null,
@@ -88,6 +92,8 @@
     currentOutput: null,
     generateBusy: false,
     setupBusy: false,
+    diagnostics: [],
+    diagnosticsBusy: false,
     uploading: 0,
     pendingField: null,
     pendingPlaylistMedia: null,
@@ -130,13 +136,25 @@
     return null;
   }
 
+  var API_TIMEOUT_MS = 45000;
+
   function api(path, options) {
     var opts = options ? Object.assign({}, options) : {};
     if (opts.body && typeof opts.body !== "string") {
       opts.body = JSON.stringify(opts.body);
       opts.headers = Object.assign({ "Content-Type": "application/json" }, opts.headers || {});
     }
+    var controller = typeof AbortController === "function" ? new AbortController() : null;
+    var timer = null;
+    if (controller) {
+      opts.signal = controller.signal;
+      timer = window.setTimeout(function () { controller.abort(); }, opts.timeout || API_TIMEOUT_MS);
+    }
+    var finish = function () {
+      if (timer) window.clearTimeout(timer);
+    };
     return fetch(path, opts).then(function (response) {
+      finish();
       return response.text().then(function (text) {
         var data = {};
         if (text) {
@@ -150,7 +168,46 @@
         }
         return data;
       });
+    }, function (err) {
+      finish();
+      // Network failure / abort: the local backend did not answer. This is a
+      // different failure class from a provider or HTTP error.
+      var problem = new Error("Local backend unreachable — start the backend and try again.");
+      problem.code = "backend_unreachable";
+      problem.status = 0;
+      if (controller && err && err.name === "AbortError") {
+        problem.message = "The backend did not respond within " + Math.round((opts.timeout || API_TIMEOUT_MS) / 1000) + "s.";
+        problem.code = "backend_timeout";
+      }
+      throw problem;
     });
+  }
+
+  /* Human-facing failure classes: backend vs provider vs request problem. */
+  function describeError(err) {
+    err = err || {};
+    if (err.code === "backend_unreachable") {
+      return "The local backend is not responding. Start it (python3 app.py) and press Refresh.";
+    }
+    if (err.code === "backend_timeout") {
+      return "The local backend is too slow to respond (" + (err.message || "timeout") + "). Retry.";
+    }
+    if (err.status === 401) {
+      return "Session expired — reload the page to get a fresh session token.";
+    }
+    if (err.code === "authentication_failed") {
+      return "The provider rejected the credentials. Re-save them in Provider Setup.";
+    }
+    if (err.code === "insufficient_credits") {
+      return "This provider account is out of credits or quota.";
+    }
+    if (err.code === "rate_limited") {
+      return "The provider is rate limiting this account. Wait a moment and retry.";
+    }
+    if (err.code === "network_error") {
+      return "Could not reach the provider network. Check the connection and retry.";
+    }
+    return err.message || "Unexpected error.";
   }
 
   var toastTimer = null;
@@ -211,6 +268,8 @@
       if (!next) {
         next = S.providers.filter(function (p) { return p.configured; })[0] || S.providers[0] || null;
       }
+      // A provider switch invalidates any in-flight models/detail response.
+      S.requestSeq += 1;
       S.providerId = next ? next.id : null;
       S.provider = next;
       renderProviders();
@@ -218,9 +277,13 @@
       updateHeader();
       return loadModels();
     }).catch(function (err) {
-      setText("studio-status-text", "Backend unreachable");
-      setMessage("studio-provider-note", err.message);
-      toast(err.message);
+      // Transient failure: keep the last known provider/model state and show
+      // an actionable message. Nothing is cleared, so a retry can succeed.
+      setText("studio-status-text", err.code === "backend_unreachable" || err.code === "backend_timeout"
+        ? "Backend unreachable"
+        : "Provider list failed");
+      setMessage("studio-provider-note", describeError(err));
+      toast(describeError(err));
     });
   }
 
@@ -237,10 +300,13 @@
       return Promise.resolve();
     }
     setModelNote("Loading models…");
+    var seq = S.requestSeq;
     return api("/api/studio/models?provider=" + encodeURIComponent(provider.id))
       .then(function (data) {
+        if (seq !== S.requestSeq) return null; // stale: provider changed meanwhile
         S.models = SS.normalizeList(data, "models");
         S.modes = Array.isArray(data.modes) ? data.modes : [];
+        S.modelsProvider = provider.id;
         if (data.catalog) S.catalog = data.catalog;
         var candidates = SS.filterModelsByInput(S.models, S.inputMode, "", "");
         var keep = find(candidates, S.modelId) || find(S.models, S.modelId);
@@ -272,24 +338,35 @@
         return null;
       })
       .catch(function (err) {
+        if (seq !== S.requestSeq) return null; // stale: provider changed meanwhile
+        // Transient refresh failure for the current provider: keep the model
+        // list the user already has instead of wiping valid state.
+        if (S.modelsProvider === provider.id && S.models.length) {
+          setModelNote("Model list refresh failed — showing the last known list. " + describeError(err));
+          updateGenerateState();
+          return null;
+        }
         S.models = [];
         S.modelId = null;
         S.detail = null;
         S.fields = [];
+        S.modelsProvider = null;
         renderModels();
         renderParams();
-        setModelNote(err.message);
+        setModelNote(describeError(err));
         updateGenerateState();
+        return null;
       });
   }
 
   function loadModelDetail(modelId) {
     var provider = S.provider;
     if (!provider || !modelId) return Promise.resolve();
+    var seq = S.requestSeq;
     return api("/api/studio/models?provider=" + encodeURIComponent(provider.id) +
         "&id=" + encodeURIComponent(modelId))
       .then(function (detail) {
-        if (S.modelId !== modelId) return null;
+        if (seq !== S.requestSeq || S.modelId !== modelId) return null; // stale
         S.detail = detail;
         S.fields = detail.fields || [];
         S.values = SS.defaultValues(S.fields);
@@ -308,18 +385,25 @@
         return null;
       })
       .catch(function (err) {
-        S.detail = null;
-        S.fields = [];
-        S.values = {};
+        if (seq !== S.requestSeq || S.modelId !== modelId) return null; // stale
+        // Keep any previously loaded detail for this model on transient
+        // failures; only a first load ends with an empty form.
+        if (!(S.detail && S.detail.id === modelId)) {
+          S.detail = null;
+          S.fields = [];
+          S.values = {};
+        }
         renderParams();
         renderModelCard();
-        setModelNote(err.message);
+        setModelNote(describeError(err));
         updateGenerateState();
+        return null;
       });
   }
 
   function chooseProvider(providerId) {
     if (providerId === S.providerId) return Promise.resolve();
+    S.requestSeq += 1; // invalidate in-flight responses for the old provider
     S.providerId = providerId;
     S.provider = find(S.providers, providerId);
     S.models = [];
@@ -340,6 +424,7 @@
 
   function chooseModel(modelId) {
     if (!modelId || modelId === S.modelId) return Promise.resolve();
+    S.requestSeq += 1; // invalidate an in-flight detail request for the old model
     S.modelId = modelId;
     var model = find(S.models, modelId);
     if (model) S.inputMode = SS.inputModeForModel(model);
@@ -2079,6 +2164,146 @@
   /* ------------------------------------------------------------------ */
   /* Provider registry (Provider Setup)                                  */
   /* ------------------------------------------------------------------ */
+  /* ------------------------------------------------------------------ */
+  /* Provider diagnostics (staged, non-billable verification)            */
+  /* ------------------------------------------------------------------ */
+  var DIAG_TONES = {
+    OPERATIONAL: "ok",
+    PARTIALLY_OPERATIONAL: "warn",
+    CONNECTED: "ok",
+    CONFIGURED: "warn",
+    NOT_CONFIGURED: "warn",
+    AUTHENTICATION_FAILED: "error",
+    NETWORK_ERROR: "error",
+    TIMEOUT: "error",
+    RATE_LIMITED: "warn",
+    INSUFFICIENT_CREDITS: "error",
+    PROVIDER_UNAVAILABLE: "error",
+    MODEL_UNAVAILABLE: "error",
+    UNKNOWN_ERROR: "error"
+  };
+
+  function diagStatusClass(status) {
+    var tone = DIAG_TONES[status] || "muted";
+    return "studio-registry-status " + tone;
+  }
+
+  function renderDiagnostics() {
+    var host = $("studio-diagnostics");
+    if (!host) return;
+    if (!S.diagnostics.length) {
+      host.innerHTML = '<p class="studio-setup-status">Run “Check all” to verify each provider.</p>';
+      return;
+    }
+    host.innerHTML = S.diagnostics.map(function (d) {
+      var busy = S.diagnosticsBusy === d.provider;
+      var statusText = busy ? "Checking…" : (d.status || "—").replace(/_/g, " ");
+      var checked = d.checked_at ? String(d.checked_at).replace("T", " ").replace("Z", " UTC") : "never";
+      var verified = d.verified || {};
+      var stageBits = [];
+      Object.keys(verified).forEach(function (stage) {
+        if (!verified[stage]) return;
+        if (stage === "generation") return; // never claimed without a real job
+        stageBits.push(esc(stage.replace(/_/g, " ")));
+      });
+      return '<div class="studio-registry-row' + (d.status === "OPERATIONAL" || d.status === "CONNECTED" ? " connected" : "") + '">' +
+        '<div class="studio-registry-head">' +
+        '<span class="studio-dot ' + (d.status === "OPERATIONAL" || d.status === "CONNECTED" ? "on" : (d.status === "CONFIGURED" || d.status === "PARTIALLY_OPERATIONAL" ? "off" : "off")) + '"></span>' +
+        '<div class="flex-1 min-w-0">' +
+        '<b>' + esc(d.label || d.provider) + '</b>' +
+        '<span class="studio-registry-note">' + esc(d.message || "") +
+        (stageBits.length ? ' · verified: ' + stageBits.join(", ") : '') +
+        (d.adapter_wired === false ? ' · generation adapter not wired' : '') + '</span>' +
+        '</div>' +
+        '<span class="' + diagStatusClass(d.status) + '">' + esc(statusText) + '</span>' +
+        '<button type="button" class="studio-btn studio-btn-ghost" data-diagnostics-check="' + esc(d.provider) + '"' + (busy ? " disabled" : "") + '>Check</button>' +
+        '</div>' +
+        '<div class="studio-registry-note">Last checked: ' + esc(checked) +
+        (d.response_time_ms != null ? ' · ' + esc(String(d.response_time_ms)) + ' ms' : '') +
+        (d.recommended_action && d.status !== "OPERATIONAL" ? ' → ' + esc(d.recommended_action) : '') +
+        '</div>' +
+        '</div>';
+    }).join("");
+    icons();
+  }
+
+  function setDiagnosticsMessage(text, ok) {
+    var el = $("studio-diagnostics-message");
+    if (!el) return;
+    el.textContent = text || "";
+    el.className = "studio-setup-message" + (ok ? " ok" : (text ? " warn" : ""));
+  }
+
+  function loadDiagnosticsSnapshot() {
+    return api("/api/studio/diagnostics").then(function (data) {
+      S.diagnostics = SS.normalizeList(data, "diagnostics");
+      renderDiagnostics();
+      return null;
+    }).catch(function () {
+      return null; // setup diagnostics are best-effort; the registry shows errors
+    });
+  }
+
+  function runDiagnosticsCheck(providerId) {
+    var previous = S.diagnostics.filter(function (d) { return d.provider !== providerId; });
+    var existing = S.diagnostics.filter(function (d) { return d.provider === providerId; })[0] || null;
+    S.diagnosticsBusy = providerId;
+    if (existing) existing.status = "CHECKING";
+    else S.diagnostics = previous.concat([{ provider: providerId, label: providerId, status: "CHECKING" }]);
+    renderDiagnostics();
+    setDiagnosticsMessage("Checking " + providerId + "…");
+    api("/api/studio/diagnostics/check", { method: "POST", body: { provider: providerId } })
+      .then(function (result) {
+        S.diagnostics = S.diagnostics.filter(function (d) { return d.provider !== providerId; }).concat([result]);
+        S.diagnosticsBusy = false;
+        renderDiagnostics();
+        var ok = result.status === "OPERATIONAL" || result.status === "CONNECTED";
+        setDiagnosticsMessage(
+          (result.label || providerId) + ": " + String(result.status || "").replace(/_/g, " ") +
+          (result.message ? " — " + result.message : ""),
+          ok);
+        if (window.StudioFashion) StudioFashion.refreshRegistry();
+      })
+      .catch(function (err) {
+        S.diagnosticsBusy = false;
+        if (existing) existing.status = "UNKNOWN_ERROR";
+        renderDiagnostics();
+        setDiagnosticsMessage(describeError(err));
+      });
+  }
+
+  function runDiagnosticsAll() {
+    var button = $("studio-diagnostics-check-all");
+    if (button) button.disabled = true;
+    setDiagnosticsMessage("Checking every provider…");
+    S.diagnostics = S.diagnostics.map(function (d) { return Object.assign({}, d, { status: "CHECKING" }); });
+    renderDiagnostics();
+    api("/api/studio/diagnostics/check-all", { method: "POST", body: {}, timeout: 120000 })
+      .then(function (data) {
+        S.diagnostics = SS.normalizeList(data, "diagnostics");
+        S.diagnosticsBusy = false;
+        renderDiagnostics();
+        var bad = S.diagnostics.filter(function (d) {
+          return d.status !== "OPERATIONAL" && d.status !== "CONNECTED";
+        });
+        if (bad.length) {
+          setDiagnosticsMessage(bad.length + " of " + S.diagnostics.length +
+            " providers are not fully operational — see each row for the failing stage.", false);
+        } else {
+          setDiagnosticsMessage("All " + S.diagnostics.length + " providers passed their non-billable checks.", true);
+        }
+        if (window.StudioFashion) StudioFashion.refreshRegistry();
+      })
+      .catch(function (err) {
+        S.diagnosticsBusy = false;
+        renderDiagnostics();
+        setDiagnosticsMessage(describeError(err));
+      })
+      .then(function () {
+        if (button) button.disabled = false;
+      });
+  }
+
   function renderRegistry() {
     var host = $("studio-registry");
     if (!host) return;
@@ -2543,7 +2768,7 @@
         return loadJobs(true);
       });
     }).catch(function (err) {
-      toast(err.message);
+      toast(describeError(err));
     }).then(function () {
       S.generateBusy = false;
       busy(button, false, "Generate");
@@ -2562,7 +2787,8 @@
         loadLibrary(true),
         loadPlaylists(true),
         loadTemplates(true),
-        loadVideoTemplates(true)
+        loadVideoTemplates(true),
+        loadDiagnosticsSnapshot()
       ]);
     }).then(function () {
       if (window.StudioFashion && window.StudioFashion.refresh) {
@@ -3723,6 +3949,13 @@
 
     var refresh = $("studio-refresh");
     if (refresh) refresh.addEventListener("click", refreshAll);
+    var diagAll = $("studio-diagnostics-check-all");
+    if (diagAll) diagAll.addEventListener("click", runDiagnosticsAll);
+    var diagHost = $("studio-diagnostics");
+    if (diagHost) diagHost.addEventListener("click", function (event) {
+      var check = event.target.closest("[data-diagnostics-check]");
+      if (check) runDiagnosticsCheck(check.getAttribute("data-diagnostics-check"));
+    });
     var registryHost = $("studio-registry");
     if (registryHost) registryHost.addEventListener("click", function (event) {
       var toggle = event.target.closest("[data-registry-toggle]");
@@ -3810,10 +4043,11 @@
         loadLibrary(true),
         loadPlaylists(true),
         loadTemplates(true),
-        loadVideoTemplates(true)
+        loadVideoTemplates(true),
+        loadDiagnosticsSnapshot()
       ]);
     }).catch(function (err) {
-      toast(err.message);
+      toast(describeError(err));
     });
     icons();
   }

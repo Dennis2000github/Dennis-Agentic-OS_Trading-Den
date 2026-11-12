@@ -1751,3 +1751,58 @@ status. It is separate from the **Plugins** tab (API Mega List / Composio).
   `installed_apps()` tags/statuses — 10 tests OK. Playwright (installed Chrome)
   confirms 7 cards render, search/filter, install panel, and the link-skills
   modal (7 agent targets) with no JS errors.
+
+## YouTube Studio Phase 2 — master-spec navigation + editorial wiring (2026-11-12)
+
+Second build against the *Complete YouTube Studio — Master Implementation
+Specification v1.0*. Audit: `docs/YOUTUBE_STUDIO_AUDIT_2026-11-12.md`
+(baseline: 499 Python tests / 1 documented stale failure; all JS suites pass).
+
+Decisions (owner-approved): LLM default = GLM-5.3-Flash via OpenCode
+(switchable to any OpenAI-compatible API); Google OAuth feature-flagged until
+a client id/secret is supplied; stale providers test fixed; sidebar
+restructured to the spec's 7 sections + Settings.
+
+### Backend
+
+| File | Change |
+| --- | --- |
+| `backend/studio_llm.py` | Provider profiles: `opencode` (default; headless `opencode run -m nvidia/z-ai/glm-5.3-flash`) and `openai_compatible` (DeepSeek default, env-overridable). Selection: YouTube workspace settings (set via `configure`) → env → defaults. `status()/configure()` exposed; honest `llm_not_configured`. |
+| `backend/youtube_api.py` | New `GET features` (honest OAuth/publishing/analytics availability; env or `google-oauth.json` client detection) and `POST llm/config`. |
+| `backend/studio_workspaces.py` | YouTube section registry = create/templates/projects/backlog/publishing/analytics/intelligence/settings. |
+| `tests/test_studio_routes.py` | Stale credential-descriptor expectation fixed (`env`/`fields` now expected). |
+
+### Frontend
+
+| File | Change |
+| --- | --- |
+| `index.html` | Sidebar rebuilt to Create/Templates/Projects/Topic Backlog/Publishing/Analytics/YouTube Intelligence/Settings; new Create composer (prompt, channel, template placeholder, format/style/aspect/duration, agent/model/voice/audience chips); backlog panel with Topics+Research subtabs; Projects panel with Projects+Scripts subtabs; intelligence hub (5 cards); settings (connection, LLM config, channel profiles + master-prompt versions, voice widget, provider link); publishing/analytics feature-flag panels. Asset versions bumped `?v=20261112-yt-phase2`. |
+| `js/studioYoutube.js` | Full rewrite (~2.2k lines): one-panel navigation (double-panel quirk fixed), composer → topic creation, full editorial wiring (channels CRUD + prompt versions, research validations + competitors, topics + status pipeline + filters, scripts + versions + AI-generate + fact-check gating), LLM config save, honest feature flags. |
+| `js/studioWorkspaceState.js` | New section registry + legacy deep-link redirects (overview→create, topics/research→backlog, scripts/storyboard/…→projects, calendar→publishing) + subtab helpers. |
+| `css/studio-youtube.css` | Composer, subtabs, topic/research cards, score pills, intelligence hub, settings, channel editor styles. |
+
+### Verification
+
+- `python3 -m unittest discover -s tests -p 'test_*.py'` → 527 tests.
+  New `tests/test_youtube_editorial.py` (28 tests) covers channels (seed,
+  master-prompt immutability, activation), research (verdicts, flags, sources),
+  topics (validation-gated status, duplicates, forward-only transitions),
+  scripts (approved-topic rule, versioning, fact-check gate), dispatcher routes,
+  and the LLM profiles (CLI stub, honest failures, settings persistence).
+  Remaining failure: `test_studio_registry.test_test_provider_honest_about_missing_adapters`
+  — caused by *concurrent* in-flight work (new `backend/studio_diagnostics.py`
+  + `test_provider` rewiring, not from this change set).
+- `node --test tests/*.test.js` → all pass (updated studioWorkspaceState).
+- New `tests/e2e_youtube_phase2.py --serve` → 27/27 (Create landing, composer,
+  7+1 sidebar, one-panel rule, subtabs, settings + GLM status + voice widget,
+  honest publishing/analytics, intelligence hub, no JS errors).
+- `tests/e2e_ads_studio.py --serve` → only failure is the same concurrent
+  registry rework (expects 9 provider rows, now renders 18); all other checks pass.
+- Caught+fixed during this phase: `studio_llm.complete` parameter shadowed the
+  module-level `model()` function (would break GLM generation); stale model
+  leaking across profile switches via settings deep-merge.
+
+### Next (Phase 3)
+
+Template library + channel default template; then Phase 4 AI top-three
+recommendations (content-based first, Muse-ready schema).

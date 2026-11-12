@@ -5357,6 +5357,13 @@
 
 #studio-view .studio-registry-status.ok { background: rgba(16, 185, 129, 0.15); color: #34d399; }
 #studio-view .studio-registry-status.warn { background: rgba(251, 191, 36, 0.15); color: #fbbf24; }
+#studio-view .studio-registry-status.error { background: rgba(244, 63, 94, 0.15); color: #fb7185; }
+#studio-view .studio-registry-status.muted { background: rgba(148, 163, 184, 0.12); color: #94a3b8; }
+
+/* Provider diagnostics (Setup) — staged, non-billable verification */
+#studio-view .studio-setup-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+#studio-view .studio-diagnostics { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+#studio-view .studio-diagnostics .studio-registry-head b { font-size: 11.5px; }
 
 #studio-view .studio-registry-form { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
 

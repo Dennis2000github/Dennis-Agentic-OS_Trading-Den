@@ -523,7 +523,7 @@ def main():
     if args.serve and args.phase != "none":
         port = args.base.rstrip("/").rsplit(":", 1)[-1]
         server = subprocess.Popen(
-            [sys.executable, os.path.join(PROJ, "server.py"), port],
+            [sys.executable, os.path.join(PROJ, "app.py"), port],
             cwd=PROJ, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
             env=dict(os.environ, DENNIS_NO_DENMA="1"))
         time.sleep(2.5)

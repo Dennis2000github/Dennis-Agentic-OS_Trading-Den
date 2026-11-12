@@ -67,6 +67,7 @@ from backend import megalist_verify as dennis_megalist_verify
 from backend import studio_catalog as dennis_studio_catalog
 from backend import studio_collections as dennis_studio_collections
 from backend import studio_contracts as dennis_studio_contracts
+from backend import studio_diagnostics as dennis_studio_diagnostics
 from backend import studio_fashion as dennis_studio_fashion
 from backend import studio_free as dennis_studio_free
 from backend import studio_registry as dennis_studio_registry
@@ -1370,6 +1371,11 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
 
         if path == '/api/studio/generation/catalog':
             return self.send_json(dennis_studio_registry.generation_catalog())
+
+        # Provider diagnostics: static snapshot (no network). Run a live check
+        # via POST /api/studio/diagnostics/check or /check-all.
+        if path == '/api/studio/diagnostics':
+            return self.send_json(dennis_studio_diagnostics.summary())
 
         if path == '/api/studio/fashion/model-library':
             try:
@@ -2719,9 +2725,8 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
                 return self._studio_send_error(exc)
 
         if path == '/api/studio/fashion/model-library':
-            return self.send_json(dennis_studio_model_library.list_library())
-
-        if path == '/api/studio/fashion/model-library':
+            # POST saves a model entry. (A previous duplicate route above
+            # returned the list here, which made saving silently a no-op.)
             try:
                 model = dennis_studio_model_library.add_model(
                     body.get("url"),
@@ -2862,6 +2867,22 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
         if path == '/api/studio/registry/test':
             try:
                 return self.send_json(dennis_studio_registry.test_provider(body.get("provider")))
+            except Exception as exc:
+                return self._studio_send_error(exc)
+
+        # Provider diagnostics: staged, non-billable verification.
+        if path == '/api/studio/diagnostics/check':
+            provider_id = str(body.get("provider") or "").strip()
+            if not provider_id:
+                return self.send_json({"error": "A provider id is required."}, status_code=400)
+            try:
+                return self.send_json(dennis_studio_diagnostics.check(provider_id))
+            except Exception as exc:
+                return self._studio_send_error(exc)
+
+        if path == '/api/studio/diagnostics/check-all':
+            try:
+                return self.send_json(dennis_studio_diagnostics.check_all())
             except Exception as exc:
                 return self._studio_send_error(exc)
 

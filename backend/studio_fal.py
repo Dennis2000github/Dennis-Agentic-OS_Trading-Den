@@ -142,10 +142,11 @@ class FalClient:
         return {"public_url": url, "content_type": mime}
 
     def test_credentials(self):
-        # Cheap authenticated call: platform models list is not required; hit
-        # a known queue host with an empty pathless probe via account endpoint
-        # is not always available. Use fal platform user if present, else a
-        # deliberate 404 on an invalid model that still authenticates.
+        # Honest, non-billable verification: only a real authenticated
+        # round-trip counts. 401/403 mean the key is invalid; 404 on the
+        # probed path means the host answered and the key was accepted
+        # (authorization happens before routing); network errors stay
+        # unverified rather than being reported as success.
         try:
             studio_http.request_json(
                 "GET",
@@ -157,13 +158,15 @@ class FalClient:
         except ProviderRequestError as exc:
             if exc.status in (401, 403):
                 raise
-            # Some accounts cannot list models; treat non-auth errors as ok
-            # when the key format is present, and probe with a cancel of a
-            # fake request which returns 401/404.
-            if exc.status == 404 or exc.status == 0:
-                return {"ok": True, "message": "fal.ai credentials accepted."}
-            if exc.error and exc.error.get("code") == "authentication_failed":
-                raise
-            if exc.status not in (401, 403):
-                return {"ok": True, "message": "fal.ai credentials appear valid."}
-            raise
+            if exc.status == 404:
+                # The host responded and authenticated the key; only the
+                # probed path does not exist for this account.
+                return {"ok": True,
+                        "message": "fal.ai host reachable; key format accepted "
+                                   "(endpoint probe unavailable)."}
+            # Network/timeout/server errors: auth state is simply unknown.
+            raise ProviderRequestError(exc.status, {
+                "code": "verification_unavailable",
+                "message": "fal.ai could not be verified (%s)." % (exc.error or {}).get("message", "network error"),
+                "retryable": bool((exc.error or {}).get("retryable")),
+            })

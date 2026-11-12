@@ -424,10 +424,10 @@ def veo_poll(operation_name):
 
 
 def veo_download(uri):
+    # The API key travels in the x-goog-api-key header only — never as a URL
+    # query parameter, which could leak into proxy or access logs.
     key = google_api_key()
-    separator = "&" if "?" in uri else "?"
-    data, content_type = _open(uri + separator + "key=" + urllib.parse.quote(key),
-                               headers={"x-goog-api-key": key})
+    data, content_type = _open(uri, headers={"x-goog-api-key": key})
     return bytes(data), (content_type if content_type.startswith("video/") else "video/mp4")
 
 

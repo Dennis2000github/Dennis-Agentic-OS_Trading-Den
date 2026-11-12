@@ -144,6 +144,27 @@ class VeoTests(unittest.TestCase):
         self.assertIsNone(uri)
         self.assertIsNone(error)
 
+    def test_download_keeps_the_key_out_of_the_url(self):
+        # The Gemini key must travel in the x-goog-api-key header only. A key
+        # in the URL query string leaks into proxy and access logs.
+        captured = {}
+
+        def fake_open(url, data=None, headers=None, method="GET", timeout=0):
+            captured["url"] = url
+            captured["headers"] = headers or {}
+            return (b"mp4-bytes", "video/mp4")
+
+        with mock.patch.object(free, "google_api_key", return_value="secret-key"), \
+             mock.patch.object(free, "_open", side_effect=fake_open):
+            data, content_type = free.veo_download("https://generativelanguage.googleapis.com/v1beta/files/abc:download?alt=media")
+        self.assertEqual(data, b"mp4-bytes")
+        self.assertEqual(content_type, "video/mp4")
+        self.assertNotIn("secret-key", captured["url"])
+        self.assertNotIn("key=", captured["url"])
+        self.assertEqual(captured["url"],
+                         "https://generativelanguage.googleapis.com/v1beta/files/abc:download?alt=media")
+        self.assertEqual(captured["headers"].get("x-goog-api-key"), "secret-key")
+
 
 class JobRegistryTests(unittest.TestCase):
     def setUp(self):

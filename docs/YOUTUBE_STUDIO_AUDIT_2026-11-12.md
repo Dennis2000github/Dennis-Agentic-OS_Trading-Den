@@ -1,7 +1,9 @@
 # YouTube Studio — Phase 0/1 Architecture Audit (Master Spec v1.0)
 
 Date: 2026-11-12
-Status: **Audit complete. No production code changed.**
+Status: **Audit complete; Phase 2 implemented and verified** (navigation to 7
+sections + Settings, editorial wiring, LLM profiles, feature flags — see
+`STATE.md` "YouTube Studio Phase 2"). Phases 3–12 follow the sequence in §6.
 Scope: verify the current DENNIS Agentic OS against the *Complete YouTube Studio —
 Master Implementation Specification v1.0* (7 studio sections, channel default +
 AI top-3 template recommendations, packaging engine, production workspace,
@@ -202,14 +204,21 @@ Each phase: inspect → reuse → implement → test → report → approval bef
 
 ---
 
-## 7. Decisions required before Phase 2
+## 7. Decisions (resolved 2026-11-12, owner-approved)
 
-1. **LLM default**: route generation through OpenCode headless with
-   `nvidia/z-ai/glm-5.3-flash` (spec default), or keep the OpenAI-compatible
-   adapter (DeepSeek today) and only add GLM as an option?
-2. **Google OAuth client**: supply client id/secret now, or ship publishing/
-   analytics feature-flagged with manual export until provided?
-3. **Stale test fix**: repair `test_providers_are_described_without_secrets`
-   (update expectation to include `env`/`fields`) with this work, or leave it?
-4. **Sidebar restructure**: confirm replacing the 14-section stage list with the
-   7 spec sections + Settings (deep links for old sections redirect sensibly).
+1. **LLM default**: GLM-5.3-Flash through the OpenCode CLI headless
+   (`nvidia/z-ai/glm-5.3-flash`), switchable to any OpenAI-compatible API from
+   Settings → Text generation. Implemented in `studio_llm.py` (Phase 2).
+2. **Google OAuth client**: not supplied — publishing/analytics ship behind an
+   honest feature flag (`GET /api/studio/youtube/features`) until provided.
+3. **Stale test**: fixed in Phase 2 (`test_studio_routes` credential descriptor).
+4. **Sidebar restructure**: confirmed; legacy deep links redirect (Phase 2).
+
+### Concurrent-work note (2026-11-12, later same day)
+
+While Phase 2 was in flight, another session modified the Ads provider stack
+(`backend/studio_registry.py` + new `backend/studio_diagnostics.py` +
+`studio_free/fal`). Two checks now fail against their in-flight work, not this
+change set: `test_studio_registry.test_test_provider_honest_about_missing_adapters`
+and the `e2e_ads_studio` "Registry lists all 9 providers" check (now renders 18
+rows). Left untouched for that session to finish.

@@ -174,9 +174,9 @@ def configure(body):
         )
     raw_model = str(data.get("model") or "").strip()
     model_value = common.clean_text(raw_model, "Model", 120) if raw_model else ""
-    block = {"provider": provider}
-    if model_value:
-        block["model"] = model_value
+    # The settings store deep-merges patches: always send an explicit model key
+    # so switching profiles cannot inherit the previous profile's model.
+    block = {"provider": provider, "model": model_value or None}
     studio_workspaces.update_settings("youtube", {"llm": block})
     return status()
 
@@ -325,7 +325,7 @@ def _complete_openai_compatible(cleaned, model_id, temperature, max_tokens, time
     return {"content": text, "model": model_id, "usage": usage if isinstance(usage, dict) else {}}
 
 
-def complete(messages, model=None, temperature=0.6, max_tokens=MAX_OUTPUT_TOKENS, timeout=DEFAULT_TIMEOUT):
+def complete(messages, model_id=None, temperature=0.6, max_tokens=MAX_OUTPUT_TOKENS, timeout=DEFAULT_TIMEOUT):
     """Run one completion with the active profile and return the assistant text."""
     cleaned = _validate_messages(messages)
     try:
@@ -338,8 +338,8 @@ def complete(messages, model=None, temperature=0.6, max_tokens=MAX_OUTPUT_TOKENS
     except (TypeError, ValueError):
         max_tokens = MAX_OUTPUT_TOKENS
     max_tokens = max(256, min(16000, max_tokens))
-    model_id = common.clean_text(model, "Model", 120) or model()
+    resolved_model = common.clean_text(model_id, "Model", 120) or model()
     if profile() == "opencode":
-        return _complete_opencode(cleaned, model_id, timeout)
+        return _complete_opencode(cleaned, resolved_model, timeout)
     key, _source = _api_key()
-    return _complete_openai_compatible(cleaned, model_id, temperature, max_tokens, timeout, key)
+    return _complete_openai_compatible(cleaned, resolved_model, temperature, max_tokens, timeout, key)

@@ -35,9 +35,29 @@ ok("parses ads deep links", () => {
 });
 
 ok("parses youtube deep links", () => {
-  const route = WSS.parseHash("#studio/youtube/overview");
+  const route = WSS.parseHash("#studio/youtube/create");
   assert.strictEqual(route.workspace, "youtube");
-  assert.strictEqual(route.section, "overview");
+  assert.strictEqual(route.section, "create");
+});
+
+ok("legacy youtube section ids redirect to their new homes", () => {
+  const legacy = {
+    overview: "create",
+    "channel-manager": "settings",
+    research: "backlog",
+    topics: "backlog",
+    scripts: "projects",
+    storyboard: "projects",
+    assets: "projects",
+    voice: "projects",
+    animation: "projects",
+    thumbnails: "projects",
+    calendar: "publishing"
+  };
+  for (const [from, to] of Object.entries(legacy)) {
+    assert.strictEqual(WSS.normalizeSection("youtube", from), to, from);
+    assert.ok(WSS.isKnownSection("youtube", from), from + " should resolve");
+  }
 });
 
 ok("rejects unknown workspaces as implicit", () => {
@@ -56,7 +76,8 @@ ok("ignores hashes outside the studio", () => {
 });
 
 ok("builds canonical hashes", () => {
-  assert.strictEqual(WSS.buildHash("youtube", "overview"), "#studio/youtube/overview");
+  assert.strictEqual(WSS.buildHash("youtube", "create"), "#studio/youtube/create");
+  assert.strictEqual(WSS.buildHash("youtube", "overview"), "#studio/youtube/create");
   assert.strictEqual(WSS.buildHash("ads", "history"), "#studio/ads/history");
   assert.strictEqual(WSS.buildHash("bogus"), "#studio/ads/fashion");
 });
@@ -64,16 +85,30 @@ ok("builds canonical hashes", () => {
 ok("normalizes workspaces and sections", () => {
   assert.strictEqual(WSS.normalizeWorkspace("YOUTUBE"), "youtube");
   assert.strictEqual(WSS.normalizeWorkspace("nope", "ads"), "ads");
-  assert.strictEqual(WSS.normalizeSection("youtube", "SCRIPTS"), "scripts");
-  assert.strictEqual(WSS.normalizeSection("youtube", "bogus"), "overview");
+  assert.strictEqual(WSS.normalizeSection("youtube", "BACKLOG"), "backlog");
+  assert.strictEqual(WSS.normalizeSection("youtube", "bogus"), "create");
   assert.strictEqual(WSS.normalizeSection("ads", "bogus"), "fashion");
+});
+
+ok("the seven master-spec sections plus settings exist", () => {
+  for (const section of ["create", "templates", "projects", "backlog", "publishing", "analytics", "intelligence", "settings"]) {
+    assert.ok(WSS.YOUTUBE_SECTIONS.indexOf(section) !== -1, section);
+  }
+  assert.strictEqual(WSS.defaultSection("youtube"), "create");
+});
+
+ok("backlog and project subtabs normalize", () => {
+  assert.strictEqual(WSS.normalizeBacklogTab("research"), "research");
+  assert.strictEqual(WSS.normalizeBacklogTab("bogus"), "topics");
+  assert.strictEqual(WSS.normalizeProjectTab("scripts"), "scripts");
+  assert.strictEqual(WSS.normalizeProjectTab("bogus"), "projects");
 });
 
 ok("ads and youtube keep separate section lists", () => {
   assert.ok(WSS.isKnownSection("ads", "fashion"));
   assert.ok(!WSS.isKnownSection("youtube", "fashion"));
-  assert.ok(WSS.isKnownSection("youtube", "animation"));
-  assert.ok(!WSS.isKnownSection("ads", "animation"));
+  assert.ok(WSS.isKnownSection("youtube", "intelligence"));
+  assert.ok(!WSS.isKnownSection("ads", "intelligence"));
 });
 
 ok("existing ads tab keys are preserved", () => {

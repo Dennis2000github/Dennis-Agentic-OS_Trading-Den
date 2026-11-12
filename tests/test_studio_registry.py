@@ -154,10 +154,32 @@ class CredentialsTests(unittest.TestCase):
         self.assertEqual(registry.test_provider("pollinations")["ok"], True)
 
     def test_test_provider_honest_about_missing_adapters(self):
+        # Providers with a real client verify authentication; providers
+        # without one never claim a verified connection.
         with mock.patch.object(registry, "_connected", return_value=True):
-            result = registry.test_provider("runway")
-        self.assertTrue(result["ok"])
+            result = registry.test_provider("minimax")
+        self.assertTrue(result["ok"])  # credentials stored — that much is true
+        self.assertIsNone(result["verified"])
         self.assertIn("not wired", result["message"])
+
+        secrets.set_values("runway", {"api_key": "rw"})
+        with mock.patch.object(registry, "_connected", return_value=True), \
+             mock.patch("backend.studio_runway.RunwayClient.test_credentials",
+                        return_value={"ok": True, "message": "Runway credentials accepted."}):
+            verified = registry.test_provider("runway")
+        self.assertTrue(verified["ok"])
+        self.assertEqual(verified["verified"], "authentication")
+
+        from backend import studio_http
+        with mock.patch.object(registry, "_connected", return_value=True), \
+             mock.patch("backend.studio_runway.RunwayClient.test_credentials") as test:
+            test.side_effect = studio_http.ProviderRequestError(401, {
+                "code": "authentication_failed",
+                "message": "Invalid credentials",
+                "retryable": False,
+            })
+            rejected = registry.test_provider("runway")
+        self.assertFalse(rejected["ok"])
 
 
 if __name__ == "__main__":
