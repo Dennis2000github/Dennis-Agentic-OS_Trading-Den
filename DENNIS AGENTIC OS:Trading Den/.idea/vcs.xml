@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="VcsDirectoryMappings">
+    <mapping directory="$PROJECT_DIR$/.." vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../DENNIS AGENTIC OS_Trading Den/Dennis-Agentic-OS" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../DENNIS AGENTIC OS_Trading Den/Dennis-Agentic-OS/agent-skill-builder/templates/claude-code-templates" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/../DENNIS AGENTIC OS_Trading Den/OpenJarvis" vcs="Git" />
+  </component>
+</project>

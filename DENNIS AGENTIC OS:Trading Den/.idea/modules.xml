@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/../DENNIS AGENTIC OS_Trading Den/.idea/DENNIS AGENTIC OSTrading Den.iml" filepath="$PROJECT_DIR$/../DENNIS AGENTIC OS_Trading Den/.idea/DENNIS AGENTIC OSTrading Den.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/OpenJarvis.iml" filepath="$PROJECT_DIR$/.idea/OpenJarvis.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/openjarvis-rust.iml" filepath="$PROJECT_DIR$/.idea/openjarvis-rust.iml" />
+    </modules>
+  </component>
+</project>
