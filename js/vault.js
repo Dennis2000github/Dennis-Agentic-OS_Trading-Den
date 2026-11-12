@@ -629,6 +629,10 @@
       ensureEditor();
       setTimeout(function () { if (state.cm) state.cm.refresh(); }, 60);
     },
+    openPath: function (path) {
+      Vault.open();
+      return openNote(path);
+    },
     openGraph: function () {
       Vault.open();
       setTimeout(function () { if (state.dirty) saveNote(); setMode("graph"); }, 80);

@@ -119,9 +119,42 @@ def _plugin_dir(name):
     return os.path.join(PLUGINS_ROOT, _safe_name(name))
 
 
+# Short tags used by the Installed Plugins rail. Manifests can override the tag
+# with ``tag`` or ``x-dennis.tag``; this map covers packs that predate tags and
+# the built-in apps that never carried a plugin manifest.
+KNOWN_TAGS = {
+    "composio": "MCP",
+    "composio-cli": "CLI",
+    "rea": "REV",
+    "heygen": "VID",
+    "api-mega-list": "API",
+    "free-llm-apis": "LLM",
+    "ui-ux-pro-max": "UX",
+    "yt2skill": "SKL",
+}
+
+
+def _short_tag(name, manifest=None):
+    manifest = manifest if isinstance(manifest, dict) else {}
+    meta = manifest.get("x-dennis")
+    meta = meta if isinstance(meta, dict) else {}
+    raw = meta.get("tag") or meta.get("short") or manifest.get("tag") or ""
+    if not raw:
+        raw = KNOWN_TAGS.get(name, "")
+    if not raw:
+        raw = name
+    tag = re.sub(r"[^A-Za-z0-9]", "", str(raw)).upper()
+    return (tag[:4] or "PLG")
+
+
 def _read_manifest(plugin_dir):
-    path = os.path.join(plugin_dir, "plugin.json")
-    if os.path.isfile(path):
+    paths = [
+        os.path.join(plugin_dir, "plugin.json"),
+        os.path.join(plugin_dir, ".claude-plugin", "plugin.json"),
+    ]
+    for path in paths:
+        if not os.path.isfile(path):
+            continue
         try:
             with open(path, encoding="utf-8") as fh:
                 data = json.load(fh)
@@ -158,29 +191,48 @@ def _within(root, path):
 def _manifest_skills(plugin_dir, manifest):
     """Return [(rel_dir, abs_dir)] for skills declared or discovered."""
     found, seen = [], set()
+
+    def add(adapter):
+        if not _within(plugin_dir, adapter):
+            return
+        if os.path.isfile(os.path.join(adapter, "SKILL.md")) and adapter not in seen:
+            seen.add(adapter)
+            found.append((os.path.relpath(adapter, plugin_dir), adapter))
+
     rels = manifest.get("skills")
+    # `skills` may be a list of folders, a single folder ("" or "." for the
+    # plugin root), or the Claude-style "./.claude/skills/" directory.
+    if isinstance(rels, str):
+        rels = [rels]
     if isinstance(rels, list):
         for rel in rels:
             if not isinstance(rel, str):
                 continue
             adapter = os.path.join(plugin_dir, rel)
-            if not _within(plugin_dir, adapter):
-                continue
-            if os.path.isfile(os.path.join(adapter, "SKILL.md")) and adapter not in seen:
-                seen.add(adapter)
-                found.append((os.path.relpath(adapter, plugin_dir), adapter))
-    # Discover skills/ (and top-level SKILL.md) when the manifest is silent.
+            if os.path.isdir(adapter):
+                add(adapter)
+                if rel not in ("", "."):
+                    try:
+                        for entry in sorted(os.listdir(adapter)):
+                            add(os.path.join(adapter, entry))
+                    except OSError:
+                        pass
+            else:
+                add(adapter)
+    # Discover skills/ (and Claude's .claude/skills/) when the manifest is
+    # silent, plus a bare top-level SKILL.md.
     if not found:
-        candidates = []
-        skills_root = os.path.join(plugin_dir, "skills")
-        if os.path.isdir(skills_root):
-            for entry in sorted(os.listdir(skills_root)):
-                candidates.append(os.path.join(skills_root, entry))
-        candidates.append(plugin_dir)
-        for adapter in candidates:
-            if os.path.isfile(os.path.join(adapter, "SKILL.md")) and adapter not in seen:
-                seen.add(adapter)
-                found.append((os.path.relpath(adapter, plugin_dir), adapter))
+        for skills_root in (os.path.join(plugin_dir, "skills"),
+                            os.path.join(plugin_dir, ".claude", "skills")):
+            if not os.path.isdir(skills_root):
+                continue
+            try:
+                entries = sorted(os.listdir(skills_root))
+            except OSError:
+                continue
+            for entry in entries:
+                add(os.path.join(skills_root, entry))
+        add(plugin_dir)
     return found
 
 
@@ -227,19 +279,27 @@ def _plugin_summary(plugin_dir, state):
     meta = meta if isinstance(meta, dict) else {}
     return {
         "name": name,
+        "title": str(manifest.get("title") or meta.get("title") or manifest.get("name") or name),
+        "tag": _short_tag(name, manifest),
+        "icon": str(manifest.get("icon") or meta.get("icon") or "puzzle"),
+        "category": str(manifest.get("category") or meta.get("category") or "Plugin"),
         "version": str(manifest.get("version") or ""),
         "description": str(manifest.get("description") or ""),
         "author": str(manifest.get("author") or ""),
+        "license": str(manifest.get("license") or ""),
         "path": plugin_dir,
         "enabled": bool(rec.get("enabled", True)),
         "tier": _tier_for(name, rec),
         "agents": rec.get("agents", []),
         "compatibility": compat_agents,
         "skills": skills,
+        "skill_count": len(skills),
         "mcp": [m for m in mcp if isinstance(m, str)],
         "collections": collections,
         "repository": str(manifest.get("repository") or manifest.get("homepage") or ""),
         "homepage": str(manifest.get("homepage") or ""),
+        "source_url": str(rec.get("source_url") or ""),
+        "installed_at": str(rec.get("installed_at") or ""),
         "meta": {
             "api_count": meta.get("api_count") if isinstance(meta.get("api_count"), int) else 0,
             "category_count": meta.get("category_count") if isinstance(meta.get("category_count"), int) else 0,
@@ -305,7 +365,9 @@ def _plugin_dirs():
         if not os.path.isdir(path):
             continue
         if (os.path.isfile(os.path.join(path, "plugin.json"))
+                or os.path.isfile(os.path.join(path, ".claude-plugin", "plugin.json"))
                 or os.path.isdir(os.path.join(path, "skills"))
+                or os.path.isdir(os.path.join(path, ".claude", "skills"))
                 or os.path.isfile(os.path.join(path, "SKILL.md"))):
             out.append(path)
     return out
@@ -563,12 +625,90 @@ _CATALOG = [
     {
         "id": "composio",
         "name": "Composio",
+        "title": "Composio",
+        "tag": "MCP",
         "icon": "plug-zap",
         "category": "Integrations",
         "tier": "public",
+        "kind": "plugin",
+        "repository": "https://github.com/ComposioHQ/composio",
+        "homepage": "https://composio.dev",
         "rel": os.path.join("public-plugins", "composio"),
         "blurb": "One MCP endpoint for 1,600+ app toolkits: Gmail, Slack, GitHub, "
                  "Notion, Linear, HubSpot, Google Sheets and more.",
+    },
+    {
+        "id": "rea",
+        "name": "REA",
+        "title": "REA",
+        "tag": "REV",
+        "icon": "binary",
+        "category": "Developer tools",
+        "tier": "public",
+        "kind": "plugin",
+        "repository": "https://github.com/morluto/rea",
+        "homepage": "https://rea.tools",
+        "rel": os.path.join("public-plugins", "rea"),
+        "blurb": "Reverse engineer anything: one local MCP for native binaries, "
+                 "JavaScript/Electron apps, .NET assemblies, websites, Android "
+                 "APKs and more, with evidence-backed findings.",
+    },
+    {
+        "id": "ui-ux-pro-max",
+        "name": "UI UX Pro Max",
+        "title": "UI UX Pro Max",
+        "tag": "UX",
+        "icon": "palette",
+        "category": "Design intelligence",
+        "tier": "public",
+        "kind": "plugin",
+        "repository": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
+        "homepage": "https://uupm.cc",
+        "rel": os.path.join("public-plugins", "ui-ux-pro-max"),
+        "blurb": "UI/UX design intelligence for agents: 80 searchable styles, "
+                 "192 product palettes, 74 font pairings, 120 UX guidelines, "
+                 "25 chart types and 22 stack guides.",
+    },
+]
+
+# Apps that ship with the OS but are not agent-skill packs. The Installed
+# Plugins view lists them next to real plugins so one rail covers every
+# installed app and GitHub repo.
+_BUILTIN_APPS = [
+    {
+        "id": "api-mega-list",
+        "name": "API Mega List",
+        "title": "API Mega List",
+        "tag": "API",
+        "icon": "database-zap",
+        "category": "API directory",
+        "tier": "public",
+        "kind": "app",
+        "status": "core",
+        "installable": False,
+        "view": "plugins",
+        "repository": "https://github.com/cporter202/API-mega-list",
+        "rel": os.path.join("public-plugins", "api-mega-list"),
+        "blurb": "Upstream repository workspace with 23 core categories, the "
+                 "featured collection, sponsored partners and its README pipeline.",
+    },
+    {
+        "id": "free-llm-apis",
+        "name": "FreeLLMAPI",
+        "title": "FreeLLMAPI",
+        "tag": "LLM",
+        "icon": "zap",
+        "category": "Free model catalog",
+        "tier": "public",
+        "kind": "app",
+        "status": "core",
+        "installable": False,
+        "view": "freellm",
+        "repository": "https://github.com/open-free-llm-api/awesome-freellm-apis",
+        "homepage": "https://freellm.net",
+        "rel": os.path.join("public-plugins", "free-llm-apis"),
+        "blurb": "Free model catalog with 505+ models from 30 providers, search, "
+                 "tier filters and per-agent connections.",
     },
 ]
 
@@ -591,9 +731,14 @@ def _catalog_entry(entry, installed):
     return {
         "id": entry["id"],
         "name": entry["name"],
+        "title": entry.get("title") or entry["name"],
+        "tag": entry.get("tag") or _short_tag(entry["id"]),
         "icon": entry["icon"],
         "category": entry["category"],
         "tier": entry.get("tier", "personal"),
+        "kind": entry.get("kind", "plugin"),
+        "repository": entry.get("repository", ""),
+        "homepage": entry.get("homepage", ""),
         "description": entry.get("blurb") or desc,
         "skill_title": title,
         "source": src,
@@ -614,6 +759,132 @@ def catalog():
             "public": len([i for i in items if i["tier"] == "public"]),
         },
     }
+
+
+def _installed_item(base, rec):
+    item = dict(base)
+    if rec:
+        # The installed summary is the source of truth for live fields, but it
+        # must not erase curated catalog metadata (tag, title, repository).
+        curated = dict(item)
+        item.update(rec)
+        for key in ("id", "title", "tag", "icon", "category", "repository",
+                    "homepage", "description", "kind", "tier", "view"):
+            if curated.get(key) and (key == "title" or not item.get(key)):
+                item[key] = curated[key]
+        item["status"] = "installed" if rec.get("enabled", True) else "disabled"
+        item["installed"] = True
+        item["installable"] = bool(curated.get("installable", True))
+    else:
+        item["installed"] = False
+        item["enabled"] = False
+        item["agents"] = []
+        item["skills"] = []
+        item["skill_count"] = 0
+        item["installable"] = bool(base.get("installable", True))
+        item.setdefault("status",
+                        "bundled" if os.path.isdir(os.path.join(REPO_ROOT, base.get("rel", "")))
+                        else "available")
+    item["name"] = item.get("name") or item.get("id")
+    item["title"] = item.get("title") or item["name"]
+    item["tag"] = _short_tag(item.get("id") or item["name"], {"tag": item.get("tag")})
+    item["icon"] = item.get("icon") or "puzzle"
+    item["category"] = item.get("category") or "Plugin"
+    item["kind"] = item.get("kind") or "plugin"
+    item["view"] = item.get("view") or ""
+    item["repository"] = item.get("repository") or ""
+    item["homepage"] = item.get("homepage") or ""
+    item["description"] = item.get("description") or ""
+    return item
+
+
+def installed_apps():
+    """One rail for every installed plugin, bundled pack, and built-in app.
+
+    Installed plugin folders are merged with the bundled catalog and the apps
+    shipped with the OS. Each item carries a short ``tag`` for the sidebar / card
+    badge, a lifecycle ``status`` and the skills already linked into agents.
+    """
+    kit = list_plugins()
+    installed = {p["name"]: p for p in kit["plugins"]}
+    items, seen = [], set()
+
+    for entry in _CATALOG:
+        rec = installed.pop(entry["id"], None)
+        base = {
+            "id": entry["id"],
+            "name": entry["name"],
+            "title": entry.get("title") or entry["name"],
+            "tag": entry.get("tag", ""),
+            "icon": entry.get("icon", "puzzle"),
+            "category": entry.get("category", "Plugin"),
+            "tier": entry.get("tier", "public"),
+            "kind": entry.get("kind", "plugin"),
+            "description": entry.get("blurb", ""),
+            "repository": entry.get("repository", ""),
+            "homepage": entry.get("homepage", ""),
+            "rel": entry.get("rel", ""),
+            "installable": True,
+            "view": "",
+            "status": "bundled",
+        }
+        items.append(_installed_item(base, rec))
+        seen.add(entry["id"])
+
+    for entry in _BUILTIN_APPS:
+        if entry["id"] in seen:
+            continue
+        rec = installed.pop(entry["id"], None)
+        base = dict(entry)
+        base["description"] = entry.get("description") or entry.get("blurb", "")
+        base["installable"] = False
+        base["rel"] = entry.get("rel", "")
+        base.setdefault("status", "core")
+        items.append(_installed_item(base, rec))
+        seen.add(entry["id"])
+
+    for name, rec in installed.items():
+        base = {
+            "id": name,
+            "name": name,
+            "title": rec.get("title") or name,
+            "tag": rec.get("tag", ""),
+            "icon": rec.get("icon", "puzzle"),
+            "category": rec.get("category", "Plugin"),
+            "tier": rec.get("tier", "personal"),
+            "kind": "plugin",
+            "description": rec.get("description", ""),
+            "repository": rec.get("repository", ""),
+            "homepage": rec.get("homepage", ""),
+            "rel": "",
+            "installable": True,
+            "view": "",
+            "status": "installed",
+        }
+        items.append(_installed_item(base, rec))
+
+    order = {"installed": 0, "disabled": 1, "core": 2, "bundled": 3, "available": 4}
+    items.sort(key=lambda item: (order.get(item.get("status"), 9),
+                                 str(item.get("title") or "").lower()))
+
+    counts = {
+        "total": len(items),
+        "installed": len([i for i in items if i["status"] == "installed"]),
+        "disabled": len([i for i in items if i["status"] == "disabled"]),
+        "core": len([i for i in items if i["status"] == "core"]),
+        "bundled": len([i for i in items if i["status"] == "bundled"]),
+        "available": len([i for i in items if i["status"] == "available"]),
+        "skills": sum(i.get("skill_count") or len(i.get("skills") or []) for i in items),
+        "agents": len(kit.get("agents") or []),
+    }
+    return {
+        "items": items,
+        "counts": counts,
+        "agents": kit.get("agents") or [],
+        "root": kit.get("root") or PLUGINS_ROOT,
+        "root_exists": kit.get("root_exists", False),
+    }
+
 
 
 def install_catalog(catalog_id, force=False):

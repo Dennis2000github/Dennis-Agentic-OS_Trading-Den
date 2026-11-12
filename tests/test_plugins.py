@@ -103,11 +103,31 @@ class PluginManagerTests(unittest.TestCase):
         self.assertIn("root", st)
         self.assertEqual(sorted(a["id"] for a in st["agents"]), ["claude-code", "generic"])
 
-    def test_catalog_lists_composio_public_pack(self):
+    def test_catalog_lists_bundled_public_packs(self):
         cat = plugins.catalog()
-        self.assertEqual([item["id"] for item in cat["items"]], ["composio"])
-        self.assertEqual(cat["counts"], {"personal": 0, "public": 1})
-        self.assertEqual(cat["items"][0]["tier"], "public")
+        ids = [item["id"] for item in cat["items"]]
+        self.assertIn("composio", ids)
+        self.assertIn("rea", ids)
+        self.assertIn("ui-ux-pro-max", ids)
+        self.assertEqual(cat["counts"]["personal"], 0)
+        self.assertEqual(cat["counts"]["public"], len(ids))
+        composio = [item for item in cat["items"] if item["id"] == "composio"][0]
+        self.assertEqual(composio["tier"], "public")
+        self.assertEqual(composio["tag"], "MCP")
+
+    def test_installed_apps_merges_tags_and_statuses(self):
+        out = plugins.installed_apps()
+        self.assertIn("items", out)
+        self.assertIn("counts", out)
+        ids = [item["id"] for item in out["items"]]
+        self.assertIn("api-mega-list", ids)
+        self.assertIn("free-llm-apis", ids)
+        self.assertIn("ui-ux-pro-max", ids)
+        by_id = {item["id"]: item for item in out["items"]}
+        self.assertEqual(by_id["ui-ux-pro-max"]["tag"], "UX")
+        self.assertEqual(by_id["api-mega-list"]["tag"], "API")
+        self.assertEqual(by_id["free-llm-apis"]["tag"], "LLM")
+        self.assertFalse(by_id["api-mega-list"]["installable"])
 
     def test_catalog_install_rejects_removed_api_mega_list_entry(self):
         with self.assertRaises(plugins.PluginError):

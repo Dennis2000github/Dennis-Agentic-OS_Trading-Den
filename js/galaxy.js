@@ -32,6 +32,7 @@ class HermesGalaxy {
 
     this.init();
     this.initAudioAndVoice();
+    this.initTtsBridge();
   }
 
   // -----------------------------------------------------------------------
@@ -42,6 +43,7 @@ class HermesGalaxy {
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(this.canvas);
     this.bindDomElements();
+    this.bindVoiceControls();
 
     // Pause the animation while the tab is hidden or the widget is off screen.
     document.addEventListener('visibilitychange', () => {
@@ -241,7 +243,9 @@ class HermesGalaxy {
     }
   }
 
-  speak(text, onDone = null) {
+  // Browser speechSynthesis playback. Explicit fallback only — the default
+  // engine is the centralized Kokoro router (see speak()).
+  speakBrowser(text, onDone = null) {
     if (!this.synth) {
       if (onDone) onDone();
       return;
@@ -288,6 +292,68 @@ class HermesGalaxy {
       this.synth.speak(utterance);
     } catch (_) {
       if (onDone) onDone();
+    }
+  }
+
+  // Centralized speech: HermesGalaxy.speak() -> DENNIS TTS client ->
+  // /api/tts/speech (owner-gated) -> Kokoro adapter -> Kokoro inference.
+  // Public signature speak(text, onDone) is preserved for existing callers.
+  speak(text, onDone = null) {
+    const tts = window.DennisTTS;
+    if (!tts) {
+      this.speakBrowser(text, onDone);
+      return;
+    }
+
+    const prefs = this.ttsPrefs || {};
+    const presetSpeed = (this.ttsPreset && typeof this.ttsPreset.speed === 'number')
+      ? this.ttsPreset.speed : null;
+    const finish = (hadError) => {
+      this.resumeRecognitionAfterSpeech();
+      this.setEqualizerActive(false);
+      if (this.wakeTimeout) {
+        this.state = 'awake';
+        this.updateUiStatus('Apollo Awake • Listening...', 'cyan');
+      } else {
+        this.state = 'standby';
+        this.updateUiStatus('Listening for "Hey Apollo"', 'cyan');
+      }
+      if (hadError) {
+        this.updateVoiceStatus('Generation error', 'rose');
+      }
+      if (onDone) onDone();
+    };
+
+    // Keep the mic from transcribing Jarvis's own voice while he speaks.
+    if (!this.ttsConfig || this.ttsConfig.duck_mic !== false) {
+      this.suspendRecognitionForSpeech();
+    }
+
+    this.state = 'speaking';
+    this.updateUiStatus('Apollo Speaking...', 'emerald');
+    this.setEqualizerActive(true);
+    this.showHudToast(text);
+    this.spawnShockwave('#00f0ff');
+
+    tts.speak(text, {
+      preset: prefs.voice_preset || 'jarvis-british-male',
+      speed: presetSpeed,
+      studio: 'apollo',
+      allowFallback: this.ttsConfig ? this.ttsConfig.browser_fallback !== false : true
+    }).then(() => finish(false)).catch(() => finish(true));
+  }
+
+  suspendRecognitionForSpeech() {
+    this._speechSuspended = true;
+    if (this.recognition && this.isListening) {
+      try { this.recognition.stop(); } catch (_) {}
+    }
+  }
+
+  resumeRecognitionAfterSpeech() {
+    this._speechSuspended = false;
+    if (this.isVoiceWakeActive && this.recognition && !this.isListening) {
+      try { this.recognition.start(); } catch (_) {}
     }
   }
 
@@ -375,10 +441,12 @@ class HermesGalaxy {
 
       this.recognition.onend = () => {
         this.isListening = false;
+        // Stay paused while Jarvis speaks so the mic never transcribes him.
+        if (this._speechSuspended) return;
         // Auto-restart continuous listening if voice wake remains active
         if (this.isVoiceWakeActive) {
           setTimeout(() => {
-            if (this.isVoiceWakeActive && !this.isListening) {
+            if (this.isVoiceWakeActive && !this.isListening && !this._speechSuspended) {
               try {
                 this.recognition.start();
               } catch (_) {}
@@ -452,11 +520,42 @@ class HermesGalaxy {
       return;
     }
 
-    // 3c. Kanban board (in-OS Hermes view)
+    // 3c. Hermes board (in-OS Hermes view)
     if (lower.includes('kanban') || lower.includes('task board') || lower.includes('board')) {
       if (window.Hermes && window.Hermes.open) window.Hermes.open();
       else if (window.switchMainView) window.switchMainView('hermes');
       this.respond('Opening the Hermes board, Dennis.');
+      return;
+    }
+
+    // 3d. Memory Galaxy (the vault as a star map)
+    if (lower.includes('memory galaxy') || lower.includes('galaxy') || lower.includes('star map')) {
+      if (window.switchMainView) window.switchMainView('memory-galaxy');
+      this.respond('Opening your memory galaxy, Dennis.');
+      return;
+    }
+
+    // 3e. JARVIS dashboard (home view)
+    if (lower.includes('dashboard') || lower.includes('home view')) {
+      if (window.switchMainView) window.switchMainView('jarvis');
+      this.respond('Back to my dashboard, Dennis.');
+      return;
+    }
+
+    // 3f. Skill Builder / Plugins / FreeLLMAPI
+    if (lower.includes('skill builder') || lower.includes('skill')) {
+      if (window.switchMainView) window.switchMainView('skill-builder');
+      this.respond('Opening the Agent Skill Builder, Dennis.');
+      return;
+    }
+    if (lower.includes('plugin')) {
+      if (window.switchMainView) window.switchMainView('plugins');
+      this.respond('Opening Plugins, Dennis.');
+      return;
+    }
+    if (lower.includes('free llm') || lower.includes('freellm') || lower.includes('free api')) {
+      if (window.switchMainView) window.switchMainView('freellm');
+      this.respond('Opening the FreeLLMAPI catalog, Dennis.');
       return;
     }
 
@@ -467,23 +566,13 @@ class HermesGalaxy {
       return;
     }
 
-    // 5. Hermes Chat
-    if (lower.includes('chat')) {
-      this.triggerHeaderTab('Hermes Chat');
-      this.respond('Hermes Chat activated, Dennis.');
-      return;
-    }
-
-    // 6. Bots Catalog
-    if (lower.includes('bot')) {
-      this.triggerHeaderTab('Bots');
-      this.respond('Switching to Bots catalog.');
-      return;
-    }
-
     // 7. Studio
     if (lower.includes('studio')) {
-      this.triggerHeaderTab('Studio');
+      if (window.switchMainView) {
+        window.switchMainView('studio');
+      } else {
+        this.triggerNavigation('Studio');
+      }
       this.respond('Studio mode engaged.');
       return;
     }
@@ -524,8 +613,56 @@ class HermesGalaxy {
       return;
     }
 
-    // 13. General command fallback
-    this.respond(`Voice command received, Dennis: "${cmd}". Routing to agent core.`);
+    // 13. General conversational command -> the selected agent (the brain).
+    this.submitToSelectedAgent(cmd);
+  }
+
+  // Anything that is not a predefined navigation command is sent through the
+  // existing chat/agent execution pipeline to the CURRENTLY selected agent +
+  // model. The real agent response is then spoken via the TTS router. No
+  // canned answers, no simulated acknowledgements.
+  submitToSelectedAgent(cmd) {
+    const bridge = window.DennisAgentBridge;
+    if (!bridge || typeof bridge.submit !== 'function') {
+      this.respond('Voice routing is unavailable: the agent bridge is not loaded.');
+      return;
+    }
+
+    const ctx = bridge.getContext();
+    this.updateTranscriptText(`Apollo: "Asking ${ctx.agent.name}..."`);
+    this.updateUiStatus(`${ctx.agent.name} is thinking...`, 'cyan');
+    this.setEqualizerActive(true);
+
+    // Keep Apollo awake while the agent works on the request.
+    if (this.wakeTimeout) clearTimeout(this.wakeTimeout);
+    this.wakeTimeout = setTimeout(() => this.sleep(), 180000);
+
+    bridge.submit(cmd).then((result) => {
+      this.setEqualizerActive(false);
+      if (!result || !result.ok) {
+        const reason = (result && result.error) || 'the agent is unavailable';
+        this.respond(`I could not reach ${ctx.agent.name}: ${reason}. Please check the agent status.`);
+        return;
+      }
+      const spoken = this.trimForSpeech(result.reply);
+      this.updateTranscriptText(`${result.agent}: "${spoken}"`);
+      this.speak(spoken);
+    }).catch((err) => {
+      this.setEqualizerActive(false);
+      const reason = (err && err.message) ? err.message : 'unknown error';
+      this.respond(`The request to ${ctx.agent.name} failed: ${reason}.`);
+    });
+  }
+
+  // Trim an agent reply to something reasonable to read aloud.
+  trimForSpeech(text, max = 600) {
+    const clean = String(text)
+      .replace(/```[\s\S]*?```/g, ' Code block omitted. ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (clean.length <= max) return clean;
+    return clean.slice(0, max).replace(/[\s,.;:]+\S*$/, '') +
+      '... The full response is on screen.';
   }
 
   respond(text, onDone = null) {
@@ -539,15 +676,6 @@ class HermesGalaxy {
     items.forEach(item => {
       if (item.textContent.toLowerCase().includes(name.toLowerCase())) {
         item.click();
-      }
-    });
-  }
-
-  triggerHeaderTab(name) {
-    const tabs = document.querySelectorAll('.header-nav-tab');
-    tabs.forEach(tab => {
-      if (tab.textContent.toLowerCase().includes(name.toLowerCase())) {
-        tab.click();
       }
     });
   }
@@ -663,18 +791,228 @@ class HermesGalaxy {
         this.toggleVoiceWake();
       });
     }
+  }
 
-    // 4. Header Nav Apollo Tab
-    const headerApollo = document.getElementById('header-nav-apollo');
-    if (headerApollo) {
-      headerApollo.addEventListener('click', () => {
-        const widget = document.getElementById('hermes-apollo-widget');
-        if (widget) {
-          widget.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  // -----------------------------------------------------------------------
+  // 4b. CENTRALIZED TTS BRIDGE (Kokoro default) & VOICE CONTROLS
+  // -----------------------------------------------------------------------
+  initTtsBridge() {
+    const tts = window.DennisTTS;
+    if (!tts) return;
+
+    tts.getConfig().then((config) => {
+      this.ttsConfig = config || {};
+      this.ttsPrefs = (config && config.studios && config.studios.apollo) || {};
+      this.ttsPreset = (config && config.presets &&
+        config.presets[this.ttsPrefs.voice_preset]) || null;
+      this.refreshVoiceStatus();
+    }).catch(() => {
+      this.ttsConfig = {};
+      this.ttsPrefs = {};
+    });
+
+    tts.on('end', () => this.updateTtsIndicator());
+    tts.on('start', () => this.updateTtsIndicator());
+    tts.on('error', () => this.updateVoiceStatus('Generation error', 'rose'));
+  }
+
+  refreshVoiceStatus() {
+    const tts = window.DennisTTS;
+    if (!tts) return;
+    tts.status().then((status) => {
+      const kokoro = status.kokoro || {};
+      if (!kokoro.healthy) {
+        this.updateVoiceStatus('Kokoro unavailable', 'rose');
+      } else if (kokoro.loaded) {
+        this.updateVoiceStatus(
+          `Kokoro connected • ${kokoro.model || 'model'} loaded • ${kokoro.voice_count || 0} voices`, 'emerald');
+      } else {
+        this.updateVoiceStatus('Kokoro connected • model loading...', 'amber');
+      }
+      this.updateTtsIndicator();
+    }).catch(() => {
+      this.updateVoiceStatus('TTS router unreachable', 'rose');
+    });
+  }
+
+  updateTtsIndicator() {
+    const tts = window.DennisTTS;
+    if (!tts) return;
+    if (tts.speaking) {
+      this.updateVoiceStatus('Speaking (Kokoro)', 'emerald');
+    } else if (this.isListening && this.state === 'awake') {
+      this.updateVoiceStatus('Listening', 'cyan');
+    } else if (this.state === 'muted') {
+      this.updateVoiceStatus('Muted', 'slate');
+    }
+  }
+
+  updateVoiceStatus(text, color = 'slate') {
+    const dot = document.getElementById('apollo-voice-status-dot');
+    const label = document.getElementById('apollo-voice-status-text');
+    if (label) label.textContent = text;
+    if (dot) {
+      dot.className = 'w-1.5 h-1.5 rounded-full shrink-0 ' + ({
+        emerald: 'bg-emerald-400',
+        rose: 'bg-rose-400',
+        amber: 'bg-amber-400',
+        cyan: 'bg-cyan-400',
+        slate: 'bg-slate-500'
+      }[color] || 'bg-slate-500');
+    }
+  }
+
+  bindVoiceControls() {
+    const panel = document.getElementById('apollo-voice-panel');
+    if (!panel) return;
+    const toggleBtn = document.getElementById('apollo-voice-settings');
+    const closeBtn = document.getElementById('apollo-voice-close');
+    const providerSel = document.getElementById('apollo-voice-provider');
+    const presetSel = document.getElementById('apollo-voice-preset');
+    const speedRange = document.getElementById('apollo-voice-speed');
+    const speedValue = document.getElementById('apollo-voice-speed-value');
+    const fallbackChk = document.getElementById('apollo-voice-fallback');
+    const previewBtn = document.getElementById('apollo-voice-preview');
+    const testBtn = document.getElementById('apollo-voice-test');
+    const serviceBtn = document.getElementById('apollo-voice-service');
+    const tts = window.DennisTTS;
+
+    const openPanel = (open) => {
+      panel.classList.toggle('hidden', !open);
+      if (open) this.refreshVoiceControls();
+    };
+    if (toggleBtn) toggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openPanel(panel.classList.contains('hidden'));
+    });
+    if (closeBtn) closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      openPanel(false);
+    });
+
+    const persist = () => {
+      if (!tts) return;
+      const presetId = presetSel ? presetSel.value : 'jarvis-british-male';
+      const cached = tts.cached() || {};
+      // Preset patches replace the whole preset on the backend, so send the
+      // full merged preset (never a bare {speed} that would reset fields).
+      const basePreset = (cached.presets && cached.presets[presetId]) || {};
+      const patch = {
+        studios: {
+          apollo: Object.assign({}, this.ttsPrefs, {
+            provider: providerSel ? providerSel.value : (this.ttsPrefs.provider || 'kokoro'),
+            voice_preset: presetId
+          })
+        },
+        presets: (speedRange) ? {
+          [presetId]: Object.assign({}, basePreset, { speed: parseFloat(speedRange.value) })
+        } : {},
+        apollo: {
+          browser_fallback: fallbackChk ? fallbackChk.checked : true,
+          duck_mic: this.ttsConfig ? this.ttsConfig.duck_mic !== false : true
         }
-        this.getAudioContext();
-        this.wake(true);
+      };
+      tts.saveConfig(patch).then((config) => {
+        this.ttsConfig = config || {};
+        this.ttsPrefs = (config.studios && config.studios.apollo) || {};
+        this.ttsPreset = (config.presets && config.presets[presetId]) || null;
+        this.showToastSafe('Voice preferences saved');
+      }).catch((err) => this.showToastSafe('Save failed: ' + err.message));
+    };
+
+    if (providerSel) providerSel.addEventListener('change', persist);
+    if (presetSel) presetSel.addEventListener('change', persist);
+    if (fallbackChk) fallbackChk.addEventListener('change', persist);
+    if (speedRange && speedValue) {
+      speedRange.addEventListener('input', () => {
+        speedValue.textContent = parseFloat(speedRange.value).toFixed(2) + 'x';
       });
+      speedRange.addEventListener('change', persist);
+    }
+
+    if (previewBtn && presetSel) {
+      previewBtn.addEventListener('click', () => {
+        const config = tts && tts.cached();
+        const preset = config && config.presets ? config.presets[presetSel.value] : null;
+        const voice = (preset && preset.voice_id) || 'bm_george';
+        this.getAudioContext();
+        this.showToastSafe('Previewing ' + voice + '...');
+        tts.preview(voice);
+      });
+    }
+
+    if (testBtn) {
+      testBtn.addEventListener('click', () => {
+        this.getAudioContext();
+        this.speak('Voice test complete. All systems nominal, Dennis.');
+      });
+    }
+
+    if (serviceBtn) {
+      serviceBtn.addEventListener('click', () => {
+        serviceBtn.disabled = true;
+        const busy = serviceBtn.dataset.mode === 'stop' ? tts.stopService() : tts.startService();
+        busy.then(() => new Promise((resolve) => setTimeout(resolve, 800)))
+          .then(() => this.refreshVoiceControls())
+          .catch((err) => this.showToastSafe('Service: ' + err.message))
+          .then(() => { serviceBtn.disabled = false; });
+      });
+    }
+  }
+
+  refreshVoiceControls() {
+    const tts = window.DennisTTS;
+    if (!tts) return;
+    const providerSel = document.getElementById('apollo-voice-provider');
+    const presetSel = document.getElementById('apollo-voice-preset');
+    const speedRange = document.getElementById('apollo-voice-speed');
+    const speedValue = document.getElementById('apollo-voice-speed-value');
+    const fallbackChk = document.getElementById('apollo-voice-fallback');
+    const serviceBtn = document.getElementById('apollo-voice-service');
+
+    tts.getConfig().then((config) => {
+      this.ttsConfig = config || {};
+      this.ttsPrefs = (config.studios && config.studios.apollo) || {};
+
+      if (presetSel) {
+        presetSel.innerHTML = Object.entries(config.presets || {}).map(([id, preset]) =>
+          `<option value="${id}">${preset.name || id}</option>`).join('');
+        if (this.ttsPrefs.voice_preset) presetSel.value = this.ttsPrefs.voice_preset;
+        this.ttsPreset = (config.presets || {})[presetSel.value] || null;
+      }
+      if (speedRange) {
+        speedRange.value = (this.ttsPreset && this.ttsPreset.speed) || 1.0;
+        if (speedValue) speedValue.textContent = parseFloat(speedRange.value).toFixed(2) + 'x';
+      }
+      if (fallbackChk) {
+        fallbackChk.checked = this.ttsConfig.apollo
+          ? this.ttsConfig.apollo.browser_fallback !== false : true;
+      }
+      return tts.status();
+    }).then((status) => {
+      const kokoro = (status && status.kokoro) || {};
+      if (providerSel) {
+        const providers = (status && status.providers) || {};
+        providerSel.innerHTML = Object.entries(providers).map(([id, slot]) =>
+          `<option value="${id}">${(slot && slot.label) || id}</option>`).join('');
+        providerSel.value = this.ttsPrefs.provider ||
+          (status && status.global_default_provider) || 'kokoro';
+      }
+      if (serviceBtn) {
+        serviceBtn.dataset.mode = kokoro.healthy ? 'stop' : 'start';
+        serviceBtn.textContent = kokoro.healthy ? 'Stop TTS service' : 'Start TTS service';
+      }
+      this.refreshVoiceStatus();
+    }).catch(() => {
+      this.updateVoiceStatus('TTS router unreachable', 'rose');
+    });
+  }
+
+  showToastSafe(message) {
+    if (typeof window.showToast === 'function') {
+      window.showToast(message);
+    } else {
+      console.log('[Apollo]', message);
     }
   }
 

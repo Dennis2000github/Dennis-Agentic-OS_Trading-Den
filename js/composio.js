@@ -17,6 +17,9 @@
     overview: null,
     toolkits: [],
     query: "",
+    tab: "all",
+    category: "",
+    sort: "popular",
     selected: "",
     detail: null,
     detailLoading: false,
@@ -37,16 +40,33 @@
     }
   }
 
+  function ensureToken() {
+    if (state.token) return Promise.resolve(state.token);
+    return fetch("/api/auth/session", { cache: "no-store" })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        state.token = (data && data.token) || null;
+        return state.token;
+      })
+      .catch(function () { return null; });
+  }
+
   function api(path, opts) {
     opts = opts || {};
-    var init = { method: opts.method || "GET", cache: "no-store" };
-    if (opts.body !== undefined) {
-      init.headers = { "Content-Type": "application/json" };
-      init.body = JSON.stringify(opts.body);
-    }
-    return fetch(path, init).then(function (response) {
-      return response.json().catch(function () { return {}; }).then(function (data) {
-        return { ok: response.ok, status: response.status, data: data };
+    var proceed = state.token ? Promise.resolve(state.token) : ensureToken();
+    return proceed.then(function (token) {
+      var init = { method: opts.method || "GET", cache: "no-store" };
+      var headers = opts.headers || {};
+      if (token) headers["X-Dennis-Token"] = token;
+      if (opts.body !== undefined) {
+        headers["Content-Type"] = "application/json";
+        init.body = JSON.stringify(opts.body);
+      }
+      init.headers = headers;
+      return fetch(path, init).then(function (response) {
+        return response.json().catch(function () { return {}; }).then(function (data) {
+          return { ok: response.ok, status: response.status, data: data };
+        });
       });
     });
   }
@@ -102,6 +122,118 @@
     if (composio) composio.classList.toggle("plugins-tab-active", state.tab === "composio");
     if (state.tab === "composio") load();
     icons();
+  }
+
+  var SIGNUP_URL = "https://dashboard.composio.dev";
+  var SETUP_KEYS_URL = "https://dashboard.composio.dev/~/project/settings/api-keys";
+  var IS_ELECTRON = /Electron/i.test(navigator.userAgent);
+
+  function closeBlankPopup(popup) {
+    if (!popup) return;
+    try { if (!popup.closed) popup.close(); } catch (error) { /* ignore */ }
+  }
+
+  function openBlankPopup() {
+    // Called synchronously inside the click gesture: browsers treat the tab
+    // as user-initiated and will not block it. We aim it at the connect URL
+    // once the server answers (async window.open alone gets popup-blocked).
+    if (IS_ELECTRON) return null;
+    var popup = null;
+    try { popup = window.open("", "_blank"); } catch (error) { popup = null; }
+    if (popup && popup.document) {
+      try {
+        popup.document.title = "Connecting to Composio…";
+        popup.document.body.innerHTML = '<p style="font-family:system-ui,sans-serif;padding:28px;color:#555">Opening the Composio connection page…</p>';
+      } catch (error) { /* ignore */ }
+    }
+    return popup;
+  }
+
+  function openExternal(url, popup) {
+    if (!url) return;
+    if (popup && !popup.closed) {
+      try { popup.opener = null; } catch (error) { /* ignore */ }
+      popup.location.href = url;
+      try { popup.focus(); } catch (error) { /* ignore */ }
+      return;
+    }
+    var win = null;
+    try { win = window.open(url, "_blank", "noopener"); } catch (error) { win = null; }
+    if (win) return;
+    if (IS_ELECTRON) {
+      // The shell's setWindowOpenHandler already forwarded the URL to the
+      // system browser (window.open resolves null when the shell denies).
+      return;
+    }
+    // Popup blocked in a plain browser: navigate this tab so the user always
+    // reaches the connection page. Back returns to the dashboard.
+    window.location.href = url;
+  }
+
+  function scheduleConnectRecheck() {
+    // The connected account only shows up once the OAuth handshake finishes
+    // in the other tab; poll a few times so the badge and Connected tab
+    // update without a manual refresh.
+    [5, 15, 30].forEach(function (seconds) {
+      window.setTimeout(function () {
+        var workspace = $("composio-workspace");
+        if (!workspace || workspace.classList.contains("hidden") || state.busy || state.loading) return;
+        load();
+      }, seconds * 1000);
+    });
+  }
+
+  function connectApp(slug, button) {
+    if (!slug || state.busy) return;
+    setBusy(true);
+    if (button) {
+      button.disabled = true;
+      button.innerHTML = '<i data-lucide="loader-2" class="w-3 h-3"></i><span>Connecting…</span>';
+      icons();
+    }
+    toast("Requesting a connect link for " + slug + "…");
+    var popup = openBlankPopup();
+    api("/api/composio/connect", { method: "POST", body: { slug: slug } }).then(function (result) {
+      var data = result.data || {};
+      var code = data.code || "";
+      // The backend rewrites upstream 401/403 to status 409 + code
+      // "unauthorized", so check codes — not just HTTP status.
+      var needsKey = code === "not_configured" || code === "unauthorized" ||
+        result.status === 401 || result.status === 403;
+      if (!result.ok || !data.redirect_url) {
+        closeBlankPopup(popup);
+        if (needsKey) {
+          // A connect link can only be minted with a valid project API key:
+          // open Composio's key page and jump to the Setup panel.
+          showView("setup");
+          openExternal(data.signup_url || SETUP_KEYS_URL, popup);
+          toast("Composio needs a valid project API key. Copy it from the page that just opened, paste it in Setup, save, then press Connect again.", true);
+        } else if (code === "custom_oauth_required") {
+          openExternal((data.details && data.details.dashboard_url) || SIGNUP_URL, popup);
+          toast(data.error || ("The " + slug + " toolkit requires custom OAuth credentials. Please configure an Auth Config in your Composio dashboard."), true);
+        } else {
+          toast(data.error || "Could not start the connection", true);
+        }
+        renderToolkits();
+        return;
+      }
+      openExternal(data.redirect_url, popup);
+      toast("Complete the " + slug + " authorization in the new tab — the status will refresh automatically.");
+      renderToolkits();
+      scheduleConnectRecheck();
+    }).catch(function (error) {
+      closeBlankPopup(popup);
+      toast("Connect failed: " + error.message, true);
+      renderToolkits();
+    }).then(function () { setBusy(false); });
+  }
+
+  function setTab(tab) {
+    state.tab = tab === "connected" ? "connected" : "all";
+    Array.prototype.forEach.call(document.querySelectorAll("[data-composio-tab]"), function (button) {
+      button.classList.toggle("composio-dash-tab-active", button.getAttribute("data-composio-tab") === state.tab);
+    });
+    renderToolkits();
   }
 
   function showView(name) {
@@ -206,27 +338,114 @@
     }).join("") : '<span class="sb-rail-empty">No meta tools returned.</span>';
   }
 
-  function filteredToolkits() {
+  function connectedMap() {
+    var map = {};
+    var connections = (state.overview && state.overview.connections) || [];
+    connections.forEach(function (connection) {
+      if (!connection || !connection.toolkit) return;
+      var status = String(connection.status || "").toUpperCase();
+      // INITIATED means the OAuth handshake started but never finished.
+      if (status === "INITIATED" || status === "FAILED" || status === "EXPIRED" || status === "DELETED") return;
+      map[connection.toolkit] = connection.status || "connected";
+    });
+    return map;
+  }
+
+  function visibleToolkits() {
+    var connected = connectedMap();
     var query = state.query.trim().toLowerCase();
-    if (!query) return state.toolkits;
-    return state.toolkits.filter(function (item) {
+    var items = state.toolkits.filter(function (item) {
+      if (state.tab === "connected" && !connected[item.slug]) return false;
+      if (state.category && String(item.category || "Other") !== state.category) return false;
+      if (!query) return true;
       return [item.name, item.slug, item.category, item.description].join(" ").toLowerCase().indexOf(query) >= 0;
     });
+    var byName = function (a, b) {
+      return String(a.name || a.slug).toLowerCase().localeCompare(String(b.name || b.slug).toLowerCase());
+    };
+    if (state.sort === "az") {
+      items.sort(byName);
+    } else {
+      items.sort(function (a, b) {
+        var ac = typeof a.tools_count === "number" ? a.tools_count : -1;
+        var bc = typeof b.tools_count === "number" ? b.tools_count : -1;
+        return bc !== ac ? bc - ac : byName(a, b);
+      });
+    }
+    return items;
+  }
+
+  function appLogo(item) {
+    var letter = esc(String(item.name || item.slug || "?").charAt(0).toUpperCase());
+    var img = item.logo ? '<img src="' + esc(item.logo) + '" alt="" loading="lazy" onerror="this.remove()">' : "";
+    return '<span class="composio-app-logo"><span class="composio-app-letter">' + letter + '</span>' + img + '</span>';
+  }
+
+  function renderCategories() {
+    var host = $("cp-cats");
+    if (!host) return;
+    var catalog = (state.overview && state.overview.catalog) || {};
+    var categories = catalog.categories || [];
+    if (!categories.length) {
+      host.innerHTML = '<div class="sb-rail-empty">No categories returned.</div>';
+      return;
+    }
+    var rows = [{ name: "", label: "All Apps", count: catalog.count || state.toolkits.length }];
+    categories.forEach(function (category) {
+      rows.push({ name: category.name, label: category.name, count: category.count });
+    });
+    host.innerHTML = rows.map(function (row) {
+      var active = (state.category || "") === row.name ? " composio-cat-active" : "";
+      var icon = row.name ? "hash" : "layout-grid";
+      return '<button type="button" class="composio-cat-row' + active + '" data-composio-cat="' + esc(row.name) + '"><i data-lucide="' + icon + '" class="w-3.5 h-3.5"></i><span>' + esc(row.label) + '</span><b>' + Number(row.count || 0).toLocaleString() + '</b></button>';
+    }).join("");
+    icons();
   }
 
   function renderToolkits() {
-    var host = $("cp-list");
-    if (!host) return;
-    var items = filteredToolkits();
-    if (!items.length) {
-      host.innerHTML = '<div class="sb-rail-empty">No toolkit matches that search.</div>';
-      return;
+    var grid = $("cp-grid");
+    if (!grid) return;
+    var connected = connectedMap();
+    var catalog = (state.overview && state.overview.catalog) || {};
+    if ($("cp-tab-all-count")) $("cp-tab-all-count").textContent = Number(catalog.count || state.toolkits.length || 0).toLocaleString();
+    if ($("cp-tab-connected-count")) $("cp-tab-connected-count").textContent = Object.keys(connected).length;
+    var categoryHead = $("cp-dash-cat");
+    if (categoryHead) {
+      categoryHead.classList.toggle("hidden", !state.category);
+      if (state.category) {
+        var info = null;
+        (catalog.categories || []).forEach(function (category) {
+          if (category.name === state.category) info = category;
+        });
+        if ($("cp-dash-cat-name")) $("cp-dash-cat-name").textContent = state.category;
+        if ($("cp-dash-cat-count")) $("cp-dash-cat-count").textContent = (info ? info.count : visibleToolkits().length) + " apps";
+      }
     }
-    host.innerHTML = items.slice(0, 500).map(function (item) {
-      var active = item.slug === state.selected ? " composio-item-active" : "";
-      var count = item.tools_count ? Number(item.tools_count).toLocaleString() + " tools" : (item.category || "Toolkit");
-      return '<button type="button" class="composio-item' + active + '" data-composio-slug="' + esc(item.slug) + '"><span>' + esc(item.name || item.slug) + '</span><small>' + esc(item.slug) + ' · ' + esc(count) + '</small></button>';
-    }).join("");
+    var items = visibleToolkits();
+    if (!items.length) {
+      grid.innerHTML = '<div class="sb-rail-empty">' + (state.tab === "connected"
+        ? "No connected apps yet. Connect one from the native dashboard, then refresh."
+        : "No apps match that search.") + '</div>';
+    } else {
+      grid.innerHTML = items.slice(0, 600).map(function (item) {
+        var isConnected = !!connected[item.slug];
+        var count = typeof item.tools_count === "number"
+          ? '<i data-lucide="zap" class="composio-zap"></i>' + Number(item.tools_count).toLocaleString() + " tools"
+          : esc(item.category_label || item.category || "Toolkit");
+        return '<div class="composio-app-card" data-composio-slug="' + esc(item.slug) + '" title="' + esc(item.description || item.name || item.slug) + '">'
+          + appLogo(item)
+          + '<span class="composio-app-meta">'
+            + '<span class="composio-app-name">' + esc(item.name || item.slug) + '</span>'
+            + '<small class="composio-app-count">' + count + '</small>'
+          + '</span>'
+          + (isConnected
+              ? '<span class="composio-status composio-status-ok"><i data-lucide="check-circle-2" class="w-3 h-3"></i>Connected</span>'
+              : '<button type="button" class="composio-app-connect" data-composio-connect="' + esc(item.slug) + '"><i data-lucide="plus" class="w-3 h-3"></i><span>Connect</span></button>')
+          + '</div>';
+      }).join("");
+    }
+    renderCategories();
+    icons();
   }
 
   function renderToolkitDetail() {
@@ -239,7 +458,7 @@
     var item = state.toolkits.filter(function (entry) { return entry.slug === state.selected; })[0] || { slug: state.selected, name: state.selected };
     var detail = state.detail;
     var loading = state.detailLoading || !detail || (detail.toolkit && detail.toolkit.slug !== state.selected);
-    var html = '<div class="composio-detail-head"><div><h4>' + esc(item.name || item.slug) + '</h4><small><code>' + esc(item.slug) + '</code>' + (item.category ? ' · ' + esc(item.category) : '') + (item.tools_count ? ' · ' + Number(item.tools_count).toLocaleString() + ' tools' : '') + '</small></div><a href="' + esc(item.docs || "https://docs.composio.dev/toolkits/" + state.selected) + '" target="_blank" rel="noopener noreferrer" class="sb-btn sb-btn-ghost"><i data-lucide="external-link" class="w-3.5 h-3.5"></i><span>Docs</span></a></div><p class="composio-muted">' + esc(item.description || "No description in this catalog source.") + '</p>';
+    var html = '<div class="composio-detail-head"><div><h4>' + esc(item.name || item.slug) + '</h4><small><code>' + esc(item.slug) + '</code>' + (item.category ? ' · ' + esc(item.category_label || item.category) : '') + (item.tools_count ? ' · ' + Number(item.tools_count).toLocaleString() + ' tools' : '') + '</small></div><a href="' + esc(item.docs || "https://docs.composio.dev/toolkits/" + state.selected) + '" target="_blank" rel="noopener noreferrer" class="sb-btn sb-btn-ghost"><i data-lucide="external-link" class="w-3.5 h-3.5"></i><span>Docs</span></a></div><p class="composio-muted">' + esc(item.description || "No description in this catalog source.") + '</p>';
     if (loading) {
       host.innerHTML = html + '<div class="sb-rail-empty">Loading tools…</div>';
       return;
@@ -407,7 +626,27 @@
       button.addEventListener("click", function () { showView(button.getAttribute("data-composio-view")); });
     });
     if ($("cp-search")) $("cp-search").addEventListener("input", function () { state.query = $("cp-search").value || ""; renderToolkits(); });
-    if ($("cp-list")) $("cp-list").addEventListener("click", function (event) { var item = event.target.closest("[data-composio-slug]"); if (item) loadToolkit(item.getAttribute("data-composio-slug")); });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-composio-tab]"), function (button) {
+      button.addEventListener("click", function () { setTab(button.getAttribute("data-composio-tab")); });
+    });
+    if ($("cp-grid")) $("cp-grid").addEventListener("click", function (event) {
+      var connectButton = event.target.closest("[data-composio-connect]");
+      if (connectButton) {
+        connectApp(connectButton.getAttribute("data-composio-connect"), connectButton);
+        return;
+      }
+      var item = event.target.closest("[data-composio-slug]");
+      if (item) loadToolkit(item.getAttribute("data-composio-slug"));
+    });
+    if ($("cp-cats")) $("cp-cats").addEventListener("click", function (event) {
+      var row = event.target.closest("[data-composio-cat]");
+      if (!row) return;
+      state.category = row.getAttribute("data-composio-cat") || "";
+      renderToolkits();
+    });
+    if ($("cp-dash-back")) $("cp-dash-back").addEventListener("click", function () { state.category = ""; renderToolkits(); });
+    if ($("cp-sort")) $("cp-sort").addEventListener("change", function () { state.sort = this.value || "popular"; renderToolkits(); });
+    if ($("cp-add-mcp")) $("cp-add-mcp").addEventListener("click", function () { showView("mcp"); });
     if ($("cp-client-select")) $("cp-client-select").addEventListener("change", function () { state.client = this.value; renderMcp(); });
     if ($("cp-copy-mcp")) $("cp-copy-mcp").addEventListener("click", function () { copyText(($('cp-mcp-snippet') || {}).textContent || "", "MCP configuration"); });
     if ($("cp-refresh")) $("cp-refresh").addEventListener("click", refreshCatalog);
@@ -418,7 +657,17 @@
     if ($("cp-unwire")) $("cp-unwire").addEventListener("click", function () { wire(true); });
     ["cp-consumer", "cp-api"].forEach(function (id) { if ($(id)) $(id).addEventListener("keydown", function (event) { if (event.key === "Enter") saveKeys(); }); });
     ["cp-runtime"].forEach(function (id) { if ($(id)) $(id).addEventListener("click", function (event) { var button = event.target.closest("[data-copy]"); if (button) copyText(button.getAttribute("data-copy"), "Command"); }); });
-    showView("overview");
+    // Coming back from the OAuth tab is the usual moment a connection turns
+    // ACTIVE — reload the overview so badges and the Connected tab update.
+    document.addEventListener("visibilitychange", function () {
+      if (document.visibilityState !== "visible") return;
+      var workspace = $("composio-workspace");
+      if (!workspace || workspace.classList.contains("hidden") || state.loading || state.busy) return;
+      load();
+    });
+    // Land on the all-apps grid (like Composio's native dashboard) instead of
+    // the welcome overview, so apps + Connect buttons are visible by default.
+    showView("toolkits");
     icons();
   }
 

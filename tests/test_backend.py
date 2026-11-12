@@ -105,6 +105,14 @@ class SessionStoreTests(unittest.TestCase):
         session_store.set_panel("local", s["id"], {"state": "S2", "bogus": "x"})
         self.assertNotIn("bogus", session_store.get_session("local", s["id"])["panel"])
 
+    def test_set_title_renames_without_touching_the_folder(self):
+        s = session_store.create_session("local", "opencode", "proj", "/tmp/proj")
+        rec = session_store.set_title("local", s["id"], "Trading Den")
+        self.assertIsNotNone(rec)
+        self.assertEqual(session_store.get_session("local", s["id"])["title"], "Trading Den")
+        self.assertEqual(rec["project_path"], "/tmp/proj")
+        self.assertIsNone(session_store.set_title("local", "ps-missing", "Nope"))
+
     def test_filter_by_agent(self):
         session_store.create_session("local", "opencode", "a", "/tmp/a")
         session_store.create_session("local", "codex-cli", "b", "/tmp/b")

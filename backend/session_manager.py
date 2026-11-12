@@ -13,7 +13,7 @@ import threading
 import time
 import unicodedata
 
-from . import agent_registry, config, filewatch, sandbox
+from . import agent_registry, config, filewatch, model_launch, sandbox
 
 _BUFFER_LIMIT = 200_000  # characters of scrollback replayed to new clients
 _BUSY_WINDOW = 1.5       # seconds after the last byte before we call it idle
@@ -267,6 +267,8 @@ class AgentSession:
         self._history_due = 0.0
         self._last_capture_at = 0.0
         self._last_snapshot = ""
+        self._model_launch = None      # per-start model launch plan (model_launch.py)
+        self._model_timers = []        # scheduled staged TUI model inputs
 
     # -- handoff signals (real backend events only) ----------------------
     def _signal_handoff(self, reason, **extra):
@@ -439,6 +441,14 @@ class AgentSession:
         inner = list(prof.get("base_args") or [])
         if model_id and prof.get("model_flag"):
             inner += list(prof["model_flag"]) + [model_id]
+        # Per-agent launch hook: OpenCode needs a generated config file plus a
+        # standalone server for the model to actually apply; CLIs that only
+        # take models through their TUI are driven with staged input below.
+        self._cancel_model_timers()
+        model_launch.cleanup(self._model_launch)
+        self._model_launch = model_launch.plan(self.agent_id, model_id, self.id)
+        if self._model_launch.extra_args:
+            inner += list(self._model_launch.extra_args)
         # Resume the conversation only when the model is unchanged. Several CLIs
         # (OpenCode, verified live against its session DB) restore the session's
         # recorded model on resume and ignore the model flag, so resuming after a
@@ -465,8 +475,10 @@ class AgentSession:
 
         argv = self._runner.build_argv(binary, inner, self.project_path, self.id,
                                        self.rows, self.cols, agent_id=self.agent_id)
-        env = self._runner.env_for(
-            agent_registry.get_augmented_env(self.agent_id, model_id))
+        base_env = agent_registry.get_augmented_env(self.agent_id, model_id)
+        if self._model_launch.env:
+            base_env.update(self._model_launch.env)
+        env = self._runner.env_for(base_env)
         ok, info = self.proc.start(argv, self.project_path, env,
                                    rows=self.rows, cols=self.cols)
         if not ok:
@@ -483,18 +495,7 @@ class AgentSession:
             "first_output_ms": None,
         }
         self.current_model = model_id or None
-        startup_input = prof.get("model_input")
-        if startup_input and model_id:
-            # OpenClaw selects models inside its TUI rather than accepting a
-            # startup flag. Give the TUI time to render before issuing /model.
-            started_proc = self.proc
-            timer = threading.Timer(
-                1.5,
-                lambda: self.write(startup_input.format(model=model_id))
-                if self.proc is started_proc else False,
-            )
-            timer.daemon = True
-            timer.start()
+        self._schedule_model_inputs(prof, model_id)
         self._start_watcher()
         print(f"[session_manager] {self.id} started in {self.timings['start_ms']} ms "
               f"({self._runner.__class__.__name__})")
@@ -506,6 +507,42 @@ class AgentSession:
             self.last_active = time.time()
             return self.proc.write(data)
         return False
+
+    # -- staged TUI model inputs -------------------------------------------
+    def _cancel_model_timers(self):
+        for timer in self._model_timers:
+            timer.cancel()
+        self._model_timers = []
+
+    def _schedule_model_inputs(self, prof, model_id):
+        """Type the model into CLIs whose TUI is the only way to pick one.
+
+        ``model_input_steps`` is a list of ``{at, text}`` writes (``{model}``
+        is substituted). The legacy single ``model_input`` string keeps working
+        as a one-step list.
+        """
+        self._cancel_model_timers()
+        if not model_id:
+            return
+        steps = prof.get("model_input_steps")
+        if not steps and prof.get("model_input"):
+            steps = [{"at": 1.5, "text": prof["model_input"]}]
+        for step in steps or []:
+            try:
+                delay = max(0.0, float(step.get("at", 1.5)))
+                text = str(step.get("text", "")).format(model=model_id)
+            except (TypeError, ValueError, KeyError, IndexError):
+                continue
+            if not text:
+                continue
+            started_proc = self.proc
+            timer = threading.Timer(
+                delay,
+                lambda t=text, p=started_proc: self.write(t) if self.proc is p else False,
+            )
+            timer.daemon = True
+            self._model_timers.append(timer)
+            timer.start()
 
     def resize(self, rows, cols):
         self.rows = int(rows)
@@ -520,6 +557,9 @@ class AgentSession:
             if self._history_timer:
                 self._history_timer.cancel()
                 self._history_timer = None
+        self._cancel_model_timers()
+        model_launch.cleanup(self._model_launch)
+        self._model_launch = None
         if self.proc:
             self.proc.stop()
         self._stop_watcher()

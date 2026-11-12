@@ -125,6 +125,17 @@ def set_model(owner, session_id, model_id):
     return _mutate(owner, session_id, _apply)
 
 
+def set_title(owner, session_id, title):
+    """Rename a project session (the project name shown everywhere).
+
+    Only the display title changes; the project folder on disk is untouched.
+    """
+    def _apply(s):
+        s["title"] = title
+
+    return _mutate(owner, session_id, _apply)
+
+
 def set_cli_session(owner, session_id, cli_session_id):
     def _apply(s):
         s["cli_session_id"] = cli_session_id

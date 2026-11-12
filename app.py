@@ -43,6 +43,7 @@ from backend import session_store as dennis_sessions
 from backend import agent_registry as dennis_agents
 from backend import model_sources as dennis_models
 from backend import freellmapi as dennis_freellmapi
+from backend import freellm_catalog as dennis_freellm_catalog
 from backend import session_manager as dennis_manager
 from backend import ws as dennis_ws
 from backend import preflight as dennis_preflight
@@ -51,7 +52,9 @@ from backend import runner as dennis_runner
 from backend import vault as dennis_vault
 from backend import hermes as dennis_hermes
 from backend import skill_builder as dennis_skills
+from backend import skill_compiler as dennis_skill_compiler
 from backend import skill_jobs as dennis_skill_jobs
+from backend import skill_registry as dennis_skill_registry
 from backend import skill_sources as dennis_skill_sources
 from backend import deepseek_harness as dennis_deepseek
 from backend import deepseek_native as dennis_deepseek_native
@@ -64,16 +67,23 @@ from backend import megalist_verify as dennis_megalist_verify
 from backend import studio_catalog as dennis_studio_catalog
 from backend import studio_collections as dennis_studio_collections
 from backend import studio_contracts as dennis_studio_contracts
+from backend import studio_fashion as dennis_studio_fashion
+from backend import studio_free as dennis_studio_free
+from backend import studio_registry as dennis_studio_registry
 from backend import studio_higgsfield as dennis_studio_higgsfield
 from backend import studio_jobs as dennis_studio_jobs
 from backend import studio_mcp as dennis_studio_mcp
 from backend import studio_media as dennis_studio_media
+from backend import studio_model_library as dennis_studio_model_library
 from backend import studio_providers as dennis_studio_providers
 from backend import studio_secrets as dennis_studio_secrets
 from backend import studio_tools as dennis_studio_tools
 from backend import studio_videokit as dennis_studio_videokit
-from backend import openmontage as dennis_openmontage
+from backend import studio_workspaces as dennis_studio_workspaces
+from backend import tts as dennis_tts
+from backend import youtube_api as dennis_youtube_api
 from backend.sandbox import ExecContext
+from backend import tts as dennis_tts
 
 # Hermes: the orchestrator agent. Owns the Kanban board and delegates work to
 # the registered CLI sub-agents (persistent state in data/hermes.json).
@@ -600,6 +610,95 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     # ------------------------------------------------------------------
+    # Centralized TTS Router: speech generation + saved-audio serving
+    # ------------------------------------------------------------------
+    def _tts_speech(self, body):
+        """POST /api/tts/speech — generate speech via the resolved provider.
+
+        Body: {text, studio?, preset?, voice_id?, speed?, lang?,
+               response_format? ('wav'|'pcm'), stream? (bool), save?, name?}
+        Returns raw audio bytes, or (with save:true) a JSON descriptor whose
+        `url` serves the saved file for download / studio libraries.
+
+        With ``stream: true`` the Kokoro PCM stream is relayed chunk-by-chunk
+        (sentence-level synthesis) so long replies start playing early.
+        """
+        body = body if isinstance(body, dict) else {}
+        text = (body.get("text") or body.get("input") or "").strip()
+        if not text:
+            return self.send_json({"error": "text is required"}, 400)
+        try:
+            provider, preset, _cfg = dennis_tts.effective_provider(
+                body.get("studio") or "apollo", body.get("preset"))
+        except dennis_tts.TTSError as exc:
+            return self.send_json({"error": str(exc)}, 400)
+
+        if body.get("stream") and provider == "kokoro":
+            voice_id = (body.get("voice_id") or body.get("voice")
+                        or (preset or {}).get("voice_id") or "bm_george")
+            speed = body.get("speed")
+            if speed is None:
+                speed = (preset or {}).get("speed", 1.03)
+            lang = body.get("lang") or (preset or {}).get("lang")
+            return self._tts_speech_stream(text, voice_id, speed, lang)
+
+        try:
+            audio, ctype, rate, meta = dennis_tts.generate(
+                text,
+                studio=body.get("studio") or "apollo",
+                preset_slug=body.get("preset"),
+                # js/tts.js sends `voice` / `format`; the long forms are the
+                # canonical names — accept both aliases.
+                voice_id=body.get("voice_id") or body.get("voice"),
+                speed=body.get("speed"),
+                lang=body.get("lang"),
+                response_format=body.get("response_format") or body.get("format"),
+            )
+        except dennis_tts.TTSError as exc:
+            return self.send_json({"error": str(exc)}, 503)
+        except Exception as exc:  # unexpected — keep the OS alive, report honestly
+            return self.send_json({"error": f"TTS generation failed: {exc}"}, 500)
+
+        if body.get("save"):
+            try:
+                record = dennis_tts.save_audio(audio, name=body.get("name"), meta=meta)
+            except dennis_tts.TTSError as exc:
+                return self.send_json({"error": str(exc)}, 500)
+            return self.send_json({"success": True, "audio": record})
+
+        self.send_response(200)
+        self.send_header('Content-Type', ctype)
+        self.send_header('Content-Length', str(len(audio)))
+        if rate:
+            self.send_header('X-Audio-Sample-Rate', str(rate))
+        self.end_headers()
+        self.wfile.write(audio)
+
+    def _tts_audio_file(self, name):
+        """GET /api/tts/audio/<file> — serve a previously saved voiceover."""
+        filename = os.path.basename(name)
+        if filename != name or not filename or filename.startswith('.'):
+            return self.send_json({"error": "Invalid audio file name"}, 400)
+        path = os.path.join(dennis_tts.AUDIO_DIR, filename)
+        if not os.path.isfile(path):
+            return self.send_json({"error": "Audio file not found"}, 404)
+        ext = os.path.splitext(filename)[1].lower()
+        ctype = {'.wav': 'audio/wav', '.mp3': 'audio/mpeg',
+                 '.pcm': 'audio/pcm; rate=24000'}.get(ext, 'application/octet-stream')
+        try:
+            with open(path, 'rb') as f:
+                data = f.read()
+        except OSError:
+            return self.send_json({"error": "Audio file unreadable"}, 500)
+        self.send_response(200)
+        self.send_header('Content-Type', ctype)
+        self.send_header('Content-Length', str(len(data)))
+        self.send_header('Content-Disposition', f'inline; filename="{filename}"')
+        self.end_headers()
+        self.wfile.write(data)
+
+
+    # ------------------------------------------------------------------
     # Static text assets: gzip on the fly (the API paths already do this)
     # ------------------------------------------------------------------
     def _wants_static_gzip(self, path):
@@ -704,6 +803,72 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
             self.send_json({"error": "Cross-site request blocked"}, 403)
             return True
         return False
+
+    def _tts_speech_stream(self, text, voice_id, speed, lang):
+        """Relay the Kokoro service's chunked PCM stream to the browser.
+
+        The browser never talks to the inference service directly: it posts to
+        the owner-gated /api/tts/speech route with ``stream: true`` and
+        receives ``audio/pcm`` chunks as the local service synthesizes each
+        sentence, so long agent replies start playing after roughly one
+        sentence instead of the full synthesis time. Non-kokoro providers
+        (and any upstream that answers without a stream) fall back to the
+        buffered response built by _tts_speech.
+        """
+        payload = {
+            "model": "kokoro",
+            "input": text,
+            "voice": voice_id,
+            "speed": float(speed),
+            "response_format": "pcm",
+        }
+        if lang:
+            payload["lang"] = lang
+        try:
+            parsed = urlparse(dennis_tts.KOKORO_BASE_URL)
+            conn = http.client.HTTPConnection(parsed.hostname, parsed.port or 80, timeout=600)
+            conn.request(
+                "POST", "/v1/audio/speech", body=json.dumps(payload),
+                headers={"Content-Type": "application/json",
+                         "Content-Length": str(len(json.dumps(payload)))})
+            resp = conn.getresponse()
+        except OSError:
+            return self.send_json(
+                {"error": "Kokoro service unreachable — start it from the Apollo voice panel"}, 503)
+
+        if resp.status != 200:
+            detail = resp.read().decode("utf-8", "replace")[:300]
+            try:
+                conn.close()
+            except OSError:
+                pass
+            return self.send_json({"error": f"Kokoro service error {resp.status}: {detail}"}, 502)
+
+        rate = resp.getheader("X-Audio-Sample-Rate") or "24000"
+        ctype = f"audio/pcm; rate={rate}"
+        try:
+            self.send_response(200)
+            self.send_header("Content-Type", ctype)
+            self.send_header("X-TTS-Provider", "kokoro")
+            self.send_header("X-TTS-Voice", str(voice_id))
+            self.send_header("X-Audio-Sample-Rate", str(rate))
+            self.send_header("Transfer-Encoding", "chunked")
+            self.end_headers()
+            while True:
+                chunk = resp.read(8192)
+                if not chunk:
+                    break
+                self.wfile.write(f"{len(chunk):x}\r\n".encode("ascii"))
+                self.wfile.write(chunk)
+                self.wfile.write(b"\r\n")
+            self.wfile.write(b"0\r\n\r\n")
+        except (BrokenPipeError, ConnectionResetError):
+            pass  # browser cancelled playback; stop pulling from upstream
+        finally:
+            try:
+                conn.close()
+            except OSError:
+                pass
 
     def _require_api_owner(self, parsed):
         """Owner-gate every OS API route except the two public bootstrap paths.
@@ -962,8 +1127,16 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
             text = str(exc)
             status = 404 if "unknown model" in text.lower() else 500
             code = "catalog_error"
+        elif isinstance(exc, dennis_studio_fashion.FashionError):
+            status, code = exc.status, exc.code
+        elif isinstance(exc, dennis_studio_model_library.LibraryError):
+            status, code = exc.status, exc.code
+        elif isinstance(exc, dennis_studio_free.FreeError):
+            status, code = exc.status, exc.code
         elif isinstance(exc, dennis_studio_higgsfield.ProviderRequestError):
             status, code = exc.status or 502, (exc.error or {}).get("code", "provider_error")
+        elif isinstance(exc, dennis_studio_workspaces.WorkspaceError):
+            status, code = exc.status, exc.code
         self.send_json({
             "error": dennis_studio_contracts.redact_text(
                 getattr(exc, "message", None) or str(exc) or exc.__class__.__name__
@@ -1043,6 +1216,13 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
         if self._reject_cross_site(path):
             return
 
+        # Browsers request this unprompted; answer quietly instead of a 404
+        # that shows up as console noise in every session.
+        if path == '/favicon.ico':
+            self.send_response(204)
+            self.end_headers()
+            return
+
         # Trading Den (DenMa) proxy: WS + its REST endpoints, same-origin.
         if path == '/ws':
             return self._proxy_denma_ws()
@@ -1057,9 +1237,18 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
         # Official DeepSeek Harness native Web UI supervisor.
         if path == '/api/deepseek-native/status':
             return self.send_json(dennis_deepseek_native.status())
-        # OpenMontage's native Backlot dashboard supervisor.
-        if path == '/api/openmontage/status':
-            return self.send_json(dennis_openmontage.status())
+
+        # ==================================================================
+        # Centralized TTS Router (Kokoro default; ElevenLabs optional)
+        # ==================================================================
+        if path == '/api/tts/status':
+            return self.send_json(dennis_tts.status())
+        if path == '/api/tts/config':
+            return self.send_json({"success": True, "config": dennis_tts.load_config()})
+        if path == '/api/tts/voices':
+            return self.send_json({"voices": dennis_tts.kokoro_voices()})
+        if path.startswith('/api/tts/audio/'):
+            return self._tts_audio_file(path[len('/api/tts/audio/'):])
         # Trading Den / DenMa backend supervisor status
         if path == '/api/trading-den':
             return self.send_json(dennis_denma.BACKEND.status())
@@ -1073,6 +1262,57 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
                 "mcp": dennis_studio_mcp.public_config(),
                 "catalog": dennis_studio_catalog.info(),
             })
+
+        # Studio workspaces: registry, per-workspace settings, projects and
+        # activity. These stores are isolated from the existing Ads generation
+        # data (jobs/media/playlists/templates) and never enumerate it.
+        if path == '/api/studio/workspaces':
+            try:
+                return self.send_json(dennis_studio_workspaces.overview())
+            except Exception as exc:
+                return self._studio_send_error(exc)
+
+        if path == '/api/studio/workspaces/active':
+            try:
+                return self.send_json({"active": dennis_studio_workspaces.get_active()})
+            except Exception as exc:
+                return self._studio_send_error(exc)
+
+        # YouTube Studio editorial APIs (channels, research, topics, scripts).
+        if path.startswith('/api/studio/youtube/'):
+            status, payload = dennis_youtube_api.handle('GET', path, parse_qs(parsed.query), None)
+            return self.send_json(payload, status)
+
+        if path.startswith('/api/studio/workspaces/'):
+            rest = path[len('/api/studio/workspaces/'):]
+            parts = [part for part in rest.split('/') if part]
+            try:
+                if len(parts) == 1:
+                    return self.send_json(dennis_studio_workspaces.descriptor(parts[0]))
+                if len(parts) == 2 and parts[1] == 'settings':
+                    return self.send_json({
+                        "settings": dennis_studio_workspaces.get_settings(parts[0])
+                    })
+                if len(parts) == 2 and parts[1] == 'activity':
+                    qs = parse_qs(parsed.query)
+                    return self.send_json(dennis_studio_workspaces.activity(
+                        parts[0], qs.get('limit', ['50'])[0]
+                    ))
+                if len(parts) == 2 and parts[1] == 'projects':
+                    qs = parse_qs(parsed.query)
+                    return self.send_json(dennis_studio_workspaces.list_projects(
+                        parts[0],
+                        status=(qs.get('status', [None])[0] or None),
+                        query=(qs.get('q', [None])[0] or None),
+                        include_archived=(qs.get('include_archived', ['0'])[0] in ('1', 'true')),
+                    ))
+                if len(parts) == 3 and parts[1] == 'projects':
+                    return self.send_json({
+                        "project": dennis_studio_workspaces.get_project(parts[0], parts[2])
+                    })
+                return self.send_json({"error": "Workspace endpoint not found"}, 404)
+            except Exception as exc:
+                return self._studio_send_error(exc)
 
         if path == '/api/studio/models':
             qs = parse_qs(parsed.query)
@@ -1096,6 +1336,44 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
                     payload["modes"] = dennis_studio_catalog.modes(provider_id)
                     payload["catalog"] = dennis_studio_catalog.info(provider_id)
                 return self.send_json(payload)
+            except Exception as exc:
+                return self._studio_send_error(exc)
+
+        if path == '/api/studio/fashion/config':
+            qs = parse_qs(parsed.query)
+            provider_id = (qs.get('provider', [dennis_studio_providers.HIGGSFIELD_ID])[0]
+                           or dennis_studio_providers.HIGGSFIELD_ID)
+            try:
+                provider = dennis_studio_providers.REGISTRY.get(provider_id)
+                payload = dennis_studio_fashion.build_config(
+                    provider.models(kind="video"), provider_id
+                )
+                payload["configured"] = bool(provider.credentials().get("configured"))
+                return self.send_json(payload)
+            except Exception as exc:
+                return self._studio_send_error(exc)
+
+        # Ads Studio free engines: capabilities and job polling (GET).
+        if path == '/api/studio/free/models':
+            return self.send_json(dennis_studio_free.capabilities())
+
+        if path.startswith('/api/studio/free/jobs/'):
+            job_id = path[len('/api/studio/free/jobs/'):]
+            try:
+                return self.send_json(dennis_studio_free.job_status(job_id))
+            except Exception as exc:
+                return self._studio_send_error(exc)
+
+        # Provider registry: Setup-page view + classified generation catalog.
+        if path == '/api/studio/registry':
+            return self.send_json(dennis_studio_registry.registry())
+
+        if path == '/api/studio/generation/catalog':
+            return self.send_json(dennis_studio_registry.generation_catalog())
+
+        if path == '/api/studio/fashion/model-library':
+            try:
+                return self.send_json(dennis_studio_model_library.list_library())
             except Exception as exc:
                 return self._studio_send_error(exc)
 
@@ -1440,6 +1718,26 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
                 return
             return self.send_json({"drafts": dennis_skills.list_drafts()})
 
+        if path == '/api/skill-builder/registry':
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            return self.send_json(dennis_skill_registry.list_skills())
+
+        if path == '/api/skill-builder/package':
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            draft_id = parse_qs(parsed.query).get('draft', [None])[0]
+            try:
+                draft = dennis_skills.get_draft(draft_id)
+            except dennis_skills.SkillBuilderError as e:
+                return self.send_json({"error": str(e)}, 404)
+            root = ((draft.get("package") or {}).get("root") or "")
+            if not root or not os.path.isdir(root):
+                return self.send_json({"error": "This draft has no compiled package."}, 404)
+            return self.send_json(dennis_skill_compiler.preview(root))
+
         if path.startswith('/api/skill-builder/drafts/'):
             owner = self._require_owner(parsed)
             if not owner:
@@ -1507,6 +1805,12 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
             if not owner:
                 return
             return self.send_json(dennis_plugins.catalog())
+
+        if path == '/api/plugins/installed':
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            return self.send_json(dennis_plugins.installed_apps())
 
         if path == '/api/plugins/skills':
             owner = self._require_owner(parsed)
@@ -2112,16 +2416,33 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
                 live = dennis_manager.MANAGER.summary(session_id)
                 current = live["current_model"] if live else None
             prof = dennis_agents.profile(agent_id) or {}
+            custom = dennis_freellmapi.status(agent_id)
+            custom["supported"] = agent_id in dennis_freellmapi.SUPPORTED_AGENTS
             return self.send_json({
                 "agent_id": agent_id,
                 "models": models,
                 "providers": dennis_models.providers(models),
                 "provider_setup": dennis_agents.provider_setup(agent_id),
+                "custom_provider": custom,
                 "current_model": current,
                 "session_status": live["status"] if live else None,
                 "supports_live_model_switch": bool(prof.get("supports_live_model_switch")),
                 "backend": dennis_manager.MANAGER.backend_name,
             })
+
+        if path == '/api/freellmapi/catalog':
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            try:
+                catalog = dennis_freellm_catalog.catalog()
+            except dennis_freellm_catalog.FreeLLMCatalogError as exc:
+                return self.send_json({"error": str(exc)}, 503)
+            agents = {
+                agent_id: dennis_freellmapi.status(agent_id)
+                for agent_id in dennis_freellmapi.SUPPORTED_AGENTS
+            }
+            return self.send_json({"catalog": catalog, "agents": agents})
 
         if path == '/api/freellmapi':
             owner = self._require_owner(parsed)
@@ -2167,21 +2488,43 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
             except dennis_deepseek_native.HarnessError as exc:
                 return self.send_json({"error": str(exc)}, 503)
 
-        # OpenMontage's native Backlot service controls. The service remains
-        # isolated and loopback-only; this boundary never accepts provider
-        # credentials or forwards arbitrary commands from the browser.
-        if path == '/api/openmontage/start':
+        # ==================================================================
+        # Centralized TTS Router (Kokoro default; ElevenLabs optional)
+        # ==================================================================
+        if path == '/api/tts/config':
             try:
-                return self.send_json(dennis_openmontage.start())
-            except dennis_openmontage.OpenMontageError as exc:
-                return self.send_json({"error": str(exc), "code": "openmontage_unavailable"}, 503)
-        if path == '/api/openmontage/restart':
+                return self.send_json(
+                    {"success": True, "config": dennis_tts.save_config(body)})
+            except dennis_tts.TTSError as exc:
+                return self.send_json({"error": str(exc)}, 400)
+        if path == '/api/tts/secret':
+            name = (body or {}).get("name")
+            value = (body or {}).get("value")
+            if not name or not value:
+                return self.send_json({"error": "name and value are required"}, 400)
             try:
-                return self.send_json(dennis_openmontage.restart())
-            except dennis_openmontage.OpenMontageError as exc:
-                return self.send_json({"error": str(exc), "code": "openmontage_unavailable"}, 503)
-        if path == '/api/openmontage/stop':
-            return self.send_json(dennis_openmontage.stop())
+                dennis_tts.set_provider_secret(str(name), str(value))
+                return self.send_json({"success": True, "configured": str(name)})
+            except dennis_tts.TTSError as exc:
+                return self.send_json({"error": str(exc)}, 400)
+        if path == '/api/tts/service/start':
+            try:
+                return self.send_json(dennis_tts.service_control("start"))
+            except dennis_tts.TTSError as exc:
+                return self.send_json({"error": str(exc)}, 503)
+        if path == '/api/tts/service/stop':
+            try:
+                return self.send_json(dennis_tts.service_control("stop"))
+            except dennis_tts.TTSError as exc:
+                return self.send_json({"error": str(exc)}, 503)
+        if path == '/api/tts/service':
+            action = (body or {}).get("action") or "status"
+            try:
+                return self.send_json(dennis_tts.service_control(action))
+            except dennis_tts.TTSError as exc:
+                return self.send_json({"error": str(exc)}, 400)
+        if path == '/api/tts/speech':
+            return self._tts_speech(body)
 
         # Trading Den / DenMa backend supervisor controls
         if path == '/api/trading-den/restart':
@@ -2248,6 +2591,29 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
         # ==================================================================
         # STUDIO (writes): credentials, uploads, jobs, tools, MCP config.
         # ==================================================================
+        if path.startswith('/api/studio/youtube/'):
+            status, payload = dennis_youtube_api.handle('POST', path, parse_qs(parsed.query), body)
+            return self.send_json(payload, status)
+
+        if path == '/api/studio/workspaces/active':
+            try:
+                workspace = dennis_studio_workspaces.set_active(body.get('workspace'))
+                return self.send_json({"active": workspace})
+            except Exception as exc:
+                return self._studio_send_error(exc)
+
+        if path.startswith('/api/studio/workspaces/'):
+            rest = path[len('/api/studio/workspaces/'):]
+            parts = [part for part in rest.split('/') if part]
+            try:
+                if len(parts) == 2 and parts[1] == 'projects':
+                    return self.send_json({
+                        "project": dennis_studio_workspaces.create_project(parts[0], body)
+                    })
+                return self.send_json({"error": "Workspace endpoint not found"}, 404)
+            except Exception as exc:
+                return self._studio_send_error(exc)
+
         if path.startswith('/api/studio/providers/'):
             rest = path[len('/api/studio/providers/'):]
             provider_id, _, action = rest.partition('/')
@@ -2349,6 +2715,153 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
                     model=body.get("model") or "",
                 )
                 return self.send_json({"success": True, "skill": result})
+            except Exception as exc:
+                return self._studio_send_error(exc)
+
+        if path == '/api/studio/fashion/model-library':
+            return self.send_json(dennis_studio_model_library.list_library())
+
+        if path == '/api/studio/fashion/model-library':
+            try:
+                model = dennis_studio_model_library.add_model(
+                    body.get("url"),
+                    body.get("name"),
+                    body.get("source") or "upload",
+                    body.get("prompt") or "",
+                    body.get("kind") or "model",
+                )
+                return self.send_json({"model": model})
+            except Exception as exc:
+                return self._studio_send_error(exc)
+
+        if path == '/api/studio/fashion/model-library/hide':
+            try:
+                result = dennis_studio_model_library.set_preset_hidden(
+                    body.get("preset_id"), bool(body.get("hidden", True))
+                )
+                return self.send_json(result)
+            except Exception as exc:
+                return self._studio_send_error(exc)
+
+        if path == '/api/studio/fashion/jobs':
+            provider_id = body.get("provider") or dennis_studio_providers.HIGGSFIELD_ID
+            try:
+                provider = dennis_studio_providers.REGISTRY.get(provider_id)
+                plan = dennis_studio_fashion.prepare_job(provider, body)
+                job, duplicate = STUDIO_RUNNER.submit(
+                    provider_id,
+                    plan["model_id"],
+                    plan["params"],
+                    auto_download=bool(body.get("auto_download", True)),
+                )
+                return self.send_json({
+                    "job": job,
+                    "duplicate": duplicate,
+                    "plan": {
+                        "model_id": plan["model_id"],
+                        "image_count": plan["image_count"],
+                        "prompt": plan["params"].get("prompt", ""),
+                    },
+                })
+            except Exception as exc:
+                return self._studio_send_error(exc)
+
+        # ------------------------------------------------------------------
+        # Ads Studio free engines (Pollinations + Google AI). No paid keys.
+        # POST-only: uploads, job submission and Google key management. The
+        # GET routes (capabilities + job polling) live in do_GET.
+        # ------------------------------------------------------------------
+        if path == '/api/studio/free/uploads':
+            raw = body.get("data_base64")
+            if not isinstance(raw, str) or not raw:
+                return self.send_json(
+                    {"error": "data_base64 is required", "code": "missing_file"}, 400
+                )
+            if len(raw) > 36 * 1024 * 1024:
+                return self.send_json(
+                    {"error": "Files are limited to 25 MB.", "code": "file_too_large"}, 413
+                )
+            try:
+                data = base64.b64decode(raw, validate=True)
+            except Exception:
+                return self.send_json(
+                    {"error": "The uploaded file is not valid base64.", "code": "invalid_file"}, 400
+                )
+            try:
+                filename = dennis_studio_contracts.sanitize_filename(
+                    body.get("filename") or "upload", fallback="upload"
+                )
+                record = dennis_studio_free.upload_once(
+                    data,
+                    body.get("content_type") or "image/png",
+                    filename,
+                )
+            except Exception as exc:
+                return self._studio_send_error(exc)
+            media_id = record.get("id")
+            return self.send_json({
+                "media_id": media_id,
+                "public_url": "/api/studio/media/" + str(media_id),
+                "item": record,
+            })
+
+        if path == '/api/studio/free/jobs':
+            try:
+                job = dennis_studio_free.submit_job(body)
+                return self.send_json({"job": job, "duplicate": False})
+            except Exception as exc:
+                return self._studio_send_error(exc)
+
+        if path == '/api/studio/free/credentials':
+            try:
+                status = dennis_studio_free.save_google_key(body.get("api_key"))
+                return self.send_json({"credentials": status, "capabilities": dennis_studio_free.capabilities()})
+            except Exception as exc:
+                return self._studio_send_error(exc)
+
+        if path == '/api/studio/free/test':
+            try:
+                return self.send_json(dennis_studio_free.test_google_key())
+            except Exception as exc:
+                return self._studio_send_error(exc)
+
+        if path == '/api/studio/free/credentials/delete':
+            try:
+                status = dennis_studio_free.delete_google_key()
+                return self.send_json({"credentials": status, "capabilities": dennis_studio_free.capabilities()})
+            except Exception as exc:
+                return self._studio_send_error(exc)
+
+        # ------------------------------------------------------------------
+        # Provider registry writes: save / test / remove credentials for any
+        # provider from the Setup registry.
+        # ------------------------------------------------------------------
+        if path == '/api/studio/registry/credentials':
+            try:
+                result = dennis_studio_registry.save_credentials(
+                    body.get("provider"), body.get("values"))
+                return self.send_json({
+                    "result": result,
+                    "registry": dennis_studio_registry.registry(),
+                    "catalog": dennis_studio_registry.generation_catalog(),
+                })
+            except Exception as exc:
+                return self._studio_send_error(exc)
+
+        if path == '/api/studio/registry/credentials/delete':
+            try:
+                result = dennis_studio_registry.delete_credentials(body.get("provider"))
+                return self.send_json({
+                    "result": result,
+                    "registry": dennis_studio_registry.registry(),
+                    "catalog": dennis_studio_registry.generation_catalog(),
+                })
+            except Exception as exc:
+                return self._studio_send_error(exc)
+
+        if path == '/api/studio/registry/test':
+            try:
+                return self.send_json(dennis_studio_registry.test_provider(body.get("provider")))
             except Exception as exc:
                 return self._studio_send_error(exc)
 
@@ -2587,9 +3100,16 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
             character_url = (body.get("character_image_url") or "").strip() or None
             requested_name = (body.get("name") or "").strip() or None
             requested_desc = (body.get("description") or "").strip() or None
+            extract_frames = bool(body.get("extract_frames", False))
+            replicate = bool(body.get("replicate", False))
+            replication_topic = (body.get("replication_topic") or "").strip()
             key = "|".join([action, mode, objective, "1" if eyes else "0",
-                            "1" if refresh else "0", agent_id or "",
-                            character_url or "", requested_name or ""] + sorted(urls))
+                            "1" if refresh else "0", "1" if extract_frames else "0",
+                            "1" if replicate else "0", replication_topic,
+                            agent_id or "", character_url or "",
+                            requested_name or ""] + sorted(urls))
+            request_body = dict(body)
+            request_body["urls"] = urls
             if action == "analyze":
                 fn = lambda job: dennis_skills.run_extraction(
                     urls, refresh=refresh, eyes=eyes, job=job)
@@ -2606,12 +3126,15 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
                     refresh=refresh, agent_id=agent_id, model_id=model_id,
                     character_image_url=character_url,
                     requested_name=requested_name,
-                    requested_description=requested_desc, job=job)
+                    requested_description=requested_desc, job=job,
+                    extract_frames=extract_frames, replicate=replicate,
+                    replication_topic=replication_topic)
                 kind = "generate"
             else:
                 return self.send_json({"error": "Unknown action"}, 400)
             job, reused = dennis_skill_jobs.RUNNER.submit(
-                kind=kind, key=key, fn=fn, stages=dennis_skills.STAGES)
+                kind=kind, key=key, fn=fn, stages=dennis_skills.STAGES,
+                request=request_body)
             return self.send_json({"job": job, "deduplicated": reused}, 202)
 
         if path.startswith('/api/skill-builder/jobs/') and path.endswith('/cancel'):
@@ -2870,6 +3393,17 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
                 ))
             except dennis_composio.ComposioError as e:
                 return self.send_json({"error": str(e), "code": e.code}, e.status)
+
+        if path == '/api/composio/connect':
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            try:
+                return self.send_json(dennis_composio.connect(body.get("slug")))
+            except dennis_composio.ComposioError as e:
+                payload = {"error": str(e), "code": e.code}
+                payload.update(getattr(e, "details", None) or {})
+                return self.send_json(payload, e.status)
 
         # ==================================================================
         # API MEGA LIST: owner-scoped saved entries, notes, readiness, checks.
@@ -3989,6 +4523,67 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
 
         self.send_error(404, "Endpoint not found")
 
+    def do_PATCH(self):
+        parsed = urlparse(self.path)
+        path = parsed.path
+        content_length = int(self.headers.get('Content-Length', 0))
+        if path.startswith('/api/studio/') and content_length > STUDIO_MAX_BODY:
+            return self.send_json(
+                {"error": "Request body is too large.", "code": "request_too_large"}, 413
+            )
+        patch_data = self.rfile.read(content_length)
+        try:
+            body = json.loads(patch_data.decode('utf-8')) if patch_data else {}
+        except Exception:
+            body = {}
+
+        if self._reject_cross_site(path):
+            return
+        if not self._require_api_owner(parsed):
+            return
+
+        # Rename a project session (its display project name). The folder on
+        # disk is never touched.
+        if path.startswith('/api/project-sessions/'):
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            session_id = path[len('/api/project-sessions/'):]
+            if not session_id or '/' in session_id:
+                self.send_error(404, "Endpoint not found")
+                return
+            title = (body.get('title') or '').strip()
+            if not title:
+                return self.send_json({"error": "Project name is required."}, 400)
+            if len(title) > 120:
+                return self.send_json({"error": "Project name is too long (120 characters max)."}, 400)
+            rec = dennis_sessions.set_title(owner, session_id, title)
+            if not rec:
+                return self.send_json({"error": "Session not found"}, 404)
+            return self.send_json({"success": True, "session": rec})
+
+        if path.startswith('/api/studio/workspaces/'):
+            rest = path[len('/api/studio/workspaces/'):]
+            parts = [part for part in rest.split('/') if part]
+            try:
+                if len(parts) == 2 and parts[1] == 'settings':
+                    return self.send_json({
+                        "settings": dennis_studio_workspaces.update_settings(parts[0], body)
+                    })
+                if len(parts) == 3 and parts[1] == 'projects':
+                    return self.send_json({
+                        "project": dennis_studio_workspaces.update_project(parts[0], parts[2], body)
+                    })
+            except Exception as exc:
+                return self._studio_send_error(exc)
+
+        # YouTube Studio editorial APIs.
+        if path.startswith('/api/studio/youtube/'):
+            status, payload = dennis_youtube_api.handle('PATCH', path, parse_qs(parsed.query), body)
+            return self.send_json(payload, status)
+
+        self.send_error(404, "Endpoint not found")
+
     def do_DELETE(self):
         parsed = urlparse(self.path)
         path = parsed.path
@@ -4029,6 +4624,30 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
 
         # Studio: finished job history, library items, provider credentials,
         # and the optional MCP configuration.
+        if path.startswith('/api/studio/workspaces/'):
+            rest = path[len('/api/studio/workspaces/'):]
+            parts = [part for part in rest.split('/') if part]
+            try:
+                if len(parts) == 3 and parts[1] == 'projects':
+                    return self.send_json(
+                        dennis_studio_workspaces.delete_project(parts[0], parts[2])
+                    )
+            except Exception as exc:
+                return self._studio_send_error(exc)
+            return self.send_json({"error": "Workspace endpoint not found"}, 404)
+
+        # YouTube Studio editorial APIs.
+        if path.startswith('/api/studio/youtube/'):
+            status, payload = dennis_youtube_api.handle('DELETE', path, parse_qs(parsed.query), None)
+            return self.send_json(payload, status)
+
+        if path.startswith('/api/studio/fashion/model-library/'):
+            model_id = path[len('/api/studio/fashion/model-library/'):]
+            try:
+                return self.send_json(dennis_studio_model_library.delete_model(model_id))
+            except Exception as exc:
+                return self._studio_send_error(exc)
+
         if path.startswith('/api/studio/jobs/'):
             try:
                 return self.send_json(
@@ -4405,7 +5024,6 @@ def _ensure_denma_runtime():
 
 def run(port=PORT):
     atexit.register(dennis_deepseek_native.stop)
-    atexit.register(dennis_openmontage.stop)
     dennis_denma.BACKEND.start()
     atexit.register(dennis_denma.BACKEND.stop)
     STUDIO_RUNNER.recover()

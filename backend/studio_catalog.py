@@ -141,18 +141,30 @@ def info(provider=DEFAULT_PROVIDER):
     }
 
 
-def _public(model):
+def has_catalog(provider=DEFAULT_PROVIDER):
+    """True when a pinned catalog exists for ``provider``."""
+    try:
+        return bool(catalog_path(provider))
+    except CatalogError:
+        return False
+
+
+def _public(model, provider=DEFAULT_PROVIDER):
     summary = contracts.derive_summary(model)
+    availability = model.get("availability", "available")
     return {
         "id": model["id"],
         "label": model.get("label") or model["id"],
         "kind": model.get("kind"),
         "mode": model.get("mode"),
         "mode_label": contracts.MODE_LABELS.get(model.get("mode"), model.get("mode")),
-        "provider": model.get("provider") or DEFAULT_PROVIDER,
+        "provider": model.get("provider") or provider,
         "doc_path": model.get("doc_path"),
         "summary": summary,
-        "capabilities": contracts.capabilities_for(model),
+        "capabilities": contracts.capabilities_for(model, provider),
+        "availability": availability,
+        "verification": model.get("verification", "documented"),
+        "notes": list(model.get("notes") or []),
         "tags": _tags(model, summary),
     }
 
@@ -194,7 +206,7 @@ def list_models(provider=DEFAULT_PROVIDER, kind=None, mode=None, query=None):
             )
         ]
     order = {name: index for index, name in enumerate(contracts.MODES)}
-    public = [_public(m) for m in models]
+    public = [_public(m, provider) for m in models]
     public.sort(
         key=lambda m: (
             contracts.KINDS.index(m["kind"]) if m["kind"] in contracts.KINDS else 9,
@@ -216,7 +228,7 @@ def get_model(model_id, provider=DEFAULT_PROVIDER):
 
 def model_detail(model_id, provider=DEFAULT_PROVIDER):
     model = get_model(model_id, provider)
-    detail = _public(model)
+    detail = _public(model, provider)
     detail["schema"] = model.get("schema")
     detail["fields"] = contracts.derive_fields(model)
     detail["generation"] = bool(model.get("generation", True))
