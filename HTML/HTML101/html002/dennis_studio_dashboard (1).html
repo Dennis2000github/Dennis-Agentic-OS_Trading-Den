@@ -1,0 +1,967 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dennis Studio - AI Fashion Video Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+    
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      background-color: #fcfcfd;
+      color: #18181b;
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f1f5;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #d1d1db;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #a1a1aa;
+    }
+
+    /* Primary Accent Colors (#ff3b68) */
+    .bg-brand {
+      background-color: #ff3b68;
+    }
+    .text-brand {
+      color: #ff3b68;
+    }
+    .border-brand {
+      border-color: #ff3b68;
+    }
+    .hover\:bg-brand-dark:hover {
+      background-color: #e02e56;
+    }
+
+    .badge-pink {
+      background-color: #ffe8ee;
+      color: #ff3b68;
+    }
+
+    .active-step-badge {
+      background-color: #ffe8ee;
+      color: #ff3b68;
+      font-weight: 600;
+    }
+
+    /* Custom Transitions */
+    .fade-in {
+      animation: fadeIn 0.25s ease-in-out;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden bg-[#fafafa]">
+
+  <!-- TOP HEADER NAVBAR -->
+  <header class="h-16 bg-white border-b border-gray-100 px-6 flex items-center justify-between z-20 shrink-0">
+    <!-- Brand Logo -->
+    <div onclick="switchMainNav('generate')" class="flex items-center gap-2 cursor-pointer">
+      <div class="w-8 h-8 rounded-full border-2 border-black flex items-center justify-center font-bold text-xl">
+        <span class="block translate-y-[-1px]">D</span>
+      </div>
+      <span class="font-bold text-lg tracking-tight">Dennis Studio</span>
+    </div>
+
+    <!-- Right Top Nav Items -->
+    <div class="flex items-center gap-4">
+      <!-- Credit Badge -->
+      <div class="flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 rounded-full border border-gray-100 text-sm font-semibold text-gray-700">
+        <i data-lucide="sparkles" class="w-4 h-4 text-purple-500 fill-purple-500"></i>
+        <span>60</span>
+      </div>
+
+      <!-- Avatar Profile -->
+      <div class="w-9 h-9 rounded-full bg-gradient-to-tr from-pink-300 via-purple-300 to-indigo-300 flex items-center justify-center text-xs font-bold border border-white shadow-sm overflow-hidden cursor-pointer">
+        <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" alt="Avatar" class="w-full h-full object-cover">
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN DASHBOARD CONTENT WRAPPER -->
+  <div class="flex flex-1 overflow-hidden">
+
+    <!-- LEFT SIDEBAR -->
+    <aside class="w-56 bg-white border-r border-gray-100 flex flex-col justify-between p-4 shrink-0 overflow-y-auto">
+      <div class="space-y-6">
+        <!-- Main Nav Group -->
+        <nav class="space-y-1">
+          <!-- Generate Tab -->
+          <button id="nav-btn-generate" onclick="switchMainNav('generate')" class="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl bg-pink-50 text-brand transition">
+            <i data-lucide="sparkles" class="w-4 h-4"></i>
+            <span>Generate</span>
+          </button>
+
+          <!-- Assets Tab -->
+          <button id="nav-btn-assets" onclick="switchMainNav('assets')" class="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-600 rounded-xl hover:bg-gray-50 hover:text-black transition">
+            <i data-lucide="folder" class="w-4 h-4"></i>
+            <span>Assets</span>
+          </button>
+
+          <!-- Library Tab -->
+          <button id="nav-btn-library" onclick="switchMainNav('library')" class="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-600 rounded-xl hover:bg-gray-50 hover:text-black transition">
+            <i data-lucide="library" class="w-4 h-4"></i>
+            <span>Library</span>
+          </button>
+
+          <!-- Playlists Tab -->
+          <button id="nav-btn-playlists" onclick="switchMainNav('playlists')" class="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-600 rounded-xl hover:bg-gray-50 hover:text-black transition">
+            <i data-lucide="list-music" class="w-4 h-4"></i>
+            <span>Playlists</span>
+          </button>
+
+          <!-- Preset Video Tab -->
+          <button id="nav-btn-preset-video" onclick="switchMainNav('preset-video')" class="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-600 rounded-xl hover:bg-gray-50 hover:text-black transition">
+            <i data-lucide="film" class="w-4 h-4"></i>
+            <span>Preset Video</span>
+          </button>
+
+          <!-- History Tab -->
+          <button id="nav-btn-history" onclick="switchMainNav('history')" class="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-600 rounded-xl hover:bg-gray-50 hover:text-black transition">
+            <i data-lucide="history" class="w-4 h-4"></i>
+            <span>History</span>
+          </button>
+        </nav>
+      </div>
+
+      <!-- Sidebar Bottom Contact Card & Links -->
+      <div class="space-y-4 pt-4">
+        <div class="p-4 bg-gray-50/80 rounded-2xl border border-gray-100">
+          <div class="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-sm mb-2 text-gray-700">
+            <i data-lucide="message-square" class="w-4 h-4"></i>
+          </div>
+          <h4 class="text-xs font-bold text-gray-900 mb-0.5">Contact Us</h4>
+          <p class="text-[11px] text-gray-500 leading-snug">Join our community for support</p>
+        </div>
+
+        <!-- Social Icons -->
+        <div class="flex items-center gap-3 px-2 text-gray-400">
+          <i data-lucide="video" class="w-4 h-4 hover:text-gray-700 cursor-pointer"></i>
+          <i data-lucide="youtube" class="w-4 h-4 hover:text-gray-700 cursor-pointer"></i>
+          <i data-lucide="instagram" class="w-4 h-4 hover:text-gray-700 cursor-pointer"></i>
+        </div>
+
+        <!-- Footnote links -->
+        <div class="flex items-center gap-2 px-2 text-[11px] text-gray-400">
+          <a href="#" class="hover:underline">Terms</a>
+          <span>|</span>
+          <a href="#" class="hover:underline">Privacy Policy</a>
+        </div>
+      </div>
+    </aside>
+
+    <!-- RIGHT MAIN WORKFLOW & PAGE AREA -->
+    <main class="flex-1 flex flex-col overflow-hidden bg-white">
+
+      <!-- ================================================================= -->
+      <!-- VIEW 1: GENERATE WORKFLOW DASHBOARD -->
+      <!-- ================================================================= -->
+      <div id="view-generate" class="flex-1 flex flex-col overflow-hidden">
+        
+        <!-- STEPPER WIZARD HEADER NAV -->
+        <div class="px-8 py-5 border-b border-gray-100 flex items-center gap-3 text-sm shrink-0 overflow-x-auto">
+          <!-- Step 1 Badge -->
+          <button id="step-btn-1" onclick="goToStep(1)" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full transition text-xs font-medium active-step-badge">
+            <span class="step-num w-4 h-4 rounded-full flex items-center justify-center text-[10px]">1</span>
+            <span>Select Reference Video</span>
+          </button>
+
+          <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 shrink-0"></i>
+
+          <!-- Step 2 Badge -->
+          <button id="step-btn-2" onclick="goToStep(2)" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-gray-500 hover:text-gray-800 transition text-xs font-medium">
+            <span class="step-num w-4 h-4 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center text-[10px]">2</span>
+            <span>Pick a Model</span>
+          </button>
+
+          <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 shrink-0"></i>
+
+          <!-- Step 3 Badge -->
+          <button id="step-btn-3" onclick="goToStep(3)" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-gray-500 hover:text-gray-800 transition text-xs font-medium">
+            <span class="step-num w-4 h-4 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center text-[10px]">3</span>
+            <span>Add Clothing</span>
+          </button>
+
+          <i data-lucide="chevron-right" class="w-4 h-4 text-gray-300 shrink-0"></i>
+
+          <!-- Step 4 Badge -->
+          <button id="step-btn-4" onclick="goToStep(4)" class="flex items-center gap-2 px-3.5 py-1.5 rounded-full text-gray-500 hover:text-gray-800 transition text-xs font-medium">
+            <span class="step-num w-4 h-4 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center text-[10px]">4</span>
+            <span>Output Settings</span>
+          </button>
+        </div>
+
+        <!-- DYNAMIC STEP VIEWS CONTAINER -->
+        <div class="flex-1 overflow-y-auto px-8 py-6 pb-28">
+
+          <!-- STEP 1: SELECT REFERENCE VIDEO -->
+          <section id="step-1-content" class="fade-in space-y-6">
+            <div>
+              <h1 class="text-xl font-bold text-gray-900">Step 1: Select Reference Video</h1>
+            </div>
+
+            <!-- Main Step 1 Tabs -->
+            <div class="border-b border-gray-100 flex gap-6 text-sm font-medium">
+              <button id="tab-preset-video" onclick="switchStep1Tab('preset')" class="pb-3 border-b-2 border-brand text-brand font-semibold transition">
+                Preset Video
+              </button>
+              <button id="tab-upload-video" onclick="switchStep1Tab('upload')" class="pb-3 border-b-2 border-transparent text-gray-500 hover:text-gray-800 transition">
+                Upload Video
+              </button>
+            </div>
+
+            <!-- SUB-VIEW A: PRESET VIDEOS -->
+            <div id="step1-preset-view" class="space-y-6">
+              <!-- Filter Dropdowns -->
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-3 max-w-3xl">
+                <div class="relative">
+                  <select class="w-full bg-gray-50 border border-gray-200 text-xs font-medium rounded-xl px-3 py-2.5 pr-8 appearance-none focus:outline-none focus:border-gray-400 text-gray-700">
+                    <option>Attribute</option>
+                    <option>Full Body</option>
+                    <option>Upper Body</option>
+                  </select>
+                  <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400 absolute right-3 top-3 pointer-events-none"></i>
+                </div>
+
+                <div class="relative">
+                  <select class="w-full bg-gray-50 border border-gray-200 text-xs font-medium rounded-xl px-3 py-2.5 pr-8 appearance-none focus:outline-none focus:border-gray-400 text-gray-700">
+                    <option>Type</option>
+                    <option>Walking</option>
+                    <option>Posing</option>
+                    <option>Dance</option>
+                  </select>
+                  <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400 absolute right-3 top-3 pointer-events-none"></i>
+                </div>
+
+                <div class="relative">
+                  <select class="w-full bg-gray-50 border border-gray-200 text-xs font-medium rounded-xl px-3 py-2.5 pr-8 appearance-none focus:outline-none focus:border-gray-400 text-gray-700">
+                    <option>Style</option>
+                    <option>Casual</option>
+                    <option>Elegant</option>
+                    <option>Streetwear</option>
+                  </select>
+                  <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400 absolute right-3 top-3 pointer-events-none"></i>
+                </div>
+
+                <div class="relative">
+                  <select class="w-full bg-gray-50 border border-gray-200 text-xs font-medium rounded-xl px-3 py-2.5 pr-8 appearance-none focus:outline-none focus:border-gray-400 text-gray-700">
+                    <option>Model</option>
+                    <option>Female</option>
+                    <option>Male</option>
+                  </select>
+                  <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400 absolute right-3 top-3 pointer-events-none"></i>
+                </div>
+              </div>
+
+              <!-- Video Grid -->
+              <div id="video-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4"></div>
+            </div>
+
+            <!-- SUB-VIEW B: UPLOAD VIDEO -->
+            <div id="step1-upload-view" class="hidden space-y-6">
+              <p class="text-xs text-gray-500">If the duration exceeds 15 seconds, the first 15 seconds will be automatically truncated.</p>
+
+              <div class="p-6 bg-white border border-gray-100 rounded-2xl space-y-6">
+                <div>
+                  <label class="block text-xs font-bold text-gray-800 mb-2">Upload Video (* Required)</label>
+                  <div class="flex gap-2 max-w-xl">
+                    <div class="relative flex-1">
+                      <i data-lucide="link" class="w-4 h-4 text-gray-400 absolute left-3 top-3"></i>
+                      <input type="text" placeholder="Paste the TikTok / YouTube Shorts video link" class="w-full bg-white border border-gray-200 text-xs rounded-xl pl-9 pr-3 py-2.5 focus:outline-none focus:border-brand">
+                    </div>
+                    <button class="px-5 py-2.5 bg-pink-100 text-brand text-xs font-bold rounded-xl hover:bg-pink-200 transition">Confirm</button>
+                  </div>
+                </div>
+
+                <div class="relative flex py-2 items-center">
+                  <div class="flex-grow border-t border-gray-100"></div>
+                  <span class="flex-shrink mx-4 text-xs font-medium text-gray-400">or</span>
+                  <div class="flex-grow border-t border-gray-100"></div>
+                </div>
+
+                <p class="text-center text-xs text-gray-600 font-medium">To ensure the best results, please do not upload reference videos containing speech or voiceovers.</p>
+
+                <div class="border-2 border-dashed border-gray-200 rounded-2xl p-10 flex flex-col items-center justify-center bg-gray-50/50 hover:bg-gray-50 transition cursor-pointer">
+                  <div class="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm text-gray-600 mb-3">
+                    <i data-lucide="image-plus" class="w-6 h-6 text-gray-500"></i>
+                  </div>
+                  <p class="text-xs font-bold text-gray-800 mb-1">Click or drag to upload local reference video</p>
+                  <p class="text-[11px] text-gray-400 mb-4">Supports MP4/ MOV/ WebM, etc.</p>
+                  <button class="px-6 py-2.5 bg-brand text-white text-xs font-bold rounded-full hover:bg-brand-dark shadow-md transition">
+                    Upload Video
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- STEP 2: PICK A MODEL -->
+          <section id="step-2-content" class="hidden fade-in space-y-6">
+            <div class="flex items-center gap-2">
+              <h1 class="text-xl font-bold text-gray-900">Step 2: Pick a Model</h1>
+              <i data-lucide="info" class="w-4 h-4 text-gray-400 cursor-pointer"></i>
+            </div>
+
+            <!-- Sub Tabs -->
+            <div class="border-b border-gray-100 flex gap-6 text-sm font-medium">
+              <button id="tab-model-preset" onclick="switchStep2Tab('preset')" class="pb-3 border-b-2 border-brand text-brand font-semibold transition">
+                Preset Model
+              </button>
+              <button id="tab-model-ai" onclick="switchStep2Tab('ai')" class="pb-3 border-b-2 border-transparent text-gray-500 hover:text-gray-800 transition">
+                AI Model
+              </button>
+              <button id="tab-model-upload" onclick="switchStep2Tab('upload')" class="pb-3 border-b-2 border-transparent text-gray-500 hover:text-gray-800 transition">
+                Upload Model
+              </button>
+            </div>
+
+            <!-- TAB A: PRESET MODELS -->
+            <div id="step2-preset-view" class="space-y-6">
+              <div class="w-48 relative">
+                <select class="w-full bg-gray-50 border border-gray-200 text-xs font-medium rounded-xl px-3 py-2.5 pr-8 appearance-none focus:outline-none text-gray-700">
+                  <option>Region</option>
+                  <option>Asian</option>
+                  <option>Caucasian</option>
+                  <option>African</option>
+                </select>
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400 absolute right-3 top-3 pointer-events-none"></i>
+              </div>
+
+              <div id="model-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4"></div>
+            </div>
+
+            <!-- TAB B: AI MODEL EMPTY STATE -->
+            <div id="step2-ai-view" class="hidden flex flex-col items-center justify-center py-16 space-y-4 text-center">
+              <p class="text-xs text-gray-400">Select an AI-generated fashion model.</p>
+              <div class="flex gap-2 py-4">
+                <img src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=150&auto=format&fit=crop&q=80" class="w-20 h-28 object-cover rounded-xl shadow-md rotate-[-8deg]">
+                <img src="https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&auto=format&fit=crop&q=80" class="w-20 h-28 object-cover rounded-xl shadow-xl z-10 scale-105">
+                <img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80" class="w-20 h-28 object-cover rounded-xl shadow-md rotate-[8deg]">
+              </div>
+              <p class="text-xs font-semibold text-gray-800">You haven't created an AI model yet.</p>
+              <button class="px-6 py-2.5 bg-brand text-white text-xs font-bold rounded-full hover:bg-brand-dark transition shadow-md">
+                Create AI Model
+              </button>
+            </div>
+
+            <!-- TAB C: UPLOAD MODEL -->
+            <div id="step2-upload-view" class="hidden space-y-4">
+              <p class="text-xs text-gray-500">Upload your own model photo or select a model you have used before.</p>
+
+              <div class="flex flex-wrap gap-4 items-start">
+                <div class="w-44 h-64 border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center p-4 bg-gray-50/50 hover:bg-gray-50 transition cursor-pointer text-center">
+                  <i data-lucide="image-plus" class="w-6 h-6 text-gray-500 mb-2"></i>
+                  <p class="text-xs font-bold text-gray-800 mb-1">Click or drag to upload a full-body model photo</p>
+                  <p class="text-[10px] text-gray-400 mb-4">Supports JPG, PNG, WebP, etc.</p>
+                  <button class="px-4 py-2 bg-brand text-white text-xs font-bold rounded-full hover:bg-brand-dark transition">
+                    Upload Image
+                  </button>
+                </div>
+
+                <div id="uploaded-model-card" class="relative w-44 h-64 rounded-2xl overflow-hidden border-2 border-brand shadow-sm cursor-pointer group">
+                  <img src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400&auto=format&fit=crop&q=80" class="w-full h-full object-cover">
+                  <div class="absolute bottom-2 right-2 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center">
+                    <i data-lucide="maximize-2" class="w-3 h-3"></i>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- STEP 3: ADD CLOTHING -->
+          <section id="step-3-content" class="hidden fade-in space-y-6">
+            <div class="flex items-center gap-2">
+              <h1 class="text-xl font-bold text-gray-900">Step 3: Add Clothing</h1>
+              <i data-lucide="info" class="w-4 h-4 text-gray-400 cursor-pointer"></i>
+            </div>
+
+            <p class="text-xs text-gray-500">Please add at least one outfit for the best video effect.</p>
+
+            <div class="border border-gray-100 rounded-2xl p-6 bg-white shadow-sm space-y-4">
+              <div>
+                <h3 class="text-sm font-bold text-gray-900">Outfit 1</h3>
+                <p class="text-xs text-gray-400">One outfit, one look. Add up to 5 items—such as tops, bottoms, shoes, bags, or accessories.</p>
+              </div>
+
+              <div class="flex flex-wrap gap-4 items-center">
+                <div class="relative w-36 h-40 bg-gray-50 rounded-2xl border border-gray-200 p-2 flex flex-col items-center justify-center group">
+                  <button onclick="removeClothingItem()" class="absolute top-2 right-2 w-5 h-5 rounded-full bg-gray-700 text-white flex items-center justify-center opacity-80 hover:opacity-100">
+                    <i data-lucide="x" class="w-3 h-3"></i>
+                  </button>
+                  <div id="clothing-slot-1" class="flex flex-col items-center justify-center text-center">
+                    <img src="https://images.unsplash.com/photo-1583743814966-8936f5b7be1a?w=200&auto=format&fit=crop&q=80" class="w-24 h-28 object-cover rounded-xl shadow-sm">
+                    <span class="text-[10px] font-semibold text-gray-500 mt-1">Leopard Dress</span>
+                  </div>
+                </div>
+
+                <div class="w-36 h-40 border-2 border-dashed border-gray-200 rounded-2xl bg-gray-50/50 hover:bg-gray-50 transition flex flex-col items-center justify-center cursor-pointer text-gray-400 hover:text-gray-600">
+                  <i data-lucide="upload" class="w-5 h-5 mb-1"></i>
+                  <span class="text-xs font-semibold">Optional</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="border border-gray-200 rounded-2xl p-4 bg-gray-50/30 flex items-center justify-center cursor-pointer hover:bg-gray-50 transition">
+              <button class="flex items-center gap-2 text-xs font-bold text-gray-800">
+                <i data-lucide="plus" class="w-4 h-4"></i>
+                <span>Add Outfit 2 (Up to 5)</span>
+              </button>
+            </div>
+          </section>
+
+          <!-- STEP 4: OUTPUT SETTINGS -->
+          <section id="step-4-content" class="hidden fade-in space-y-6">
+            <h1 class="text-xl font-bold text-gray-900">Step 4: Output Settings</h1>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div class="border border-gray-200 rounded-2xl p-4 bg-white shadow-sm flex items-center justify-between cursor-pointer hover:border-gray-300">
+                <span class="text-xs font-bold text-gray-800">Prompt (Optional)</span>
+                <i data-lucide="chevron-right" class="w-4 h-4 text-gray-400"></i>
+              </div>
+
+              <div class="border border-gray-200 rounded-2xl p-5 bg-white shadow-sm space-y-3">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-gray-800">Custom Scene (Optional)</span>
+                  <i data-lucide="chevron-up" class="w-4 h-4 text-gray-400"></i>
+                </div>
+
+                <div class="border-2 border-dashed border-gray-200 rounded-2xl p-6 flex flex-col items-center justify-center bg-gray-50/50 hover:bg-gray-50 transition cursor-pointer text-center">
+                  <i data-lucide="image-plus" class="w-5 h-5 text-gray-500 mb-2"></i>
+                  <p class="text-xs font-bold text-gray-800 mb-1">Click or drag to upload scene image</p>
+                  <p class="text-[10px] text-gray-400 mb-3">Supports JPG, PNG, WebP, AVIF, HEIC, etc.</p>
+                  <button class="px-4 py-1.5 bg-brand text-white text-xs font-bold rounded-full hover:bg-brand-dark transition">
+                    Upload Image
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="border border-gray-200 rounded-2xl p-6 bg-white shadow-sm space-y-6">
+              
+              <!-- NEW DARK OUTPUT SETTINGS BAR FROM SCREENSHOT -->
+              <div class="space-y-2">
+                <label class="block text-xs font-bold text-gray-800">Quick Configuration Bar</label>
+                <div class="bg-[#0b101b] border border-[#1e293b] rounded-2xl p-4 sm:p-5 text-gray-200 shadow-xl">
+                  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+                    
+                    <!-- Model Dropdown -->
+                    <div class="space-y-1.5">
+                      <label class="block text-xs font-medium text-gray-400">Model</label>
+                      <div class="relative">
+                        <select class="w-full bg-[#070b14] border border-[#1e293b] text-xs font-medium rounded-xl px-3 py-2.5 pr-8 appearance-none focus:outline-none focus:border-cyan-500 text-gray-200 cursor-pointer">
+                          <option>Seedance 2.5</option>
+                          <option>Seedance 2.0</option>
+                          <option>Seedance 2.0 Mini</option>
+                        </select>
+                        <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400 absolute right-3 top-3 pointer-events-none"></i>
+                      </div>
+                    </div>
+
+                    <!-- Resolution Dropdown -->
+                    <div class="space-y-1.5">
+                      <label class="block text-xs font-medium text-gray-400">Resolution</label>
+                      <div class="relative">
+                        <select class="w-full bg-[#070b14] border border-[#1e293b] text-xs font-medium rounded-xl px-3 py-2.5 pr-8 appearance-none focus:outline-none focus:border-cyan-500 text-gray-200 cursor-pointer">
+                          <option>480P</option>
+                          <option>720P</option>
+                          <option>1080P</option>
+                          <option>4K</option>
+                        </select>
+                        <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400 absolute right-3 top-3 pointer-events-none"></i>
+                      </div>
+                    </div>
+
+                    <!-- Duration Dropdown -->
+                    <div class="space-y-1.5">
+                      <label class="block text-xs font-medium text-gray-400">Duration</label>
+                      <div class="relative">
+                        <select class="w-full bg-[#070b14] border border-[#1e293b] text-xs font-medium rounded-xl px-3 py-2.5 pr-8 appearance-none focus:outline-none focus:border-cyan-500 text-gray-200 cursor-pointer">
+                          <option>5s</option>
+                          <option>7s</option>
+                          <option>10s</option>
+                          <option>15s</option>
+                        </select>
+                        <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400 absolute right-3 top-3 pointer-events-none"></i>
+                      </div>
+                    </div>
+
+                    <!-- Aspect Dropdown -->
+                    <div class="space-y-1.5">
+                      <label class="block text-xs font-medium text-gray-400">Aspect</label>
+                      <div class="relative">
+                        <select class="w-full bg-[#070b14] border border-[#1e293b] text-xs font-medium rounded-xl px-3 py-2.5 pr-8 appearance-none focus:outline-none focus:border-cyan-500 text-gray-200 cursor-pointer">
+                          <option>9:16 (Vertical)</option>
+                          <option>16:9 (Landscape)</option>
+                          <option>1:1 (Square)</option>
+                          <option>4:5 (Portrait)</option>
+                        </select>
+                        <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-gray-400 absolute right-3 top-3 pointer-events-none"></i>
+                      </div>
+                    </div>
+
+                    <!-- Background Audio Checkbox -->
+                    <div class="flex items-center gap-2.5 pb-2.5 sm:justify-start lg:justify-center cursor-pointer">
+                      <input type="checkbox" id="dark-bgm-checkbox" class="w-4 h-4 rounded border-gray-600 text-cyan-400 focus:ring-cyan-400 focus:ring-offset-[#0b101b] bg-[#070b14] cursor-pointer accent-cyan-400" checked>
+                      <label for="dark-bgm-checkbox" class="text-xs font-medium text-gray-200 cursor-pointer select-none">Background audio</label>
+                    </div>
+
+                  </div>
+                </div>
+              </div>
+
+              <div class="space-y-3 pt-2">
+                <label class="block text-xs font-bold text-gray-800">Model Engine Selection</label>
+              <span>Previous</span>
+            </button>
+          </div>
+
+          <div class="bg-white border border-gray-200 shadow-xl rounded-2xl px-3 py-2 flex items-center gap-3 cursor-pointer hover:border-gray-300 transition">
+            <div id="dock-thumbnails" class="flex -space-x-2 overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80" class="w-8 h-8 rounded-lg object-cover border-2 border-white">
+              <img src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=100&auto=format&fit=crop&q=80" class="w-8 h-8 rounded-lg object-cover border-2 border-white">
+            </div>
+            
+            <div class="text-left">
+              <p class="text-xs font-bold text-gray-900 leading-none">Selected assets</p>
+              <p class="text-[10px] text-gray-400 mt-0.5">Tap to review</p>
+            </div>
+
+            <div id="ready-badge" class="px-2.5 py-1 bg-gray-100 text-gray-700 text-[11px] font-bold rounded-full">
+              3/3 ready
+            </div>
+          </div>
+
+          <div>
+            <button id="next-btn" onclick="nextStep()" class="flex items-center gap-2 px-7 py-2.5 bg-brand text-white text-xs font-bold rounded-full hover:bg-brand-dark transition shadow-md">
+              <span>Next</span>
+              <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            </button>
+
+            <button id="generate-btn" onclick="triggerGeneration()" class="hidden flex items-center gap-2 px-8 py-2.5 bg-brand text-white text-xs font-bold rounded-full hover:bg-brand-dark transition shadow-lg">
+              <span>Generate Video</span>
+              <i data-lucide="sparkles" class="w-4 h-4"></i>
+              <span class="ml-1 text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full">100</span>
+            </button>
+          </div>
+        </footer>
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- VIEW 2: ASSETS DASHBOARD -->
+      <!-- ================================================================= -->
+      <div id="view-assets" class="hidden flex-1 flex flex-col overflow-y-auto px-8 py-8 space-y-6 fade-in">
+        
+        <!-- Assets Main Switch Tabs -->
+        <div class="flex items-center gap-3 text-sm font-bold">
+          <button id="assets-tab-creations" onclick="switchAssetsTab('creations')" class="px-4 py-1.5 rounded-full badge-pink font-semibold transition">
+            Creations
+          </button>
+          <button id="assets-tab-uploads" onclick="switchAssetsTab('uploads')" class="px-4 py-1.5 rounded-full text-gray-700 hover:bg-gray-100 transition">
+            Uploads
+          </button>
+        </div>
+
+        <!-- Filter Sub-Tags Bar -->
+        <div class="flex items-center gap-6 text-xs font-bold border-b border-gray-100 pb-2">
+          <button onclick="filterAssetsTag('all')" id="asset-tag-all" class="text-brand border-b-2 border-brand pb-2 transition">All</button>
+          <button onclick="filterAssetsTag('models')" id="asset-tag-models" class="text-gray-500 hover:text-gray-900 pb-2 transition">Models</button>
+          <button onclick="filterAssetsTag('clothes')" id="asset-tag-clothes" class="text-gray-500 hover:text-gray-900 pb-2 transition">Clothes</button>
+          <button onclick="filterAssetsTag('videos')" id="asset-tag-videos" class="text-gray-500 hover:text-gray-900 pb-2 transition">Videos</button>
+          <button onclick="filterAssetsTag('scene')" id="asset-tag-scene" class="text-gray-500 hover:text-gray-900 pb-2 transition">Scene Images</button>
+        </div>
+
+        <!-- CREATIONS SUB-VIEW (EMPTY STATE) -->
+        <div id="assets-creations-content" class="flex flex-col items-center justify-center py-20 text-center space-y-5">
+          <div class="w-20 h-20 bg-gray-100 rounded-3xl flex items-center justify-center text-gray-400">
+            <i data-lucide="folder" class="w-10 h-10"></i>
+          </div>
+          
+          <h2 class="text-base font-bold text-gray-900">Create outfit videos with viral potential</h2>
+
+          <button onclick="switchMainNav('generate')" class="px-6 py-3 bg-brand text-white text-xs font-bold rounded-full hover:bg-brand-dark transition shadow-md">
+            Create Your First Video
+          </button>
+        </div>
+
+        <!-- UPLOADS SUB-VIEW (GRID ASSETS VIEW) -->
+        <div id="assets-uploads-content" class="hidden">
+          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 max-w-5xl">
+            <!-- Asset Card 1 -->
+            <div class="aspect-[3/4] rounded-2xl overflow-hidden border border-gray-200 bg-gray-100 shadow-sm relative group cursor-pointer">
+              <img src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=500&auto=format&fit=crop&q=80" class="w-full h-full object-cover">
+              <div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-end p-3">
+                <span class="text-white text-[11px] font-medium">Model Preset #1</span>
+              </div>
+            </div>
+
+            <!-- Asset Card 2 -->
+            <div class="aspect-[3/4] rounded-2xl overflow-hidden border border-gray-200 bg-gray-100 shadow-sm relative group cursor-pointer">
+              <img src="https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=500&auto=format&fit=crop&q=80" class="w-full h-full object-cover">
+              <div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-end p-3">
+                <span class="text-white text-[11px] font-medium">Model View Sheet</span>
+              </div>
+            </div>
+
+            <!-- Asset Card 3 -->
+            <div class="aspect-[3/4] rounded-2xl overflow-hidden border border-gray-200 bg-gray-100 shadow-sm relative group cursor-pointer">
+              <img src="https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=500&auto=format&fit=crop&q=80" class="w-full h-full object-cover">
+              <div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-end p-3">
+                <span class="text-white text-[11px] font-medium">Full Body Pose</span>
+              </div>
+            </div>
+
+            <!-- Asset Card 4 -->
+            <div class="aspect-[3/4] rounded-2xl overflow-hidden border border-gray-200 bg-gray-100 shadow-sm relative group cursor-pointer">
+              <img src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=500&auto=format&fit=crop&q=80" class="w-full h-full object-cover">
+              <div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-end p-3">
+                <span class="text-white text-[11px] font-medium">Leopard Outfit</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ================================================================= -->
+      <!-- VIEW 3: GENERIC VIEW PLACEHOLDER FOR OTHER TABS -->
+      <!-- ================================================================= -->
+      <div id="view-placeholder" class="hidden flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4 fade-in">
+        <div class="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center text-gray-400">
+          <i id="placeholder-icon" data-lucide="layers" class="w-8 h-8"></i>
+        </div>
+        <h2 id="placeholder-title" class="text-lg font-bold text-gray-800">Library Page</h2>
+        <p class="text-xs text-gray-400 max-w-sm">Manage your collections, templates, and customized assets here in Dennis Studio.</p>
+        <button onclick="switchMainNav('generate')" class="px-5 py-2 bg-brand text-white text-xs font-bold rounded-full hover:bg-brand-dark transition shadow-sm">
+          Return to Generator
+        </button>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- JAVASCRIPT LOGIC -->
+  <script>
+    let currentStep = 1;
+    let currentMainNav = 'generate';
+    let currentAssetsTab = 'creations';
+
+    const presetVideos = [
+      { id: 1, img: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400&auto=format&fit=crop&q=80", tag: "FREE TRIAL", outfit: "1 Outfit" },
+      { id: 2, img: "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=400&auto=format&fit=crop&q=80", tag: "FREE TRIAL", outfit: "1 Outfit" },
+      { id: 3, img: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&auto=format&fit=crop&q=80", tag: "FREE TRIAL", outfit: "1 Outfit" },
+      { id: 4, img: "https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?w=400&auto=format&fit=crop&q=80", tag: "FREE TRIAL", outfit: "1 Outfit", active: true, duration: "7s" },
+      { id: 5, img: "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?w=400&auto=format&fit=crop&q=80", tag: "FREE TRIAL", outfit: "1 Outfit" },
+      { id: 6, img: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&auto=format&fit=crop&q=80", tag: "DETAIL FOCUS", outfit: "2 Outfits" },
+      { id: 7, img: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80", tag: "DETAIL FOCUS", outfit: "4 Outfits" },
+      { id: 8, img: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80", tag: "DETAIL FOCUS", outfit: "2 Outfits" },
+      { id: 9, img: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80", tag: "FREE TRIAL", outfit: "5 Outfits" },
+      { id: 10, img: "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=400&auto=format&fit=crop&q=80", tag: "FREE TRIAL", outfit: "1 Outfit" },
+      { id: 11, img: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=400&auto=format&fit=crop&q=80", tag: "FREE TRIAL", outfit: "1 Outfit" },
+      { id: 12, img: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&auto=format&fit=crop&q=80", tag: "FREE TRIAL", outfit: "1 Outfit" }
+    ];
+
+    const presetModels = [
+      { id: 1, img: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&auto=format&fit=crop&q=80" },
+      { id: 2, img: "https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?w=400&auto=format&fit=crop&q=80" },
+      { id: 3, img: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400&auto=format&fit=crop&q=80" },
+      { id: 4, img: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&auto=format&fit=crop&q=80" },
+      { id: 5, img: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&auto=format&fit=crop&q=80" },
+      { id: 6, img: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&auto=format&fit=crop&q=80" },
+      { id: 7, img: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400&auto=format&fit=crop&q=80" },
+      { id: 8, img: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400&auto=format&fit=crop&q=80" },
+      { id: 9, img: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=400&auto=format&fit=crop&q=80" },
+      { id: 10, img: "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=400&auto=format&fit=crop&q=80" },
+      { id: 11, img: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&auto=format&fit=crop&q=80" },
+      { id: 12, img: "https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=400&auto=format&fit=crop&q=80" }
+    ];
+
+    let selectedVideoId = 4;
+    let selectedModelId = 1;
+
+    window.onload = function() {
+      lucide.createIcons();
+      renderVideoGrid();
+      renderModelGrid();
+      updateStepUI();
+    };
+
+    // Sidebar Main View Switcher
+    function switchMainNav(nav) {
+      currentMainNav = nav;
+
+      const navKeys = ['generate', 'assets', 'library', 'playlists', 'preset-video', 'history'];
+      navKeys.forEach(k => {
+        const btn = document.getElementById(`nav-btn-${k}`);
+        if (btn) {
+          if (k === nav) {
+            btn.className = "w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium rounded-xl bg-pink-50 text-brand transition";
+          } else {
+            btn.className = "w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-gray-600 rounded-xl hover:bg-gray-50 hover:text-black transition";
+          }
+        }
+      });
+
+      // View visibility toggling
+      document.getElementById('view-generate').classList.add('hidden');
+      document.getElementById('view-assets').classList.add('hidden');
+      document.getElementById('view-placeholder').classList.add('hidden');
+
+      if (nav === 'generate') {
+        document.getElementById('view-generate').classList.remove('hidden');
+      } else if (nav === 'assets') {
+        document.getElementById('view-assets').classList.remove('hidden');
+      } else {
+        const placeholderView = document.getElementById('view-placeholder');
+        const title = document.getElementById('placeholder-title');
+        placeholderView.classList.remove('hidden');
+        title.innerText = nav.replace('-', ' ').toUpperCase() + " PAGE";
+      }
+    }
+
+    // Assets View Sub-tab Switcher (Creations vs Uploads)
+    function switchAssetsTab(tab) {
+      currentAssetsTab = tab;
+      const tabCreations = document.getElementById('assets-tab-creations');
+      const tabUploads = document.getElementById('assets-tab-uploads');
+      const contentCreations = document.getElementById('assets-creations-content');
+      const contentUploads = document.getElementById('assets-uploads-content');
+
+      if (tab === 'creations') {
+        tabCreations.className = "px-4 py-1.5 rounded-full badge-pink font-semibold transition";
+        tabUploads.className = "px-4 py-1.5 rounded-full text-gray-700 hover:bg-gray-100 transition";
+        contentCreations.classList.remove('hidden');
+        contentUploads.classList.add('hidden');
+      } else {
+        tabUploads.className = "px-4 py-1.5 rounded-full badge-pink font-semibold transition";
+        tabCreations.className = "px-4 py-1.5 rounded-full text-gray-700 hover:bg-gray-100 transition";
+        contentUploads.classList.remove('hidden');
+        contentCreations.classList.add('hidden');
+      }
+    }
+
+    // Filter Sub-Tags inside Assets
+    function filterAssetsTag(tag) {
+      const tags = ['all', 'models', 'clothes', 'videos', 'scene'];
+      tags.forEach(t => {
+        const btn = document.getElementById(`asset-tag-${t}`);
+        if (t === tag) {
+          btn.className = "text-brand border-b-2 border-brand pb-2 transition";
+        } else {
+          btn.className = "text-gray-500 hover:text-gray-900 pb-2 transition";
+        }
+      });
+    }
+
+    // Render Video Grid Items
+    function renderVideoGrid() {
+      const grid = document.getElementById('video-grid');
+      grid.innerHTML = presetVideos.map(v => `
+        <div onclick="selectVideo(${v.id})" class="relative aspect-[3/4] rounded-2xl overflow-hidden border-2 cursor-pointer transition group shadow-sm ${v.id === selectedVideoId ? 'border-brand ring-2 ring-brand/20' : 'border-transparent hover:border-gray-200'}">
+          <img src="${v.img}" class="w-full h-full object-cover">
+          <div class="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none">
+            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${v.tag === 'FREE TRIAL' ? 'bg-orange-500 text-white' : 'bg-brand text-white'}">
+              ${v.tag}
+            </span>
+            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold bg-black/50 text-white backdrop-blur-sm">
+              ${v.outfit}
+            </span>
+          </div>
+
+          ${v.duration ? `
+            <div class="absolute top-8 left-2 flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-black/60 text-white">
+              <i data-lucide="volume-2" class="w-2.5 h-2.5"></i>
+              <span>${v.duration}</span>
+            </div>
+          ` : ''}
+
+          <div class="absolute bottom-2 right-2 w-5 h-5 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+            <i data-lucide="maximize-2" class="w-2.5 h-2.5"></i>
+          </div>
+        </div>
+      `).join('');
+      lucide.createIcons();
+    }
+
+    // Render Model Grid Items
+    function renderModelGrid() {
+      const grid = document.getElementById('model-grid');
+      grid.innerHTML = presetModels.map(m => `
+        <div onclick="selectModel(${m.id})" class="relative aspect-[3/4] rounded-2xl overflow-hidden border-2 cursor-pointer transition group shadow-sm ${m.id === selectedModelId ? 'border-brand ring-2 ring-brand/20' : 'border-transparent hover:border-gray-200'}">
+          <img src="${m.img}" class="w-full h-full object-cover">
+          <div class="absolute bottom-2 right-2 w-5 h-5 rounded-full bg-black/40 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+            <i data-lucide="maximize-2" class="w-2.5 h-2.5"></i>
+          </div>
+        </div>
+      `).join('');
+      lucide.createIcons();
+    }
+
+    // Step Navigation
+    function goToStep(step) {
+      currentStep = step;
+      updateStepUI();
+    }
+
+    function nextStep() {
+      if (currentStep < 4) {
+        currentStep++;
+        updateStepUI();
+      }
+    }
+
+    function prevStep() {
+      if (currentStep > 1) {
+        currentStep--;
+        updateStepUI();
+      }
+    }
+
+    function updateStepUI() {
+      for (let i = 1; i <= 4; i++) {
+        document.getElementById(`step-${i}-content`).classList.add('hidden');
+        const btn = document.getElementById(`step-btn-${i}`);
+        const numSpan = btn.querySelector('.step-num');
+
+        if (i === currentStep) {
+          btn.className = "flex items-center gap-2 px-3.5 py-1.5 rounded-full transition text-xs font-medium active-step-badge";
+          numSpan.className = "step-num w-4 h-4 rounded-full flex items-center justify-center text-[10px] bg-brand text-white";
+        } else if (i < currentStep) {
+          btn.className = "flex items-center gap-2 px-3.5 py-1.5 rounded-full text-emerald-600 font-medium transition text-xs";
+          numSpan.className = "step-num w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px]";
+          numSpan.innerHTML = "✓";
+        } else {
+          btn.className = "flex items-center gap-2 px-3.5 py-1.5 rounded-full text-gray-500 hover:text-gray-800 transition text-xs font-medium";
+          numSpan.className = "step-num w-4 h-4 rounded-full bg-gray-100 text-gray-500 flex items-center justify-center text-[10px]";
+          numSpan.innerHTML = i;
+        }
+      }
+
+      document.getElementById(`step-${currentStep}-content`).classList.remove('hidden');
+
+      const prevBtn = document.getElementById('prev-btn');
+      const nextBtn = document.getElementById('next-btn');
+      const generateBtn = document.getElementById('generate-btn');
+
+      if (currentStep === 1) {
+        prevBtn.disabled = true;
+        prevBtn.classList.add('opacity-50', 'cursor-not-allowed');
+      } else {
+        prevBtn.disabled = false;
+        prevBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+
+      if (currentStep === 4) {
+        nextBtn.classList.add('hidden');
+        generateBtn.classList.remove('hidden');
+      } else {
+        nextBtn.classList.remove('hidden');
+        generateBtn.classList.add('hidden');
+      }
+    }
+
+    function switchStep1Tab(tab) {
+      const presetView = document.getElementById('step1-preset-view');
+      const uploadView = document.getElementById('step1-upload-view');
+      const tabPreset = document.getElementById('tab-preset-video');
+      const tabUpload = document.getElementById('tab-upload-video');
+
+      if (tab === 'preset') {
+        presetView.classList.remove('hidden');
+        uploadView.classList.add('hidden');
+        tabPreset.className = "pb-3 border-b-2 border-brand text-brand font-semibold transition";
+        tabUpload.className = "pb-3 border-b-2 border-transparent text-gray-500 hover:text-gray-800 transition";
+      } else {
+        presetView.classList.add('hidden');
+        uploadView.classList.remove('hidden');
+        tabUpload.className = "pb-3 border-b-2 border-brand text-brand font-semibold transition";
+        tabPreset.className = "pb-3 border-b-2 border-transparent text-gray-500 hover:text-gray-800 transition";
+      }
+    }
+
+    function switchStep2Tab(tab) {
+      const presetView = document.getElementById('step2-preset-view');
+      const aiView = document.getElementById('step2-ai-view');
+      const uploadView = document.getElementById('step2-upload-view');
+
+      const tabPreset = document.getElementById('tab-model-preset');
+      const tabAi = document.getElementById('tab-model-ai');
+      const tabUpload = document.getElementById('tab-model-upload');
+
+      presetView.classList.add('hidden');
+      aiView.classList.add('hidden');
+      uploadView.classList.add('hidden');
+
+      tabPreset.className = "pb-3 border-b-2 border-transparent text-gray-500 hover:text-gray-800 transition";
+      tabAi.className = "pb-3 border-b-2 border-transparent text-gray-500 hover:text-gray-800 transition";
+      tabUpload.className = "pb-3 border-b-2 border-transparent text-gray-500 hover:text-gray-800 transition";
+
+      if (tab === 'preset') {
+        presetView.classList.remove('hidden');
+        tabPreset.className = "pb-3 border-b-2 border-brand text-brand font-semibold transition";
+      } else if (tab === 'ai') {
+        aiView.classList.remove('hidden');
+        tabAi.className = "pb-3 border-b-2 border-brand text-brand font-semibold transition";
+      } else {
+        uploadView.classList.remove('hidden');
+        tabUpload.className = "pb-3 border-b-2 border-brand text-brand font-semibold transition";
+      }
+    }
+
+    function selectVideo(id) {
+      selectedVideoId = id;
+      renderVideoGrid();
+    }
+
+    function selectModel(id) {
+      selectedModelId = id;
+      renderModelGrid();
+    }
+
+    function removeClothingItem() {
+      const slot = document.getElementById('clothing-slot-1');
+      slot.innerHTML = `<span class="text-xs text-gray-400 font-medium">No Item</span>`;
+    }
+
+    function setResolution(res) {
+      ['480P', '720P', '1080P'].forEach(r => {
+        const btn = document.getElementById(`res-${r}`);
+        if (r === res) {
+          btn.className = "px-5 py-2 rounded-xl text-xs font-bold border border-brand bg-pink-50 text-brand transition";
+        } else {
+          btn.className = "px-5 py-2 rounded-xl text-xs font-bold border border-gray-200 text-gray-700 hover:bg-gray-50 transition";
+        }
+      });
+    }
+
+    function selectEngine(id) {
+      [1, 2, 3].forEach(i => {
+        const engine = document.getElementById(`model-engine-${i}`);
+        if (i === id) {
+          engine.className = "border-2 border-brand bg-pink-50/20 rounded-2xl p-4 cursor-pointer relative space-y-2";
+        } else {
+          engine.className = "border border-gray-200 hover:border-gray-300 rounded-2xl p-4 cursor-pointer relative space-y-2";
+        }
+      });
+    }
+
+    function triggerGeneration() {
+      alert("Starting video generation process on Dennis Studio! Credits required: 100.");
+    }
+  </script>
+</body>
+</html>

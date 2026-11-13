@@ -44,3 +44,10 @@ Thumbs.db
 # Electron desktop build
 node_modules/
 dist/
+
+# Large binaries - not for git (GitHub 100MB limit)
+Web Apps/
+*.dmg
+
+# OpenMontage workspace - not part of the OS repo
+OpenMontage-Workspace/

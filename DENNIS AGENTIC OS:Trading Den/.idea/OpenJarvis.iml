@@ -2,7 +2,7 @@
 <module external.system.id="pyproject.toml" type="PYTHON_MODULE" version="4">
   <component name="NewModuleRootManager">
     <content url="file://$MODULE_DIR$/../DENNIS AGENTIC OS_Trading Den/OpenJarvis">
-      <sourceFolder url="file://$MODULE_DIR$/../DENNIS AGENTIC OS_Trading Den/OpenJarvis/src" />
+      <sourceFolder url="file://$MODULE_DIR$/../DENNIS AGENTIC OS_Trading Den/OpenJarvis/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/../DENNIS AGENTIC OS_Trading Den/OpenJarvis/.venv" />
     </content>
     <orderEntry type="sourceFolder" forTests="false" />
