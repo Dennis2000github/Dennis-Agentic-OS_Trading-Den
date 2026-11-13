@@ -1,0 +1,272 @@
+{
+  "step": 12,
+  "status": "PASS",
+  "summary": "Step 12 Arbitrage Tab and Charts Verification",
+  "timestamp": "2026-10-07T05:18:16.273050+00:00",
+  "checks": [
+    {
+      "name": "Project Isolation",
+      "passed": true,
+      "blocked": false,
+      "expected": "Clone isolation intact and source read-only",
+      "actual": "Clone isolation verified. Original project is read-only and clean.",
+      "technical_basis": "Isolation audit rule 5 & 16."
+    },
+    {
+      "name": "Strategy Mode Architecture & Live State",
+      "passed": true,
+      "blocked": false,
+      "expected": "LiveStateManager persists and broadcasts strategy_mode, spread_decisions, and funding_decisions",
+      "actual": "spread_mode=SPREAD, fund_mode=FUNDING, snapshot_mode=FUNDING",
+      "technical_basis": "Step 12 requirement: Unified strategy mode switcher and state synchronization."
+    },
+    {
+      "name": "Reference/Priced Pricing Invariant",
+      "passed": true,
+      "blocked": false,
+      "expected": "Spread % = ((Priced - Reference) / Reference) * 100",
+      "actual": "actual=0.1583%, inverted=-0.1747%",
+      "technical_basis": "Step 12 invariant: Spread calculation strictly evaluates Priced against Reference."
+    },
+    {
+      "name": "Execution Roles Decoupling",
+      "passed": true,
+      "blocked": false,
+      "expected": "Maker (First Leg) and Hedge (Second Leg) dynamically assigned from opportunity economics",
+      "actual": "first_leg(Maker)=BINANCE, second_leg(Hedge)=BYBIT",
+      "technical_basis": "Step 12 invariant: Decouple execution roles from Reference and Priced venues."
+    },
+    {
+      "name": "Strategy Settings Dynamic Mode Support",
+      "passed": true,
+      "blocked": false,
+      "expected": "Dynamic support for Spread Arbitrage and Funding Arbitrage modes and parameters",
+      "actual": "spread_type=SPREAD_ARBITRAGE, fund_type=FUNDING_ARBITRAGE, fund_exit=FUNDING_SETTLEMENT",
+      "technical_basis": "Step 12 requirement: Strategy Settings dynamically support both strategies."
+    },
+    {
+      "name": "Server REST API Endpoints",
+      "passed": true,
+      "blocked": false,
+      "expected": "Endpoints /api/arbitrage/strategy-mode, /api/arbitrage/spread-decision, /api/arbitrage/funding-decision operational",
+      "actual": "mode_resp=SPREAD, spread_type=SPREAD_ARBITRAGE, fund_type=FUNDING_ARBITRAGE",
+      "technical_basis": "Step 12 requirement: Dedicated REST endpoints for UI and state interaction."
+    },
+    {
+      "name": "Frontend UI Integration",
+      "passed": true,
+      "blocked": false,
+      "expected": "index.html contains mode toggle, dynamic funding detail cards, and decoupled leg table headers",
+      "actual": "ui_elements_present=True",
+      "technical_basis": "Step 12 requirement: Arbitrage tab & UI elements reflect strategy mode and execution roles."
+    },
+    {
+      "name": "Real Market Data Integrity vs STALE/UNAVAILABLE",
+      "passed": true,
+      "blocked": false,
+      "expected": "Stale market data invalidates decision with is_viable=False and explicit rejection reason",
+      "actual": "viable=False, rejection=Stale market data detected (age: BINANCE=100.0s, BYBIT=0.0s)",
+      "technical_basis": "Step 12 invariant: Never fabricate mock data; invalidate on stale quotes."
+    },
+    {
+      "name": "Zero Live Trading Invariant",
+      "passed": true,
+      "blocked": false,
+      "expected": "No real order placement invocations in server or calculator",
+      "actual": "prohibited_calls=[]",
+      "technical_basis": "Safety invariant: Zero live trading during modular verification."
+    },
+    {
+      "name": "Deterministic Step 12 Test Suite",
+      "passed": true,
+      "blocked": false,
+      "expected": "Exit code 0 from tests/test_step12_arbitrage_tab_charts.py",
+      "actual": "Exit code 0.\n\n.......\n----------------------------------------------------------------------\nRan 7 tests in 0.024s\n\nOK",
+      "technical_basis": "Step 12 unit tests pass deterministically."
+    }
+  ],
+  "evidence": {
+    "spread_decision": {
+      "symbol": "BTC/USDT",
+      "strategy_type": "SPREAD_ARBITRAGE",
+      "candidate_id": "A",
+      "first_leg_venue": "BINANCE",
+      "second_leg_venue": "BYBIT",
+      "maker_venue": "BINANCE",
+      "hedge_venue": "BYBIT",
+      "maker_side": "BUY",
+      "hedge_side": "SELL",
+      "net_spread_pct": -0.0417,
+      "raw_spread_pct": 0.1583,
+      "is_viable": false,
+      "rejection_reason": "Net spread (-0.0417%) is below minimum threshold (0.0500%)",
+      "pricing": null,
+      "risk_metrics": {
+        "min_profit_threshold_pct": 0.05,
+        "max_slippage_pct": 0.2,
+        "max_position_size": 10.0,
+        "actual_net_spread_pct": -0.0417,
+        "actual_slippage_pct": 0.0,
+        "available_liquidity": 5.0
+      },
+      "exit_conditions": {
+        "exit_type": "SPREAD_CONVERGENCE",
+        "convergence_target_pct": 0.0,
+        "stop_loss_pct": null
+      },
+      "timestamp": 1791350299.546435,
+      "reference_venue": "",
+      "priced_venue": "",
+      "selected_opportunity": {
+        "candidate_id": "A",
+        "symbol": "BTC/USDT",
+        "maker_venue": "BINANCE",
+        "maker_price": 60005.0,
+        "maker_side": "BUY",
+        "maker_size": 5.0,
+        "hedge_venue": "BYBIT",
+        "hedge_price": 60100.0,
+        "hedge_side": "SELL",
+        "hedge_size": 5.0,
+        "direction": "BUY_A_SELL_B",
+        "raw_spread_pct": 0.1583,
+        "raw_spread_usd": 95.0,
+        "gross_spread_pct": 0.1583,
+        "net_spread_pct": -0.0417,
+        "net_spread_usd": -25.0221,
+        "maker_fee_rate": 0.001,
+        "taker_fee_rate": 0.001,
+        "total_fee_rate": 0.002,
+        "total_fee_pct": 0.2,
+        "slippage_pct": 0.0,
+        "other_costs_pct": 0.0,
+        "liquidity_size": 5.0,
+        "liquidity_usd": 300025.0,
+        "is_profitable": false,
+        "calculation_components": {
+          "candidate_id": "A",
+          "direction": "BUY_A_SELL_B",
+          "maker_venue": "BINANCE",
+          "maker_price": 60005.0,
+          "maker_side": "BUY",
+          "hedge_venue": "BYBIT",
+          "hedge_price": 60100.0,
+          "hedge_side": "SELL",
+          "raw_spread_pct": 0.1583,
+          "gross_spread_pct": 0.1583,
+          "maker_fee_rate": 0.001,
+          "maker_fee_pct": 0.1,
+          "taker_fee_rate": 0.001,
+          "taker_fee_pct": 0.1,
+          "total_fee_rate": 0.002,
+          "total_fee_pct": 0.2,
+          "slippage_pct": 0.0,
+          "other_costs_pct": 0.0,
+          "total_deductions_pct": 0.2,
+          "net_spread_pct": -0.0417,
+          "net_spread_usd": -25.0221,
+          "min_profit_threshold_pct": 0.05,
+          "is_profitable": false,
+          "executable_liquidity_size": 5.0,
+          "executable_liquidity_usd": 300025.0
+        },
+        "timestamps": {
+          "maker": 1791350299.545677,
+          "hedge": 1791350299.545677,
+          "evaluated": 1791350299.5459049
+        },
+        "validity": true,
+        "error_reason": null,
+        "reference_venue": "",
+        "priced_venue": ""
+      }
+    },
+    "funding_decision": {
+      "symbol": "BTC/USDT",
+      "strategy_type": "FUNDING_ARBITRAGE",
+      "first_leg_venue": "BYBIT",
+      "second_leg_venue": "BINANCE",
+      "maker_venue": "BYBIT",
+      "hedge_venue": "BINANCE",
+      "maker_side": "BUY",
+      "hedge_side": "SELL",
+      "net_funding_rate": 0.0006,
+      "net_funding_annual_pct": 65.7,
+      "is_viable": true,
+      "rejection_reason": null,
+      "pricing": {
+        "pricing_mode": "GRID",
+        "base_maker_price": 60100.0,
+        "maker_side": "BUY",
+        "order_quantity": 1.0,
+        "grid_levels": [
+          {
+            "level": 0,
+            "price": 60100.0,
+            "quantity": 0.333333,
+            "side": "BUY"
+          },
+          {
+            "level": 1,
+            "price": 60009.85,
+            "quantity": 0.333333,
+            "side": "BUY"
+          },
+          {
+            "level": 2,
+            "price": 59919.7,
+            "quantity": 0.333333,
+            "side": "BUY"
+          }
+        ],
+        "bollinger_bands": null,
+        "exit_target_price": 0.0,
+        "stop_loss_price": null,
+        "target_hedge_price": 60005.0
+      },
+      "risk_metrics": {
+        "net_funding_rate": 0.0006,
+        "net_funding_annual_pct": 65.7,
+        "total_fee_pct": 0.07,
+        "short_venue": "BINANCE",
+        "long_venue": "BYBIT"
+      },
+      "exit_conditions": {
+        "exit_type": "FUNDING_SETTLEMENT",
+        "settlement_target_time": 1791364699.545677,
+        "target_settlement_count": 1,
+        "rate_inversion_stop": true,
+        "max_duration_hours": 24,
+        "use_spread_convergence_exit": false
+      },
+      "timestamp": 1791350299.546744,
+      "reference_venue": "",
+      "priced_venue": "",
+      "selected_opportunity": {
+        "symbol": "BTC/USDT",
+        "short_venue": "BINANCE",
+        "long_venue": "BYBIT",
+        "short_funding_rate": 0.0005,
+        "long_funding_rate": -0.0001,
+        "net_funding_rate": 0.0006,
+        "net_funding_annual_pct": 65.7,
+        "candidate_id": "B",
+        "maker_venue": "BYBIT",
+        "maker_side": "BUY",
+        "hedge_venue": "BINANCE",
+        "hedge_side": "SELL",
+        "total_fee_pct": 0.07,
+        "net_opportunity_pct": 64.86,
+        "next_settlement_time": 1791364699.545677,
+        "validity": true,
+        "error_reason": null,
+        "timestamps": {
+          "evaluated": 1791350299.546551,
+          "funding_a": 1791350299.545677,
+          "funding_b": 1791350299.545677
+        }
+      }
+    },
+    "unit_test_output": ".......\n----------------------------------------------------------------------\nRan 7 tests in 0.024s\n\nOK\n"
+  }
+}

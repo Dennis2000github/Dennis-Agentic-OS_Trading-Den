@@ -1,0 +1,39 @@
+{
+  "name": "composio",
+  "title": "Composio — 1,600+ app toolkits for agents",
+  "version": "1.0.0",
+  "description": "Connect agents to Gmail, Slack, GitHub, Notion, Linear and 1,600+ other apps through one MCP endpoint or SDK session.",
+  "author": "Composio",
+  "repository": "https://github.com/ComposioHQ/composio",
+  "homepage": "https://composio.dev",
+  "license": "MIT",
+  "skills": [
+    "skills/composio"
+  ],
+  "mcp": [
+    "mcp/composio.mcp.json"
+  ],
+  "compatibility": {
+    "agents": [
+      "generic",
+      "claude-code",
+      "cursor",
+      "codex",
+      "gemini-cli",
+      "opencode",
+      "hermes"
+    ]
+  },
+  "x-dennis": {
+    "tier": "public",
+    "source_repo": "https://github.com/ComposioHQ/composio",
+    "mcp_url": "https://connect.composio.dev/mcp",
+    "api_base": "https://backend.composio.dev/api/v3.1",
+    "auth": {
+      "consumer_key_env": "COMPOSIO_CONSUMER_KEY",
+      "api_key_env": "COMPOSIO_API_KEY",
+      "consumer_header": "x-consumer-api-key"
+    },
+    "generated_at": "2026-10-28"
+  }
+}

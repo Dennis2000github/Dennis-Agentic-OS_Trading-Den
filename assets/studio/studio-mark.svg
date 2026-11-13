@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" role="img" aria-label="Studio">
+  <title>Studio</title>
+  <!-- Monochrome mark: folded page + glass lens. Opaque shapes with a punched
+       halo so it can be used as a CSS mask and tinted with currentColor at
+       14-16px. -->
+  <defs>
+    <mask id="lens-halo" maskUnits="userSpaceOnUse" x="0" y="0" width="24" height="24">
+      <rect width="24" height="24" fill="#fff"/>
+      <circle cx="13.6" cy="14.9" r="5.05" fill="#000"/>
+    </mask>
+  </defs>
+
+  <g mask="url(#lens-halo)">
+    <!-- page -->
+    <path d="M7 2.4h6.9a2 2 0 0 1 1.42.59l3.64 3.64a2 2 0 0 1 .59 1.42v11.35a2.4 2.4 0 0 1-2.4 2.4H7a2.4 2.4 0 0 1-2.4-2.4V4.8A2.4 2.4 0 0 1 7 2.4Z"
+          fill="none" stroke="#000" stroke-width="1.6" stroke-linejoin="round"/>
+    <!-- folded corner -->
+    <path d="M13.9 2.75v3.5a1.4 1.4 0 0 0 1.4 1.4h3.6"
+          fill="none" stroke="#000" stroke-width="1.45" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- lens -->
+  <circle cx="13.6" cy="14.9" r="3.9" fill="none" stroke="#000" stroke-width="1.75"/>
+</svg>

@@ -1,0 +1,289 @@
+{
+  "step": 13,
+  "status": "PASS",
+  "summary": "Step 13 Screener Bot Manager Execution Verification",
+  "timestamp": "2026-10-07T05:32:02.651508+00:00",
+  "checks": [
+    {
+      "name": "Project Isolation",
+      "passed": true,
+      "blocked": false,
+      "expected": "Clone isolation intact and source read-only",
+      "actual": "Clone isolation verified. Original project is read-only and clean.",
+      "technical_basis": "Isolation audit rule 5 & 16."
+    },
+    {
+      "name": "Module Import",
+      "passed": true,
+      "blocked": false,
+      "expected": "Step 13 Bot Manager and Execution modules importable",
+      "actual": "BotManager, ExecutionEngine, PreSubmissionValidator imported successfully",
+      "technical_basis": "Step 13 architecture: Screener \u2192 Bot Manager \u2192 Execution pipeline."
+    },
+    {
+      "name": "Strategy Selection Rules",
+      "passed": true,
+      "blocked": false,
+      "expected": "Spread = Highest Net Spread %; Funding = Highest Funding %",
+      "actual": "spread_state=RECONCILED, funding_state=RECONCILED",
+      "technical_basis": "Step 13 rule: Strategy selection maps to highest net spread or funding opportunity."
+    },
+    {
+      "name": "Execution Roles Decoupling",
+      "passed": true,
+      "blocked": false,
+      "expected": "Maker (First Leg) and Hedge (Second Leg) dynamically assigned without Reference/Priced bias",
+      "actual": "spread_maker=BINANCE, spread_hedge=BYBIT, fund_maker=BYBIT, fund_hedge=BINANCE",
+      "technical_basis": "Step 13 invariant: Never derive execution roles from Reference/Priced."
+    },
+    {
+      "name": "Pre-Submission Revalidation Engine (All 10 Checks)",
+      "passed": true,
+      "blocked": false,
+      "expected": "Revalidates bid/ask, liquidity, funding, fees, slippage, timestamp, freshness, opportunity, direction, position state",
+      "actual": "is_valid=True, passed_checks=10/10, failed=[]",
+      "technical_basis": "Step 13 requirement: Mandatory 10-point pre-submission revalidation before every order dispatch."
+    },
+    {
+      "name": "Real Market Data Integrity vs STALE / CROSSED Invalidation",
+      "passed": true,
+      "blocked": false,
+      "expected": "Invalidates order submission on stale quote age or crossed book, without fabricated prices",
+      "actual": "stale_valid=False (failed: ['freshness']), crossed_valid=False (failed: ['bid/ask'])",
+      "technical_basis": "Step 13 invariant: Execution must use latest valid real market state with zero mock data."
+    },
+    {
+      "name": "Execution Engine & Position Reconciliation",
+      "passed": true,
+      "blocked": false,
+      "expected": "Detects balanced fills and flags mismatched leg quantities to prevent unhedged exposure",
+      "actual": "balanced=True (BALANCED), mismatched_detected=True (MISMATCHED)",
+      "technical_basis": "Step 13 requirement: Coordinated Maker/Hedge execution management and reconciliation."
+    },
+    {
+      "name": "Bot Manager Lifecycle Controls",
+      "passed": true,
+      "blocked": false,
+      "expected": "Supports create, start, pause, stop, and list bot lifecycle operations",
+      "actual": "lifecycle_verified=True",
+      "technical_basis": "Step 13 requirement: Bot Manager coordinates bot controls."
+    },
+    {
+      "name": "Zero Live Trading Invariant",
+      "passed": true,
+      "blocked": false,
+      "expected": "No real exchange order submission invocations in bot_manager.py",
+      "actual": "prohibited_calls=[]",
+      "technical_basis": "Safety invariant: Zero live trading during modular verification."
+    },
+    {
+      "name": "Deterministic Step 13 Test Suite",
+      "passed": true,
+      "blocked": false,
+      "expected": "Exit code 0 from tests/test_step13_screener_bot_execution.py",
+      "actual": "Exit code 0.\n\n........\n----------------------------------------------------------------------\nRan 8 tests in 0.021s\n\nOK",
+      "technical_basis": "Step 13 unit tests pass deterministically."
+    }
+  ],
+  "evidence": {
+    "spread_cycle": {
+      "cycle_id": "exec_1791351125559_ef3f74",
+      "bot_id": "bot_verify_s",
+      "strategy_type": "SPREAD_ARBITRAGE",
+      "symbol": "BTC/USDT",
+      "maker_venue": "BINANCE",
+      "hedge_venue": "BYBIT",
+      "maker_side": "BUY",
+      "hedge_side": "SELL",
+      "target_quantity": 1.0,
+      "maker_price": 60010.0,
+      "hedge_price": 60200.0,
+      "maker_filled_qty": 1.0,
+      "hedge_filled_qty": 1.0,
+      "cycle_state": "RECONCILED",
+      "reconciliation_status": "BALANCED",
+      "pre_submission_validation": {
+        "is_valid": true,
+        "failed_checks": [],
+        "checks_detail": {
+          "bid_ask": {
+            "passed": true,
+            "maker_bid": 60000.0,
+            "maker_ask": 60010.0,
+            "hedge_bid": 60200.0,
+            "hedge_ask": 60210.0
+          },
+          "order_book_liquidity": {
+            "passed": true,
+            "maker_liquidity": 5.0,
+            "hedge_liquidity": 5.0,
+            "requested_quantity": 1.0
+          },
+          "funding": {
+            "passed": true
+          },
+          "fees": {
+            "passed": true,
+            "risk_metrics": {
+              "min_profit_threshold_pct": 0.05,
+              "max_slippage_pct": 0.2,
+              "max_position_size": 10.0,
+              "actual_net_spread_pct": 0.1166,
+              "actual_slippage_pct": 0.0,
+              "available_liquidity": 5.0
+            }
+          },
+          "slippage": {
+            "passed": true,
+            "actual_slippage_pct": 0.0,
+            "max_slippage_pct": 0.2
+          },
+          "timestamp": {
+            "passed": true,
+            "maker_timestamp": 1791351125.55937,
+            "hedge_timestamp": 1791351125.55937,
+            "evaluated_at": 1791351125.55937
+          },
+          "freshness": {
+            "passed": true,
+            "age_maker_seconds": 0.0,
+            "age_hedge_seconds": 0.0,
+            "threshold_seconds": 10.0
+          },
+          "opportunity_validity": {
+            "passed": true,
+            "is_viable": true,
+            "decision_rejection": null
+          },
+          "execution_direction": {
+            "passed": true,
+            "first_leg_venue": "BINANCE",
+            "second_leg_venue": "BYBIT"
+          },
+          "position_state": {
+            "passed": true,
+            "current_position_size": 0.0,
+            "order_quantity": 1.0,
+            "max_position_size": 10.0
+          }
+        },
+        "rejection_reason": null,
+        "timestamp": 1791351125.55937,
+        "market_state_snapshot": {
+          "maker_venue": "BINANCE",
+          "hedge_venue": "BYBIT",
+          "maker_best_bid": 60000.0,
+          "maker_best_ask": 60010.0,
+          "hedge_best_bid": 60200.0,
+          "hedge_best_ask": 60210.0,
+          "evaluated_at": 1791351125.55937
+        }
+      },
+      "created_at": 1791351125.55937,
+      "updated_at": 1791351125.560369,
+      "pnl_usd": 190.0,
+      "error_message": null
+    },
+    "funding_cycle": {
+      "cycle_id": "exec_1791351125559_e94afc",
+      "bot_id": "bot_verify_f",
+      "strategy_type": "FUNDING_ARBITRAGE",
+      "symbol": "BTC/USDT",
+      "maker_venue": "BYBIT",
+      "hedge_venue": "BINANCE",
+      "maker_side": "BUY",
+      "hedge_side": "SELL",
+      "target_quantity": 1.0,
+      "maker_price": 60200.0,
+      "hedge_price": 60010.0,
+      "maker_filled_qty": 1.0,
+      "hedge_filled_qty": 1.0,
+      "cycle_state": "RECONCILED",
+      "reconciliation_status": "BALANCED",
+      "pre_submission_validation": {
+        "is_valid": true,
+        "failed_checks": [],
+        "checks_detail": {
+          "bid_ask": {
+            "passed": true,
+            "maker_bid": 60200.0,
+            "maker_ask": 60210.0,
+            "hedge_bid": 60000.0,
+            "hedge_ask": 60010.0
+          },
+          "order_book_liquidity": {
+            "passed": true,
+            "maker_liquidity": 5.0,
+            "hedge_liquidity": 5.0,
+            "requested_quantity": 1.0
+          },
+          "funding": {
+            "passed": true,
+            "maker_rate": 0.0001,
+            "hedge_rate": 0.0004,
+            "net_rate": 0.0003
+          },
+          "fees": {
+            "passed": true,
+            "risk_metrics": {
+              "net_funding_rate": 0.0003,
+              "net_funding_annual_pct": 32.85,
+              "total_fee_pct": 0.07,
+              "short_venue": "BINANCE",
+              "long_venue": "BYBIT"
+            }
+          },
+          "slippage": {
+            "passed": true,
+            "actual_slippage_pct": 0.0,
+            "max_slippage_pct": 0.2
+          },
+          "timestamp": {
+            "passed": true,
+            "maker_timestamp": 1791351125.55937,
+            "hedge_timestamp": 1791351125.55937,
+            "evaluated_at": 1791351125.55937
+          },
+          "freshness": {
+            "passed": true,
+            "age_maker_seconds": 0.0,
+            "age_hedge_seconds": 0.0,
+            "threshold_seconds": 10.0
+          },
+          "opportunity_validity": {
+            "passed": true,
+            "is_viable": true,
+            "decision_rejection": null
+          },
+          "execution_direction": {
+            "passed": true,
+            "first_leg_venue": "BYBIT",
+            "second_leg_venue": "BINANCE"
+          },
+          "position_state": {
+            "passed": true,
+            "current_position_size": 0.0,
+            "order_quantity": 1.0,
+            "max_position_size": 10.0
+          }
+        },
+        "rejection_reason": null,
+        "timestamp": 1791351125.55937,
+        "market_state_snapshot": {
+          "maker_venue": "BYBIT",
+          "hedge_venue": "BINANCE",
+          "maker_best_bid": 60200.0,
+          "maker_best_ask": 60210.0,
+          "hedge_best_bid": 60000.0,
+          "hedge_best_ask": 60010.0,
+          "evaluated_at": 1791351125.55937
+        }
+      },
+      "created_at": 1791351125.55937,
+      "updated_at": 1791351125.560618,
+      "pnl_usd": -190.0,
+      "error_message": null
+    },
+    "unit_test_output": "........\n----------------------------------------------------------------------\nRan 8 tests in 0.021s\n\nOK\n"
+  }
+}

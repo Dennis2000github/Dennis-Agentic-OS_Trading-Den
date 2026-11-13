@@ -1,0 +1,130 @@
+{
+  "step": 8,
+  "status": "PASS",
+  "summary": "Step 8 Opportunity Engine Verification",
+  "timestamp": "2026-10-06T12:02:29.573814+00:00",
+  "checks": [
+    {
+      "name": "Project Isolation",
+      "passed": true,
+      "blocked": false,
+      "expected": "Clone isolation intact and source read-only",
+      "actual": "Clone isolation verified. Original project is read-only and clean.",
+      "technical_basis": "Isolation audit rule 5 & 16."
+    },
+    {
+      "name": "Module Import",
+      "passed": true,
+      "blocked": false,
+      "expected": "OpportunityEngine and models importable from arbitrage",
+      "actual": "Import successful",
+      "technical_basis": "OpportunityEngine dedicated layer architecture."
+    },
+    {
+      "name": "Both Directional Opportunities Evaluated",
+      "passed": true,
+      "blocked": false,
+      "expected": "OpportunityEngine returns Opportunity A and Opportunity B",
+      "actual": "opp_a present: True, opp_b present: True",
+      "technical_basis": "Step 8 requirement: Return both directional opportunities and calculation components."
+    },
+    {
+      "name": "Raw Spread Separate From Net Spread",
+      "passed": true,
+      "blocked": false,
+      "expected": "Raw spread % is kept distinct from net spread %",
+      "actual": "Raw: 0.3166%, Net: 0.1166%",
+      "technical_basis": "Step 8 requirement: Keep Raw Spread separate from Net Spread."
+    },
+    {
+      "name": "Stale Data Invalidation Invariant",
+      "passed": true,
+      "blocked": false,
+      "expected": "Stale market data invalidates opportunities rather than generating placeholders",
+      "actual": "Opp A validity: False, Opp B validity: False",
+      "technical_basis": "Step 8 requirement: Invalid/stale market data must invalidate the opportunity."
+    },
+    {
+      "name": "Zero Order Placement Invariant",
+      "passed": true,
+      "blocked": false,
+      "expected": "No order placement method invocations in OpportunityEngine",
+      "actual": "Prohibited calls found: []",
+      "technical_basis": "OpportunityEngine is strictly calculation-only."
+    },
+    {
+      "name": "Deterministic Step 8 Test Suite",
+      "passed": true,
+      "blocked": false,
+      "expected": "Exit code 0 from tests/test_step8_opportunity_engine.py",
+      "actual": "Exit code 0.\n\n.............\n----------------------------------------------------------------------\nRan 13 tests in 0.004s\n\nOK",
+      "technical_basis": "Step 8 unit tests pass deterministically."
+    }
+  ],
+  "evidence": {
+    "opportunity_a": {
+      "candidate_id": "A",
+      "symbol": "BTC/USDT",
+      "maker_venue": "BINANCE",
+      "maker_price": 60010.0,
+      "maker_side": "BUY",
+      "maker_size": 2.0,
+      "hedge_venue": "BYBIT",
+      "hedge_price": 60200.0,
+      "hedge_side": "SELL",
+      "hedge_size": 2.0,
+      "direction": "BUY_A_SELL_B",
+      "raw_spread_pct": 0.3166,
+      "raw_spread_usd": 190.0,
+      "gross_spread_pct": 0.3166,
+      "net_spread_pct": 0.1166,
+      "net_spread_usd": 69.9717,
+      "maker_fee_rate": 0.001,
+      "taker_fee_rate": 0.001,
+      "total_fee_rate": 0.002,
+      "total_fee_pct": 0.2,
+      "slippage_pct": 0.0,
+      "other_costs_pct": 0.0,
+      "liquidity_size": 2.0,
+      "liquidity_usd": 120020.0,
+      "is_profitable": true,
+      "calculation_components": {
+        "candidate_id": "A",
+        "direction": "BUY_A_SELL_B",
+        "maker_venue": "BINANCE",
+        "maker_price": 60010.0,
+        "maker_side": "BUY",
+        "hedge_venue": "BYBIT",
+        "hedge_price": 60200.0,
+        "hedge_side": "SELL",
+        "raw_spread_pct": 0.3166,
+        "gross_spread_pct": 0.3166,
+        "maker_fee_rate": 0.001,
+        "maker_fee_pct": 0.1,
+        "taker_fee_rate": 0.001,
+        "taker_fee_pct": 0.1,
+        "total_fee_rate": 0.002,
+        "total_fee_pct": 0.2,
+        "slippage_pct": 0.0,
+        "other_costs_pct": 0.0,
+        "total_deductions_pct": 0.2,
+        "net_spread_pct": 0.1166,
+        "net_spread_usd": 69.9717,
+        "min_profit_threshold_pct": 0.05,
+        "is_profitable": true,
+        "executable_liquidity_size": 2.0,
+        "executable_liquidity_usd": 120020.0
+      },
+      "timestamps": {
+        "maker": 1791288151.927551,
+        "hedge": 1791288151.927551,
+        "evaluated": 1791288151.927566
+      },
+      "validity": true,
+      "error_reason": null,
+      "reference_venue": "",
+      "priced_venue": ""
+    },
+    "unit_test_output": ".............\n----------------------------------------------------------------------\nRan 13 tests in 0.004s\n\nOK\n"
+  }
+}
