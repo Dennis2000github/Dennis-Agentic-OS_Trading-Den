@@ -1952,11 +1952,11 @@
       });
     });
 
-    var createButtons = ["yt-create-video", "yt-new-project", "yt-overview-create", "yt-projects-create"];
-    createButtons.forEach(function (id) {
-      var button = $(id);
-      if (button) button.addEventListener("click", openCreateProject);
-    });
+    /* Prompt-first: the composer is the creation path on Create. Only the
+       Projects section keeps a contextual "New Video Project" action until
+       Phase 7 transfers approved packages into projects automatically. */
+    var projectsCreate = $("yt-projects-create");
+    if (projectsCreate) projectsCreate.addEventListener("click", openCreateProject);
 
     var composerSubmit = $("yt-create-submit");
     if (composerSubmit) composerSubmit.addEventListener("click", submitCreate);

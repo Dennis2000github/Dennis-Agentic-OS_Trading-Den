@@ -435,11 +435,21 @@ def ensure_service(wait_s=90):
 # ElevenLabs adapter (optional cloud provider)
 # ---------------------------------------------------------------------------
 
+_EL_STATUS_CACHE = {"ts": 0.0, "data": None}
+_EL_STATUS_TTL = 60.0  # seconds — the subscription call is a slow outbound API hit
+
+
 def elevenlabs_status():
     key = _elevenlabs_key()
     out = {"configured": bool(key), "quota": None}
     if not key:
         return out
+    # Cache: /api/tts/status polls this on every dashboard refresh, and a live
+    # subscription check adds ~2s of outbound latency to every poll.
+    now = time.time()
+    cached = _EL_STATUS_CACHE["data"]
+    if cached is not None and now - _EL_STATUS_CACHE["ts"] < _EL_STATUS_TTL:
+        return dict(cached)
     try:
         conn = http.client.HTTPSConnection("api.elevenlabs.io", timeout=10)
         conn.request("GET", "/v1/user/subscription", headers={"xi-api-key": key})
@@ -455,6 +465,8 @@ def elevenlabs_status():
             }
     except (OSError, ValueError):
         pass
+    _EL_STATUS_CACHE["ts"] = now
+    _EL_STATUS_CACHE["data"] = dict(out)
     return out
 
 

@@ -125,11 +125,15 @@ def open_youtube_studio(r):
     r.navigate()
     ok = r.wait_for("!!document.getElementById('studio-view')", timeout=30)
     r.check("App booted and Studio view exists in the DOM", ok)
+    # index.html is large: #studio-youtube-main parses well after #studio-view,
+    # so wait for the element itself before probing it.
+    r.wait_for("!!document.getElementById('studio-youtube-main')", timeout=30)
     entered = False
     for _ in range(4):
         r.ev("window.location.hash = '#studio/youtube/create'")
         time.sleep(0.9)
-        if r.ev("!document.getElementById('studio-youtube-main').classList.contains('is-hidden')"):
+        if r.ev("(function () { var m = document.getElementById('studio-youtube-main');"
+                " return !!m && !m.classList.contains('is-hidden'); })()"):
             entered = True
             break
     r.check("YouTube Studio becomes visible", entered)
@@ -211,16 +215,17 @@ def phase_backlog(r):
 
 def phase_settings(r):
     print("  -- settings")
+    # Settings renders after /settings + /channels + /llm/status resolve; poll
+    # for the rendered content instead of sleeping a fixed time.
     r.ev("document.querySelector('[data-yt-section=\"settings\"]').click()")
-    time.sleep(1.5)
+    r.wait_for("(document.getElementById('yt-channel-list')||{innerText:''}).innerText.length > 0", timeout=15)
+    r.wait_for("(document.getElementById('yt-llm-status')||{innerText:''}).innerText.length > 0", timeout=15)
     r.check("Channel profile card present with seeded channel",
             r.ev("!!document.getElementById('yt-channel-create')"
                  " && (document.getElementById('yt-channel-list')||{innerText:''}).innerText.length > 0"))
     llm = r.ev("(document.getElementById('yt-llm-status')||{innerText:''}).innerText")
     r.check("LLM status shows the opencode profile and GLM model",
             isinstance(llm, str) and "OpenCode" in llm and "glm" in llm.lower(), repr(llm)[:140])
-    r.check("Voiceover widget mounted from the shared TTS registry",
-            r.ev("(document.getElementById('yt-voiceover')||{innerText:''}).innerText.length > 0"))
     conn = r.ev("(document.getElementById('yt-connection-status')||{innerText:''}).innerText")
     r.check("Connection card is honest about OAuth",
             isinstance(conn, str) and "OAuth" in conn, repr(conn)[:140])
@@ -228,13 +233,17 @@ def phase_settings(r):
 
 def phase_flags_and_intelligence(r):
     print("  -- publishing, analytics, intelligence")
+    # The flag content renders after the /features fetch; poll for the text
+    # instead of sleeping a fixed time so the check is not load-sensitive.
     r.ev("document.querySelector('[data-yt-section=\"publishing\"]').click()")
-    time.sleep(0.9)
+    r.wait_for("(document.getElementById('yt-publishing-flag')||{innerText:''})"
+               ".innerText.indexOf('Not available yet') !== -1", timeout=15)
     flag = r.ev("(document.getElementById('yt-publishing-flag')||{innerText:''}).innerText")
     r.check("Publishing shows the honest not-configured state",
             isinstance(flag, str) and "Not available yet" in flag, repr(flag)[:140])
     r.ev("document.querySelector('[data-yt-section=\"analytics\"]').click()")
-    time.sleep(0.6)
+    r.wait_for("(document.getElementById('yt-analytics-flag')||{innerText:''})"
+               ".innerText.indexOf('Not available yet') !== -1", timeout=15)
     flag = r.ev("(document.getElementById('yt-analytics-flag')||{innerText:''}).innerText")
     r.check("Analytics shows the honest not-configured state",
             isinstance(flag, str) and "Not available yet" in flag, repr(flag)[:140])

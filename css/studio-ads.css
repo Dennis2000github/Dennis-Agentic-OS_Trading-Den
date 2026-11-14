@@ -1,0 +1,857 @@
+/* =====================================================================
+   Studio — Ads Studio workspace (OS design alignment pass)
+
+   Source of truth: design-system/dennis-agentic-os/MASTER.md and
+   css/theme-uiuxpro.css — the "ui-ux-pro-max" OLED skin that dresses
+   the rest of the OS (and the YouTube workspace since its own
+   alignment pass). Ads Studio was the last light "Collart" surface;
+   this file re-skins it onto the OS tokens WITHOUT touching behavior:
+     surfaces  --uupm-bg / --uupm-bg-deep / --uupm-card / --uupm-card-2
+     action    --uupm-accent (green CTA) · sky stays status/info only
+     state     ok / warn #fcd34d / danger tints
+     type      Inter (OS theme) · radii 10/14/16 + pill · 180ms motion
+     focus     visible accent outline on every interactive control
+
+   Scoping mirrors css/studio-youtube.css:
+   - shared header chrome is scoped to #studio-view[data-workspace="ads"]
+     so the YouTube overrides stay authoritative on their workspace;
+   - Ads-owned components (sidebar, stepper, step panels, dock, kebab,
+     modal, assets/preset pages) are scoped under #studio-view.
+   Layout (grid/flex/spacing/IDs) is unchanged from the Collart shell —
+   only the surface language and the defects below are corrected:
+     U1 header brand invisible (dark text on the forced-dark header)
+     U3 select chevrons detached (lucide replaces <i> with <svg>)
+     U4 truncated provider labels in the per-step Provider/Model pair
+     U6/U7 cyan focus + invisible focus states → accent focus ring
+   ===================================================================== */
+
+/* ---- Root surface while Ads Studio is active ------------------------- */
+#studio-view[data-workspace="ads"] {
+  background: var(--uupm-bg);
+  color: var(--uupm-fg);
+}
+
+#studio-view {
+  background: var(--uupm-bg);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+#studio-view ::-webkit-scrollbar { width: 5px; height: 5px; }
+#studio-view ::-webkit-scrollbar-track { background: transparent; }
+#studio-view ::-webkit-scrollbar-thumb { background: rgba(71, 85, 105, .55); border-radius: 4px; }
+#studio-view ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, .7); }
+
+/* ---- Inputs: reverse the legacy light override (studio-v2.css) --------
+   The dark #studio-view .studio-field rules keep the shared panels dark;
+   this restores the same well treatment for every remaining input. */
+#studio-view input, #studio-view textarea, #studio-view select {
+  background: var(--uupm-bg-deep);
+  border-color: rgba(71, 85, 105, .5);
+  color: var(--uupm-fg);
+}
+#studio-view input::placeholder, #studio-view textarea::placeholder { color: var(--uupm-dim-fg); }
+
+/* =====================================================================
+   Shared header chrome — Ads workspace only
+   ===================================================================== */
+#studio-view[data-workspace="ads"] .collart-header {
+  background: var(--uupm-bg-deep);
+  border-bottom: 1px solid rgba(71, 85, 105, .45);
+}
+
+/* U1 — brand was #18181b on the forced-dark header (invisible) */
+#studio-view[data-workspace="ads"] .collart-brand-logo {
+  border-color: var(--uupm-fg);
+  color: var(--uupm-fg);
+}
+#studio-view[data-workspace="ads"] .collart-brand-name { color: var(--uupm-fg); }
+
+/* Workspace switch — dark variant (mirrors the YouTube dark treatment
+   so flipping workspaces does not restyle the control) */
+#studio-view[data-workspace="ads"] .studio-workspace-switch {
+  border-color: rgba(71, 85, 105, .55);
+  background: rgba(11, 17, 32, .72);
+}
+#studio-view[data-workspace="ads"] .studio-workspace-btn { color: var(--uupm-muted-fg); }
+#studio-view[data-workspace="ads"] .studio-workspace-btn:hover { color: var(--uupm-fg); }
+#studio-view[data-workspace="ads"] .studio-workspace-btn.is-active {
+  background: rgba(34, 197, 94, .14);
+  color: var(--uupm-ok);
+  box-shadow: none;
+}
+
+/* Status pill + icon buttons in the header row */
+#studio-view[data-workspace="ads"] .collart-status,
+#studio-view .studio-pill {
+  background: var(--uupm-card-2);
+  border-color: rgba(71, 85, 105, .55);
+  color: var(--uupm-muted-fg);
+}
+#studio-view .studio-pill-warn { border-color: rgba(245, 158, 11, .5); background: rgba(245, 158, 11, .1); color: #fcd34d; }
+#studio-view .studio-pill-live { border-color: rgba(34, 197, 94, .5); background: rgba(34, 197, 94, .1); color: var(--uupm-ok); }
+
+#studio-view[data-workspace="ads"] .collart-iconbtn {
+  background: transparent;
+  border-color: rgba(71, 85, 105, .6);
+  color: var(--uupm-muted-fg);
+}
+#studio-view[data-workspace="ads"] .collart-iconbtn:hover {
+  background: rgba(51, 65, 85, .35);
+  border-color: rgba(148, 163, 184, .6);
+  color: var(--uupm-fg);
+}
+
+/* =====================================================================
+   Shell + sidebar
+   ===================================================================== */
+#studio-view .collart-main { background: var(--uupm-bg); }
+
+#studio-view .collart-sidebar {
+  background: var(--uupm-bg-deep);
+  border-right: 1px solid rgba(71, 85, 105, .45);
+}
+
+#studio-view .collart-side-item { color: var(--uupm-muted-fg); }
+#studio-view .collart-side-item:hover {
+  background: rgba(51, 65, 85, .35);
+  color: var(--uupm-fg);
+}
+/* Active nav: the OS green-tinted treatment + left rail indicator */
+#studio-view .collart-side-item.is-active {
+  background: rgba(34, 197, 94, .13);
+  color: var(--uupm-ok);
+  font-weight: 600;
+  position: relative;
+}
+#studio-view .collart-side-item.is-active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 22%;
+  bottom: 22%;
+  width: 3px;
+  border-radius: 4px;
+  background: var(--uupm-accent);
+}
+
+#studio-view .collart-side-label { color: var(--uupm-dim-fg); }
+#studio-view .collart-side-hr { border-top-color: rgba(71, 85, 105, .4); }
+
+#studio-view .collart-contact {
+  background: var(--uupm-card-2);
+  border-color: rgba(71, 85, 105, .42);
+}
+#studio-view .collart-contact-icon {
+  background: var(--uupm-muted);
+  color: var(--uupm-muted-fg);
+  box-shadow: none;
+}
+#studio-view .collart-contact h4 { color: var(--uupm-fg); }
+#studio-view .collart-contact p { color: var(--uupm-muted-fg); }
+#studio-view .collart-social { color: var(--uupm-dim-fg); }
+#studio-view .collart-footnote { color: var(--uupm-dim-fg); }
+
+/* =====================================================================
+   Stepper
+   ===================================================================== */
+#studio-view .collart-stepper {
+  background: var(--uupm-bg-deep);
+  border-bottom-color: rgba(71, 85, 105, .45);
+}
+
+#studio-view .collart-stepchip { color: var(--uupm-muted-fg); }
+#studio-view .collart-stepchip:hover { color: var(--uupm-fg); }
+#studio-view .collart-stepchip .step-num {
+  background: var(--uupm-muted);
+  color: var(--uupm-muted-fg);
+}
+#studio-view .collart-stepchip.is-active {
+  background: rgba(34, 197, 94, .14);
+  color: var(--uupm-ok);
+  font-weight: 600;
+}
+#studio-view .collart-stepchip.is-active .step-num {
+  background: var(--uupm-accent);
+  color: var(--uupm-on-accent);
+}
+#studio-view .collart-stepchip.is-done { color: var(--uupm-ok); }
+#studio-view .collart-stepchip.is-done .step-num {
+  background: rgba(34, 197, 94, .22);
+  color: var(--uupm-ok);
+}
+#studio-view .collart-stepchev { color: rgba(71, 85, 105, .9); }
+
+/* =====================================================================
+   Typography, cards, buttons
+   ===================================================================== */
+#studio-view .collart-h1 { color: var(--uupm-fg); }
+#studio-view .collart-note { color: var(--uupm-muted-fg); }
+#studio-view .collart-note-center { color: var(--uupm-muted-fg); }
+#studio-view .collart-hint { color: var(--uupm-muted-fg); }
+#studio-view .collart-meta { color: var(--uupm-muted-fg); }
+
+#studio-view .collart-card {
+  background: var(--uupm-card);
+  border-color: rgba(71, 85, 105, .42);
+  box-shadow: none;
+}
+
+#studio-view .collart-label { color: var(--uupm-fg); }
+#studio-view .collart-label em { color: var(--uupm-muted-fg); }
+
+#studio-view .collart-btn {
+  background: var(--uupm-accent);
+  color: var(--uupm-on-accent);
+  box-shadow: 0 6px 16px rgba(34, 197, 94, .22);
+}
+#studio-view .collart-btn:hover:not(:disabled) { background: var(--uupm-accent); filter: brightness(1.07); }
+#studio-view .collart-btn:disabled { opacity: .45; cursor: not-allowed; }
+
+#studio-view .collart-btn-soft {
+  background: rgba(51, 65, 85, .4);
+  color: #cbd5e1;
+}
+#studio-view .collart-btn-soft:hover {
+  background: rgba(51, 65, 85, .6);
+  color: var(--uupm-fg);
+}
+
+#studio-view .collart-btn.danger,
+#studio-view .collart-modal-actions .collart-btn.danger {
+  background: var(--uupm-danger);
+  color: #ffffff;
+  box-shadow: 0 6px 16px rgba(239, 68, 68, .22);
+}
+#studio-view .collart-btn.danger:hover { background: var(--uupm-danger); filter: brightness(1.07); }
+#studio-view .collart-btn-soft.danger { background: rgba(239, 68, 68, .14); color: #fda4af; }
+#studio-view .collart-btn-soft.danger:hover { background: rgba(239, 68, 68, .24); color: #fecdd3; }
+
+/* U7 — visible keyboard focus on every custom control */
+#studio-view .collart-btn:focus-visible,
+#studio-view .collart-btn-soft:focus-visible,
+#studio-view .collart-stepchip:focus-visible,
+#studio-view .collart-side-item:focus-visible,
+#studio-view .collart-subtabs button:focus-visible,
+#studio-view .collart-engine:focus-visible,
+#studio-view .collart-tile:focus-visible,
+#studio-view .collart-thumbitem:focus-visible,
+#studio-view .collart-dropzone:focus-visible,
+#studio-view .collart-kebab:focus-visible,
+#studio-view .collart-dockbtn:focus-visible,
+#studio-view .collart-drawer:focus-visible,
+#studio-view .collart-assetstab:focus-visible,
+#studio-view .collart-asset-tags button:focus-visible,
+#studio-view .collart-kebabmenu-item:focus-visible,
+#studio-view .collart-modal-actions button:focus-visible,
+#studio-view .collart-darkcheck input:focus-visible {
+  outline: 2px solid var(--uupm-accent);
+  outline-offset: 2px;
+}
+
+/* =====================================================================
+   Textareas, link inputs, selects (+ U3 chevron fix)
+   ===================================================================== */
+#studio-view .collart-textarea,
+#studio-view .collart-input-icon input {
+  background: var(--uupm-bg-deep);
+  border-color: rgba(71, 85, 105, .5);
+  color: var(--uupm-fg);
+}
+#studio-view .collart-textarea:focus,
+#studio-view .collart-input-icon input:focus { border-color: var(--uupm-accent); }
+#studio-view .collart-textarea:focus-visible,
+#studio-view .collart-input-icon input:focus-visible {
+  outline: 2px solid var(--uupm-accent);
+  outline-offset: 1px;
+}
+#studio-view .collart-input-icon i,
+#studio-view .collart-input-icon svg {
+  position: absolute;
+  left: 12px;
+  color: var(--uupm-dim-fg);
+  pointer-events: none;
+}
+
+#studio-view .collart-select { width: 190px; }             /* U4 */
+#studio-view .collart-select-narrow { width: 170px; }      /* U4 */
+
+#studio-view .collart-select select {
+  background: var(--uupm-bg-deep);
+  border-color: rgba(71, 85, 105, .5);
+  color: var(--uupm-fg);
+  text-overflow: ellipsis;
+}
+#studio-view .collart-select select:focus { border-color: var(--uupm-accent); }
+#studio-view .collart-select select:focus-visible {
+  outline: 2px solid var(--uupm-accent);
+  outline-offset: 1px;
+}
+/* U3 — lucide swaps <i> for <svg>; position both or the chevron breaks out
+   of the select and renders below it */
+#studio-view .collart-select i,
+#studio-view .collart-select svg {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  margin-top: -7px;
+  color: var(--uupm-dim-fg);
+  pointer-events: none;
+}
+
+#studio-view .collart-filter-count { color: var(--uupm-muted-fg); }
+
+/* Sub tabs */
+#studio-view .collart-subtabs { border-bottom-color: rgba(71, 85, 105, .42); }
+#studio-view .collart-subtabs button { color: var(--uupm-muted-fg); }
+#studio-view .collart-subtabs button:hover { color: var(--uupm-fg); }
+#studio-view .collart-subtabs button.is-active {
+  border-bottom-color: var(--uupm-accent);
+  color: var(--uupm-ok);
+}
+
+/* =====================================================================
+   Preset grids, tiles, badges, kebab
+   ===================================================================== */
+#studio-view .collart-tile {
+  background: var(--uupm-card);
+  box-shadow: none;
+}
+#studio-view .collart-tile:hover { border-color: rgba(148, 163, 184, .5); }
+#studio-view .collart-tile.is-active {
+  border-color: var(--uupm-accent);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, .18);
+}
+#studio-view .collart-tile-media { background: var(--uupm-card-2); }
+#studio-view .collart-tile-name { color: var(--uupm-muted-fg); }
+
+#studio-view .collart-badge.brand { background: var(--uupm-accent); color: var(--uupm-on-accent); }
+#studio-view .collart-badge.orange { background: var(--uupm-warn); color: var(--uupm-on-accent); }
+#studio-view .collart-badge.custom { background: rgba(34, 197, 94, .25); color: var(--uupm-ok); }
+
+#studio-view .collart-kebab {
+  background: rgba(11, 17, 32, .85);
+  color: var(--uupm-muted-fg);
+  box-shadow: 0 1px 4px rgba(2, 6, 17, .5);
+}
+#studio-view .collart-kebab:hover { background: rgba(11, 17, 32, 1); color: var(--uupm-ok); }
+
+#studio-view .collart-kebabmenu {
+  background: var(--uupm-card);
+  border-color: rgba(71, 85, 105, .55);
+  box-shadow: var(--uupm-shadow);
+}
+#studio-view .collart-kebabmenu-item { color: var(--uupm-fg); }
+#studio-view .collart-kebabmenu-item:hover {
+  background: rgba(34, 197, 94, .12);
+  color: var(--uupm-ok);
+}
+#studio-view .collart-kebabmenu-item.danger { color: #fda4af; }
+#studio-view .collart-kebabmenu-item.danger:hover { background: rgba(239, 68, 68, .12); color: #fecdd3; }
+
+/* =====================================================================
+   Create Model tools
+   ===================================================================== */
+#studio-view .collart-createref {
+  background: var(--uupm-card-2);
+  border-color: rgba(71, 85, 105, .5);
+}
+#studio-view .collart-createref img { background: var(--uupm-muted); }
+#studio-view .collart-createref-name { color: var(--uupm-muted-fg); }
+
+#studio-view .collart-createbusy {
+  background: var(--uupm-card-2);
+  border-color: rgba(71, 85, 105, .5);
+}
+#studio-view .collart-createbusy b { color: var(--uupm-fg); }
+#studio-view .collart-createbusy p { color: var(--uupm-muted-fg); }
+
+#studio-view .collart-mini {
+  background: rgba(11, 17, 32, .8);
+  color: var(--uupm-fg);
+}
+#studio-view .collart-mini:hover { background: var(--uupm-accent); color: var(--uupm-on-accent); }
+
+/* =====================================================================
+   Confirmation modal
+   ===================================================================== */
+#studio-view .collart-modal {
+  background: rgba(2, 6, 17, .6);
+  backdrop-filter: blur(4px);
+}
+#studio-view .collart-modal-card {
+  background: var(--uupm-card);
+  border: 1px solid rgba(71, 85, 105, .55);
+  box-shadow: var(--uupm-shadow);
+}
+#studio-view .collart-modal-card h3 { color: var(--uupm-fg); }
+#studio-view .collart-modal-card p { color: var(--uupm-muted-fg); }
+
+/* =====================================================================
+   Dropzones
+   ===================================================================== */
+#studio-view .collart-dropzone {
+  background: var(--uupm-bg-deep);
+  border-color: rgba(71, 85, 105, .55);
+}
+#studio-view .collart-dropzone:hover,
+#studio-view .collart-dropzone.is-drag {
+  border-color: var(--uupm-accent);
+  background: rgba(34, 197, 94, .06);
+}
+#studio-view .collart-dropzone-inner p { color: var(--uupm-fg); }
+#studio-view .collart-dropzone-inner em { color: var(--uupm-muted-fg); }
+#studio-view .collart-dropicon {
+  background: var(--uupm-muted);
+  color: var(--uupm-muted-fg);
+  box-shadow: none;
+}
+#studio-view .collart-dropzone-inner img,
+#studio-view .collart-dropzone-inner video { background: var(--uupm-bg-deep); }
+
+/* =====================================================================
+   Empty states, outfits, slots
+   ===================================================================== */
+#studio-view .collart-empty-title { color: var(--uupm-fg); }
+#studio-view .collart-emptyicon { background: var(--uupm-card-2); color: var(--uupm-muted-fg); }
+#studio-view .collart-empty h2 { color: var(--uupm-fg); }
+
+#studio-view .collart-outfit {
+  background: var(--uupm-card);
+  border-color: rgba(71, 85, 105, .42);
+  box-shadow: none;
+}
+#studio-view .collart-outfit h3 { color: var(--uupm-fg); }
+#studio-view .collart-outfit p { color: var(--uupm-muted-fg); }
+
+#studio-view .collart-slot {
+  background: var(--uupm-bg-deep);
+  border-color: rgba(71, 85, 105, .55);
+  color: var(--uupm-muted-fg);
+}
+#studio-view .collart-slot.add:hover {
+  border-color: var(--uupm-accent);
+  color: var(--uupm-ok);
+  background: rgba(34, 197, 94, .06);
+}
+#studio-view .collart-slot.filled { background: var(--uupm-card); border-color: rgba(71, 85, 105, .42); }
+
+#studio-view .collart-addoutfit {
+  background: var(--uupm-card-2);
+  border-color: rgba(71, 85, 105, .5);
+  color: var(--uupm-fg);
+}
+#studio-view .collart-addoutfit:hover:not(:disabled) { background: rgba(51, 65, 85, .55); }
+
+/* =====================================================================
+   Quick Configuration Bar (dark well) + toggle + pills + engines
+   ===================================================================== */
+#studio-view .collart-darkbar {
+  background: var(--uupm-bg-deep);
+  border-color: rgba(71, 85, 105, .5);
+  box-shadow: none;
+}
+#studio-view .collart-darkfield > label { color: var(--uupm-muted-fg); }
+
+#studio-view .collart-darkselect select {
+  background: rgba(2, 6, 17, .55);
+  border-color: rgba(71, 85, 105, .55);
+  color: var(--uupm-fg);
+  text-overflow: ellipsis;
+}
+#studio-view .collart-darkselect select:focus { border-color: var(--uupm-accent); }
+#studio-view .collart-darkselect select:focus-visible {
+  outline: 2px solid var(--uupm-accent);
+  outline-offset: 1px;
+}
+#studio-view .collart-darkselect i,
+#studio-view .collart-darkselect svg {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  margin-top: -7px;
+  color: var(--uupm-dim-fg);
+  pointer-events: none;
+}
+
+#studio-view .collart-darkcheck { color: var(--uupm-fg); }
+#studio-view .collart-darkcheck input { accent-color: var(--uupm-accent); }  /* U6: was cyan */
+
+#studio-view .collart-toggle-track { background: var(--uupm-muted); }
+#studio-view .collart-toggle-track::after { background: var(--uupm-fg); }
+#studio-view .collart-toggle input:checked + .collart-toggle-track { background: var(--uupm-accent); }
+
+#studio-view .collart-pill {
+  background: var(--uupm-card);
+  border-color: rgba(71, 85, 105, .5);
+  color: var(--uupm-muted-fg);
+}
+#studio-view .collart-pill:hover { background: var(--uupm-card-2); }
+#studio-view .collart-pill.is-active {
+  border-color: rgba(34, 197, 94, .5);
+  background: rgba(34, 197, 94, .13);
+  color: var(--uupm-ok);
+}
+
+#studio-view .collart-chip {
+  background: var(--uupm-card);
+  border-color: rgba(71, 85, 105, .5);
+  color: var(--uupm-muted-fg);
+}
+#studio-view .collart-chip:hover { border-color: rgba(148, 163, 184, .55); color: var(--uupm-fg); }
+#studio-view .collart-chip.is-active {
+  border-color: rgba(34, 197, 94, .5);
+  background: rgba(34, 197, 94, .13);
+  color: var(--uupm-ok);
+}
+
+#studio-view .collart-engine {
+  background: var(--uupm-card);
+  border-color: rgba(71, 85, 105, .5);
+}
+#studio-view .collart-engine:hover { border-color: rgba(148, 163, 184, .55); }
+#studio-view .collart-engine.is-active {
+  border-color: var(--uupm-accent);
+  background: rgba(34, 197, 94, .07);
+}
+#studio-view .collart-engine-avatar {
+  background: var(--uupm-accent);
+  color: var(--uupm-on-accent);
+}
+#studio-view .collart-engine b { color: var(--uupm-fg); }
+#studio-view .collart-engine p { color: var(--uupm-muted-fg); }
+#studio-view .collart-engine-tag {
+  background: rgba(51, 65, 85, .35);
+  border-color: rgba(71, 85, 105, .5);
+  color: var(--uupm-muted-fg);
+}
+
+#studio-view .collart-sceneprev {
+  background: var(--uupm-card-2);
+  border-color: rgba(71, 85, 105, .5);
+}
+#studio-view .collart-sceneprev span { color: var(--uupm-muted-fg); }
+
+/* =====================================================================
+   Banner + result panel + spinner
+   ===================================================================== */
+#studio-view .collart-banner {
+  background: rgba(245, 158, 11, .1);
+  border-color: rgba(245, 158, 11, .45);
+  color: #fcd34d;
+}
+
+#studio-view .collart-result {
+  background: var(--uupm-card);
+  border-color: rgba(34, 197, 94, .3);
+}
+#studio-view .collart-kicker { color: var(--uupm-ok); }
+#studio-view .collart-result-head h2 { color: var(--uupm-fg); }
+#studio-view .collart-result-video { background: var(--uupm-bg-deep); }
+
+#studio-view .collart-result-busy {
+  background: var(--uupm-card-2);
+  border-color: rgba(71, 85, 105, .5);
+}
+#studio-view .collart-result-busy b { color: var(--uupm-fg); }
+#studio-view .collart-result-busy p { color: var(--uupm-muted-fg); }
+
+#studio-view .collart-result-error {
+  background: rgba(239, 68, 68, .08);
+  border-color: rgba(239, 68, 68, .4);
+  color: #fda4af;
+}
+#studio-view .collart-result-error.ok {
+  background: rgba(34, 197, 94, .08);
+  border-color: rgba(34, 197, 94, .4);
+  color: #86efac;
+}
+
+#studio-view .collart-spinner {
+  border-color: rgba(34, 197, 94, .18);
+  border-top-color: var(--uupm-accent);
+}
+
+/* =====================================================================
+   Bottom dock
+   ===================================================================== */
+#studio-view .collart-dock {
+  background: var(--uupm-bg-deep);
+  border-top-color: rgba(71, 85, 105, .45);
+  box-shadow: none;
+}
+
+#studio-view .collart-dockbtn {
+  background: rgba(51, 65, 85, .4);
+  color: var(--uupm-muted-fg);
+}
+#studio-view .collart-dockbtn:hover:not(:disabled) {
+  background: rgba(51, 65, 85, .6);
+  color: var(--uupm-fg);
+}
+#studio-view .collart-dockbtn.primary {
+  background: var(--uupm-accent);
+  color: var(--uupm-on-accent);
+  box-shadow: 0 6px 16px rgba(34, 197, 94, .22);
+}
+#studio-view .collart-dockbtn.primary:hover:not(:disabled) {
+  background: var(--uupm-accent);
+  filter: brightness(1.07);
+  color: var(--uupm-on-accent);
+}
+
+#studio-view .collart-drawer {
+  background: var(--uupm-card);
+  border-color: rgba(71, 85, 105, .5);
+  box-shadow: none;
+}
+#studio-view .collart-drawer:hover { border-color: rgba(148, 163, 184, .55); }
+#studio-view .collart-dockthumb {
+  background: var(--uupm-muted);
+  border-color: var(--uupm-bg-deep);
+  color: var(--uupm-muted-fg);
+}
+#studio-view .collart-dockthumb.ready { background: rgba(34, 197, 94, .18); color: var(--uupm-ok); }
+#studio-view .collart-dockcopy b { color: var(--uupm-fg); }
+#studio-view .collart-dockcopy em { color: var(--uupm-muted-fg); }
+#studio-view .collart-readybadge {
+  background: rgba(51, 65, 85, .4);
+  color: var(--uupm-muted-fg);
+}
+#studio-view .collart-readybadge.all-ready {
+  background: rgba(34, 197, 94, .14);
+  color: var(--uupm-ok);
+}
+
+/* =====================================================================
+   Legacy shared-panel light overrides (studio-v2.css) → OS tokens
+   ===================================================================== */
+#studio-view .studio-btn { background: rgba(51, 65, 85, .4); color: #e2e8f0; }
+#studio-view .studio-btn:hover { background: rgba(51, 65, 85, .6); }
+#studio-view .studio-btn-ghost { background: transparent; border-color: rgba(71, 85, 105, .6); color: #cbd5e1; }
+#studio-view .studio-btn-ghost:hover { background: rgba(51, 65, 85, .35); }
+#studio-view .studio-btn-danger { background: rgba(239, 68, 68, .14); color: #fda4af; }
+#studio-view .studio-modal-card {
+  background: var(--uupm-card);
+  border-color: rgba(71, 85, 105, .55);
+  color: var(--uupm-fg);
+}
+#studio-view .studio-toast {
+  background: var(--uupm-card);
+  border: 1px solid rgba(71, 85, 105, .55);
+  color: var(--uupm-fg);
+}
+
+/* =====================================================================
+   Assets dashboard + Preset Video page
+   ===================================================================== */
+#studio-view .collart-assetstab { color: var(--uupm-muted-fg); }
+#studio-view .collart-assetstab:hover { background: rgba(51, 65, 85, .35); color: var(--uupm-fg); }
+#studio-view .collart-assetstab.is-active { background: rgba(34, 197, 94, .14); color: var(--uupm-ok); }
+
+#studio-view .collart-asset-tags { border-bottom-color: rgba(71, 85, 105, .42); }
+#studio-view .collart-asset-tags button { color: var(--uupm-muted-fg); }
+#studio-view .collart-asset-tags button:hover { color: var(--uupm-fg); }
+#studio-view .collart-asset-tags button.is-active {
+  border-bottom-color: var(--uupm-accent);
+  color: var(--uupm-ok);
+}
+
+#studio-view .collart-assetcard {
+  background: var(--uupm-card-2);
+  border-color: rgba(71, 85, 105, .42);
+  box-shadow: none;
+}
+#studio-view .collart-assetcard:hover {
+  border-color: rgba(148, 163, 184, .5);
+  box-shadow: none;
+}
+#studio-view .collart-assetcard img,
+#studio-view .collart-assetcard video { background: var(--uupm-bg-deep); }
+
+/* =====================================================================
+   Five-step workflow specifics
+   ===================================================================== */
+#studio-view .collart-optional {
+  background: rgba(245, 158, 11, .14);
+  color: #fcd34d;
+}
+
+#studio-view .collart-thumbitem {
+  background: var(--uupm-card-2);
+  border-color: rgba(71, 85, 105, .5);
+}
+#studio-view .collart-thumbitem:hover { border-color: rgba(148, 163, 184, .55); }
+#studio-view .collart-thumbitem.is-selected {
+  border-color: var(--uupm-accent);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, .18);
+}
+#studio-view .collart-thumbbadge { background: rgba(2, 6, 17, .82); color: #ffffff; }
+
+#studio-view .collart-carried {
+  background: rgba(11, 17, 32, .5);
+  border-color: rgba(71, 85, 105, .5);
+}
+#studio-view .collart-carried-label { color: var(--uupm-muted-fg); }
+#studio-view .collart-carrieditem {
+  background: var(--uupm-card);
+  border-color: rgba(71, 85, 105, .5);
+}
+#studio-view .collart-carriedmedia { background: var(--uupm-muted); }
+#studio-view .collart-carrieditem b { color: var(--uupm-fg); }
+#studio-view .collart-carrieditem em { color: var(--uupm-muted-fg); }
+
+#studio-view .collart-uploadbadge {
+  background: rgba(2, 6, 17, .85);
+  color: #ffffff;
+}
+#studio-view .collart-uploadbadge .collart-spinner {
+  border-color: rgba(255, 255, 255, .25);
+  border-top-color: #ffffff;
+}
+
+/* =====================================================================
+   Responsive
+   ===================================================================== */
+@media (max-width: 1100px) {
+  /* Keep the workspace switch readable while the sidebar collapses:
+     hide only the brand wordmark, keep the logo mark as the anchor. */
+  #studio-view[data-workspace="ads"] .collart-brand-name { display: none; }
+  #studio-view[data-workspace="ads"] .studio-buildagent-label { display: none; }
+}
+
+/* Motion + focus visibility inherit the OS theme guarantees
+   (css/theme-uiuxpro.css): 180ms transitions, :focus-visible rings and
+   the prefers-reduced-motion guard apply globally. */
+
+/* =====================================================================
+   Studio shell scroll lock — sidebar + dock stay put, content scrolls
+   ===================================================================== */
+#os-main.os-studio-active { overflow: hidden; }
+
+#studio-view:not(.hidden) {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#studio-view .collart-shell { min-height: 0; }
+#studio-view .collart-content { min-height: 0; }
+#studio-view .collart-sidebar { align-self: stretch; }
+#studio-view .collart-dock { position: relative; flex: 0 0 auto; }
+
+/* =====================================================================
+   Shared runtime rail — Agent · Provider · Model, one set for every step
+   ===================================================================== */
+#studio-view .collart-fashion-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 268px;
+  gap: 20px;
+  align-items: start;
+}
+
+#studio-view .collart-fashion-main {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+
+#studio-view .collart-runtime {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid rgba(71, 85, 105, .5);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(34, 197, 94, .08), transparent 42%),
+    linear-gradient(180deg, rgba(13, 25, 42, .98), rgba(7, 16, 29, .98));
+  box-shadow: 0 18px 40px rgba(2, 6, 12, .35), inset 0 1px 0 rgba(255, 255, 255, .03);
+}
+
+#studio-view .collart-runtime-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(71, 85, 105, .4);
+}
+
+#studio-view .collart-runtime-head span {
+  color: var(--uupm-fg);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+#studio-view .collart-runtime-head em {
+  color: var(--uupm-muted-fg);
+  font-size: 9.5px;
+  font-style: normal;
+  white-space: nowrap;
+}
+
+#studio-view .collart-runtime-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+#studio-view .collart-runtime-select { width: 100%; }
+
+#studio-view .collart-runtime-select select {
+  width: 100%;
+  padding: 9px 30px 9px 11px;
+  border-radius: 10px;
+  font-size: 11.5px;
+}
+
+#studio-view .collart-runtime-field .collart-hint {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+@media (max-width: 1100px) {
+  #studio-view .collart-fashion-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  #studio-view .collart-runtime {
+    position: static;
+    order: -1;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+  }
+  #studio-view .collart-runtime-head { grid-column: 1 / -1; }
+}
+
+@media (max-width: 720px) {
+  #studio-view .collart-runtime { grid-template-columns: minmax(0, 1fr); }
+  #studio-view .collart-runtime-head { grid-column: auto; }
+  #studio-view .collart-dock { flex-wrap: wrap; }
+  #studio-view .collart-dockcta { margin-left: auto; }
+}
+
+/* Keep Previous + Next together and on-screen at narrow widths: the
+   selected-assets drawer drops its copy, the CTAs never shrink out. */
+@media (max-width: 1100px) {
+  #studio-view .collart-dockcopy,
+  #studio-view .collart-readybadge { display: none; }
+  #studio-view .collart-drawer { padding: 8px 10px; min-width: 0; }
+  #studio-view .collart-dockcta { flex: 0 0 auto; }
+  #studio-view .collart-dockbtn { padding: 9px 14px; }
+}
+
+@media (max-width: 720px) {
+  #studio-view .collart-dock { gap: 8px; padding: 10px 12px; }
+  #studio-view .collart-dockthumbs { display: none; }
+  #studio-view .collart-drawer { padding: 8px; }
+}

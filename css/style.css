@@ -452,39 +452,405 @@ body {
 .ws-windows-spacer { flex: 1 1 0; min-width: 0; }
 
 /* ============================================================
-   JARVIS HOME VIEW (default dashboard)
+   HERMES–JARVIS NEURAL COMMAND CENTER (default dashboard)
    ============================================================ */
-.jarvis-chip {
+
+/* Deep-space backdrop: layered nebula glows over near-black */
+.jarvis-space {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(1100px 520px at 50% 34%, rgba(14, 116, 144, 0.32), transparent 62%),
+    radial-gradient(900px 480px at 16% 12%, rgba(30, 64, 175, 0.26), transparent 60%),
+    radial-gradient(820px 460px at 86% 18%, rgba(91, 33, 182, 0.20), transparent 58%),
+    radial-gradient(1000px 600px at 50% 108%, rgba(8, 145, 178, 0.24), transparent 60%),
+    linear-gradient(180deg, #01050e 0%, #020a18 46%, #010409 100%);
+}
+/* Star field: three tiling dot layers at different densities + twinkle */
+.jarvis-stars {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(1px 1px at 25px 35px, rgba(255, 255, 255, 0.85), transparent 55%),
+    radial-gradient(1px 1px at 115px 90px, rgba(165, 243, 252, 0.7), transparent 55%),
+    radial-gradient(1.6px 1.6px at 190px 160px, rgba(255, 255, 255, 0.6), transparent 55%),
+    radial-gradient(1px 1px at 70px 200px, rgba(103, 232, 249, 0.55), transparent 55%),
+    radial-gradient(1.4px 1.4px at 250px 60px, rgba(255, 255, 255, 0.45), transparent 55%);
+  background-size: 280px 240px, 340px 280px, 420px 360px, 260px 300px, 380px 320px;
+  animation: jarvisTwinkle 7s ease-in-out infinite alternate;
+  opacity: 0.8;
+}
+@keyframes jarvisTwinkle {
+  from { opacity: 0.55; }
+  to { opacity: 0.95; }
+}
+
+/* HUD panel: clipped corners, cyan hairline, subtle inner glow */
+.hud-panel {
+  position: relative;
+  background: linear-gradient(160deg, rgba(6, 24, 42, 0.78), rgba(3, 12, 24, 0.82));
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  clip-path: polygon(14px 0, 100% 0, 100% calc(100% - 14px), calc(100% - 14px) 100%, 0 100%, 0 14px);
+  box-shadow: inset 0 0 22px rgba(8, 145, 178, 0.12), 0 0 18px rgba(8, 145, 178, 0.10);
+  backdrop-filter: blur(6px);
+}
+/* L-shaped corner brackets (identity + clock panels) */
+.hud-brackets::before,
+.hud-brackets::after {
+  content: "";
+  position: absolute;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(103, 232, 249, 0.85);
+  pointer-events: none;
+}
+.hud-brackets::before { top: -2px; left: -2px; border-right: none; border-bottom: none; }
+.hud-brackets::after { bottom: -2px; right: -2px; border-left: none; border-top: none; }
+
+.hud-panel-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 12px 7px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: #67e8f9;
+  text-shadow: 0 0 10px rgba(103, 232, 249, 0.5);
+}
+.hud-subtitle {
+  padding: 0 12px 7px;
+  font-size: 9.5px;
+  color: rgba(148, 163, 184, 0.85);
+  border-bottom: 1px solid rgba(34, 211, 238, 0.16);
+}
+.hud-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  color: #94a3b8;
+  border: 1px solid rgba(34, 211, 238, 0.25);
+  transition: color 0.12s, border-color 0.12s;
+  cursor: pointer;
+}
+.hud-icon-btn:hover { color: #67e8f9; border-color: rgba(103, 232, 249, 0.7); }
+/* Collapsed briefing panel: header only */
+.hud-panel.collapsed .hud-subtitle,
+.hud-panel.collapsed #jarvis-brief-list,
+.hud-panel.collapsed .border-t { display: none; }
+
+/* Telemetry rows */
+.hud-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(34, 211, 238, 0.10);
+}
+.hud-row:last-child { border-bottom: none; }
+.hud-row-bar { border-bottom: none; padding-bottom: 3px; }
+.hud-label {
+  font-size: 9.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: rgba(165, 243, 252, 0.72);
+  white-space: nowrap;
+}
+.hud-value {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
-  border-radius: 9999px;
   font-size: 11px;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+.hud-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  box-shadow: 0 0 8px currentColor;
+}
+/* Metric bars */
+.hud-bar {
+  height: 5px;
+  border-radius: 9999px;
+  background: rgba(15, 42, 64, 0.9);
+  border: 1px solid rgba(34, 211, 238, 0.18);
+  overflow: hidden;
+  margin: 0 0 7px;
+}
+.hud-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, #0891b2, #22d3ee 70%, #a5f3fc);
+  box-shadow: 0 0 10px rgba(34, 211, 238, 0.65);
+  transition: width 0.6s ease;
+}
+
+/* Layout skeleton — deliberately NOT Tailwind: the project ships a
+   pre-compiled Tailwind build, so new arbitrary-value utilities would not
+   exist. The command-center owns its layout here. */
+.jarvis-topbar { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-shrink: 0; }
+.jarvis-main {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 340px;
+  gap: 12px;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.jarvis-aside { display: none; flex-direction: column; gap: 12px; min-height: 0; }
+.jarvis-center { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; min-height: 0; min-width: 0; }
+.jarvis-bottom { flex-shrink: 0; margin-left: -4px; margin-right: -4px; }
+.jarvis-wave { display: block; width: 100%; height: 64px; }
+@media (min-width: 1100px) {
+  .jarvis-aside { display: flex; }
+}
+
+/* Fullscreen command-center mode (default on OS open): the Jarvis view owns
+   the whole window — OS header, left navigation rail and status footer are
+   hidden, and the telemetry/briefing side panels collapse so only the neural
+   core remains. The "Mode" button in the Jarvis topbar returns to the
+   original layout with all sidebars visible. */
+body.jarvis-fullscreen #os-header,
+body.jarvis-fullscreen #os-sidebar,
+body.jarvis-fullscreen #os-footer { display: none; }
+
+body.jarvis-fullscreen #os-main {
+  padding: 0;
+  gap: 0;
+  overflow: hidden;
+}
+
+body.jarvis-fullscreen .jarvis-main { grid-template-columns: minmax(0, 1fr); }
+body.jarvis-fullscreen .jarvis-aside { display: none; }
+
+/* Mode toggle (Jarvis topbar): Fullscreen <-> Original */
+.jarvis-mode-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border-radius: 9px;
+  border: 1px solid rgba(34, 211, 238, 0.38);
+  background: rgba(6, 24, 42, 0.72);
+  color: #a5f3fc;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.10);
+  transition: border-color 0.15s, color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+.jarvis-mode-btn:hover {
+  border-color: rgba(103, 232, 249, 0.8);
+  color: #e0fbff;
+  box-shadow: 0 0 16px rgba(34, 211, 238, 0.22);
+}
+.jarvis-mode-btn:focus-visible {
+  outline: 2px solid rgba(103, 232, 249, 0.7);
+  outline-offset: 2px;
+}
+.jarvis-mode-state {
+  padding: 2px 6px;
+  border-radius: 9999px;
+  background: rgba(34, 211, 238, 0.14);
+  border: 1px solid rgba(34, 211, 238, 0.35);
+  color: #67e8f9;
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+body.jarvis-fullscreen .jarvis-mode-state {
+  background: rgba(52, 211, 153, 0.12);
+  border-color: rgba(52, 211, 153, 0.45);
+  color: #34d399;
+}
+
+/* Central neural core canvas */
+.jarvis-core-canvas {
+  width: 100%;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 640px;
+}
+
+/* "SYSTEM STANDBY" readout with chevrons */
+.jarvis-core-state {
+  font-size: clamp(16px, 2.2vw, 24px);
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: #7dd3fc;
+  text-shadow: 0 0 16px rgba(56, 189, 248, 0.65), 0 0 40px rgba(14, 165, 233, 0.35);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.jarvis-core-state::before { content: "\276F\276F\276F\2002"; color: rgba(34, 211, 238, 0.8); }
+.jarvis-core-state::after { content: "\2002\276E\276E\276E"; color: rgba(34, 211, 238, 0.8); }
+.jarvis-core-hint {
+  margin-top: 3px;
+  font-size: 9.5px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(103, 232, 249, 0.55);
+}
+
+.jarvis-glow { text-shadow: 0 0 14px rgba(34, 211, 238, 0.55); }
+
+/* Identity + clock typography (own CSS — no Tailwind dependency) */
+.jarvis-title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  line-height: 1;
+  color: #67e8f9;
+  text-shadow: 0 0 14px rgba(34, 211, 238, 0.55);
+}
+.jarvis-subtitle-line {
+  margin-top: 4px;
+  font-size: 9px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.28em;
+  color: rgba(6, 182, 212, 0.75);
+}
+.jarvis-clock {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  color: #a5f3fc;
+  text-shadow: 0 0 14px rgba(34, 211, 238, 0.55);
+}
+.jarvis-date {
+  margin-top: 4px;
+  font-size: 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: rgba(6, 182, 212, 0.75);
+}
+.hud-voice-label {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Command bar chips */
+.jarvis-bar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 11px;
+  border-radius: 9999px;
+  font-size: 10.5px;
   font-weight: 600;
   color: #a5f3fc;
   background: rgba(8, 51, 68, 0.55);
   border: 1px solid rgba(34, 211, 238, 0.35);
   transition: background 0.12s, border-color 0.12s, color 0.12s;
 }
-.jarvis-chip:hover { background: rgba(14, 83, 108, 0.6); border-color: rgba(103, 232, 249, 0.7); color: #fff; }
-.jarvis-stat p { line-height: 1.3; }
-.jarvis-state-live {
-  color: #67e8f9 !important;
-  border-color: rgba(103, 232, 249, 0.8) !important;
-  box-shadow: 0 0 12px rgba(103, 232, 249, 0.35);
-}
-.jarvis-note-row {
-  display: flex;
+button.jarvis-bar-btn { cursor: pointer; }
+button.jarvis-bar-btn:hover { background: rgba(14, 83, 108, 0.6); border-color: rgba(103, 232, 249, 0.7); color: #fff; }
+span.jarvis-bar-btn { cursor: default; }
+.jarvis-bar-btn-off { color: #94a3b8; border-color: rgba(100, 116, 139, 0.5); background: rgba(15, 23, 42, 0.5); }
+.jarvis-bar-badge {
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 7px 9px;
-  border-radius: 10px;
-  color: #cbd5e1;
-  transition: background 0.12s, color 0.12s;
+  padding: 5px 11px;
+  border-radius: 9999px;
+  font-size: 10px;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.1em;
+  color: #67e8f9;
+  background: rgba(8, 51, 68, 0.4);
+  border: 1px solid rgba(34, 211, 238, 0.25);
 }
-.jarvis-note-row:hover { background: rgba(88, 28, 135, 0.35); color: #fff; }
+
+/* Briefing history rows */
+.jarvis-brief-row {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: rgba(8, 42, 62, 0.45);
+  border: 1px solid rgba(34, 211, 238, 0.22);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.jarvis-brief-row:hover { background: rgba(10, 55, 80, 0.6); border-color: rgba(103, 232, 249, 0.45); }
+.jarvis-brief-row.latest {
+  border-color: rgba(103, 232, 249, 0.5);
+  background: rgba(9, 48, 70, 0.55);
+  cursor: default;
+}
+.jarvis-brief-badge {
+  display: inline-flex;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 8.5px;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.12em;
+  color: #a5f3fc;
+  background: rgba(8, 62, 84, 0.7);
+  border: 1px solid rgba(34, 211, 238, 0.45);
+}
+.jarvis-brief-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  line-height: 1.45;
+}
+.jarvis-brief-row.expanded .jarvis-brief-text,
+.jarvis-brief-row.latest .jarvis-brief-text {
+  -webkit-line-clamp: unset;
+  display: block;
+}
+.jarvis-brief-speak { color: #67e8f9; opacity: 0.75; transition: opacity 0.12s; cursor: pointer; }
+.jarvis-brief-speak:hover { opacity: 1; }
+.jarvis-brief-generate {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  font-size: 10.5px;
+  font-weight: 700;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #a5f3fc;
+  background: rgba(8, 62, 84, 0.5);
+  border: 1px solid rgba(34, 211, 238, 0.45);
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  cursor: pointer;
+}
+.jarvis-brief-generate:hover {
+  background: rgba(12, 84, 112, 0.65);
+  border-color: rgba(103, 232, 249, 0.7);
+  color: #fff;
+}
+.jarvis-brief-generate:disabled { opacity: 0.6; cursor: wait; }
+.jarvis-brief-generate.busy { animation: jarvisBriefPulse 1.6s ease-in-out infinite; }
+@keyframes jarvisBriefPulse {
+  0%, 100% { box-shadow: 0 0 0 rgba(34, 211, 238, 0); }
+  50% { box-shadow: 0 0 14px rgba(34, 211, 238, 0.4); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .jarvis-brief-generate.busy { animation: none; }
+  .jarvis-stars { animation: none; }
+}
 
 /* ============================================================
    MEMORY GALAXY VIEW (preview bar + workspace bar + canvas)
@@ -621,76 +987,6 @@ body {
   flex: 0 0 auto;
   height: max(420px, calc(100vh - 300px));
   min-height: 420px;
-}
-
-/* Hermes Apollo Jarvis Voice Core Widget */
-.galaxy-card {
-  flex: 0 0 auto;
-  height: auto;
-  min-height: 0;
-  max-height: none;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  transition: box-shadow 0.3s ease;
-}
-
-.galaxy-card.apollo-awake {
-  box-shadow: 0 0 25px rgba(0, 240, 255, 0.18);
-}
-
-.galaxy-canvas-frame {
-  flex: 0 0 auto;
-  height: 88px;
-  min-height: 88px;
-  position: relative;
-}
-
-.galaxy-canvas-frame canvas {
-  max-width: 100%;
-  height: 100% !important;
-  display: block;
-  cursor: pointer;
-  filter: drop-shadow(0 0 6px rgba(0, 240, 255, 0.35));
-}
-
-/* Frameless vortex: subtle breathing glow instead of a static picture frame */
-.apollo-awake .galaxy-canvas-frame canvas {
-  animation: apolloReactorPulse 2s ease-in-out infinite alternate;
-}
-
-@keyframes apolloReactorPulse {
-  0% { transform: scale(0.97); opacity: 0.85; }
-  100% { transform: scale(1.03); opacity: 1; }
-}
-
-/* Audio Equalizer Bars */
-.apollo-eq-bar {
-  width: 2.5px;
-  height: 4px;
-  background: #38bdf8;
-  border-radius: 9999px;
-  transition: height 0.1s ease, background-color 0.2s ease;
-  display: inline-block;
-}
-
-.apollo-eq-active .apollo-eq-bar {
-  background: #00f0ff;
-  animation: apolloEqBounce 0.7s ease-in-out infinite alternate;
-}
-
-.apollo-eq-active .apollo-eq-bar:nth-child(1) { animation-delay: 0.1s; animation-duration: 0.5s; }
-.apollo-eq-active .apollo-eq-bar:nth-child(2) { animation-delay: 0.25s; animation-duration: 0.65s; }
-.apollo-eq-active .apollo-eq-bar:nth-child(3) { animation-delay: 0.05s; animation-duration: 0.45s; }
-.apollo-eq-active .apollo-eq-bar:nth-child(4) { animation-delay: 0.35s; animation-duration: 0.75s; }
-.apollo-eq-active .apollo-eq-bar:nth-child(5) { animation-delay: 0.15s; animation-duration: 0.55s; }
-.apollo-eq-active .apollo-eq-bar:nth-child(6) { animation-delay: 0.3s; animation-duration: 0.6s; }
-.apollo-eq-active .apollo-eq-bar:nth-child(7) { animation-delay: 0.2s; animation-duration: 0.5s; }
-
-@keyframes apolloEqBounce {
-  0% { height: 3px; }
-  50% { height: 12px; }
-  100% { height: 5px; }
 }
 
 /* Jarvis HUD Floating Toast */

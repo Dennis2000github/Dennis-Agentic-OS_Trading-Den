@@ -65,6 +65,12 @@
     providers: [],
     providerSetup: null,
     customProvider: null,  // FreeLLMAPI connection status for this agent
+    // Unified connection architecture: the active route (one at a time) —
+    // "cli" (agent's own login, default), "provider", or "gateway".
+    sourceId: "cli",
+    connectionId: null,
+    connectionSources: { provider: [], gateway: [] },
+    connectionModels: [],
     ready: null,
     readyNote: null,
     screen: { starting: false, exited: false, hasSession: false, chat: false },
@@ -128,6 +134,8 @@
       modelId: null,
       providerId: null,
       providerLocked: false,
+      sourceId: "cli",
+      connectionId: null,
       modelQuery: "",
     };
   }
@@ -171,6 +179,8 @@
     w.modelQuery = state.modelQuery || "";
     w.providerId = state.providerId || null;
     w.providerLocked = !!state.providerLocked;
+    w.sourceId = state.sourceId || "cli";
+    w.connectionId = state.connectionId || null;
     var current = state.models && (state.models.current || state.modelId);
     w.modelLabel = current ? (modelName(current) || "") : "";
     if (state.screen) {
@@ -201,6 +211,10 @@
     state.modelQuery = w.modelQuery || "";
     state.providerId = w.providerId || null;
     state.providerLocked = !!w.providerLocked;
+    state.sourceId = w.sourceId || "cli";
+    state.connectionId = w.connectionId || null;
+    state.connectionSources = { provider: [], gateway: [] };
+    state.connectionModels = [];
     state.providers = [];
     state.providerSetup = null;
     state.customProvider = null;
@@ -744,84 +758,85 @@
     if (el) el.textContent = "Agent: " + (a ? a.name : "\u2014");
   }
 
-  // -- providers (CLI-reported, never invented) --------------------------
-  var PROVIDER_KEY = "dennis.workspace.provider"; // agentId -> providerId
-  var providerSetupSig = null;                    // avoid re-rendering on keystrokes
-  /* The Custom provider (FreeLLMAPI) is not CLI-reported: it is the connection
-   * the user set up in the FreeLLMAPI sidebar view (base URL + model + key).
-   * The backend injects its model into the list with provider "FreeLLMAPI",
-   * so this id doubles as the model-list filter for the connection. */
-  var CUSTOM_PROVIDER_ID = "FreeLLMAPI";
-
-  function customProviderDescriptor() {
-    var c = state.customProvider || {};
-    var configured = !!c.configured;
-    return {
-      id: CUSTOM_PROVIDER_ID,
-      label: "Custom (FreeLLMAPI)",
-      model_count: configured ? 1 : 0,
-      available: configured,
-      custom: true,
-      configured: configured,
-      supported: c.supported !== false,
-      model: c.model || "",
-      base_url: c.base_url || "",
-    };
-  }
-
-  function recallProvider(agentId) {
-    try {
-      var raw = window.localStorage.getItem(PROVIDER_KEY);
-      if (!raw) return null;
-      var map = JSON.parse(raw);
-      if (map && typeof map === "object" && map[agentId]) return String(map[agentId]);
-    } catch (e) { /* storage unavailable */ }
-    return null;
-  }
-
-  function rememberProvider(agentId, providerId) {
-    if (!agentId) return;
-    try {
-      var raw = window.localStorage.getItem(PROVIDER_KEY);
-      var map = raw ? JSON.parse(raw) : {};
-      if (!map || typeof map !== "object") map = {};
-      if (providerId) map[agentId] = providerId;
-      else delete map[agentId];
-      window.localStorage.setItem(PROVIDER_KEY, JSON.stringify(map));
-    } catch (e) { /* storage unavailable */ }
-  }
-
-  function providerById(id) {
-    if (!id) return null;
-    if (id === CUSTOM_PROVIDER_ID) return customProviderDescriptor();
-    var list = state.providers || [];
-    for (var i = 0; i < list.length; i++) {
-      if (list[i].id === id) return list[i];
+  // -- unified model list (one dropdown: Agent + Model only) -------------
+  // The Model dropdown merges the agent's own CLI models with every model
+  // discovered on agent-compatible connections (providers and gateways).
+  // There is no Source/Provider picker: when the same native model is
+  // reachable through several routes, one row is shown and the route is
+  // resolved automatically (compatible first, then free pricing, then a
+  // live-tested connection). The backend turns a selected ``conn:`` id into
+  // the concrete endpoint config at launch (backend/execution_router.py).
+  function connectionById(id) {
+    var all = (state.connectionSources.provider || []).concat(state.connectionSources.gateway || []);
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].id === id) return all[i];
     }
     return null;
   }
 
-  /* Pick the provider to show: an explicit (still valid) choice wins, then the
-   * current session's model, then the provider this agent was last used with. */
-  function resolveProviderId(providers, items) {
-    var known = function (id) {
-      if (id === CUSTOM_PROVIDER_ID) return true;  // always offered
-      return (providers || []).some(function (p) { return p.id === id; });
-    };
-    // An explicit pick wins, including an explicit "All providers" (null).
-    if (state.providerLocked) {
-      if (!state.providerId) return null;
-      if (known(state.providerId)) return state.providerId;
+  /* Route preference for collapsing duplicates of the same native model.
+   * Lower wins in each field; computed per candidate route. */
+  function routeRank(conn) {
+    var compat = conn && conn.compatibility || "unknown";
+    var compatRank = { compatible: 0, partial: 1, not_tested: 2, auth_required: 3,
+                       connection_unavailable: 3, incompatible: 4 }[compat];
+    if (compatRank == null) compatRank = 2;
+    var free = (conn && conn.pricing) === "free" || conn && conn.pricing === "free_tier" ||
+               (conn && conn.pricing) === "local";
+    var health = (conn && conn.health) || {};
+    var live = health.status === "connected" && health.checked_at ? 0 : 1;
+    return [compatRank, free ? 0 : 1, live, (conn && conn.name || "").toLowerCase()];
+  }
+
+  function routeBetter(a, b) {
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] !== b[i]) return a[i] < b[i];
     }
-    if (state.providerId && known(state.providerId)) return state.providerId;
-    var current = state.models.current || state.modelId;
-    for (var i = 0; i < (items || []).length; i++) {
-      if (items[i].id === current && items[i].provider) return items[i].provider;
-    }
-    var remembered = recallProvider(state.agentId);
-    if (remembered && known(remembered)) return remembered;
-    if ((providers || []).length === 1) return providers[0].id;
-    return null;
+    return false;
+  }
+
+  /* Collapse the flat backend ``connection_models`` list into one entry per
+   * native model id, keeping the best route and counting the alternatives.
+   * Models on incompatible connections never reach this list (the backend
+   * filters them), and anything explicitly marked unavailable stays visible
+   * but unselectable — nothing is hidden that the user configured. */
+  function unifiedConnectionModels() {
+    var byNative = {};
+    (state.connectionModels || []).forEach(function (m) {
+      if (!m) return;
+      var conn = connectionById(m.connection_id);
+      var rank = routeRank(conn);
+      var key = m.native_id || m.id;
+      var cur = byNative[key];
+      if (!cur) {
+        byNative[key] = { model: m, conn: conn, rank: rank, routes: 1 };
+      } else {
+        cur.routes += 1;
+        if (routeBetter(rank, cur.rank)) {
+          byNative[key] = { model: m, conn: conn, rank: rank, routes: cur.routes };
+        }
+      }
+    });
+    return Object.keys(byNative).map(function (key) {
+      var e = byNative[key];
+      var m = e.model;
+      m.routeName = e.conn ? e.conn.name : (m.connection_name || m.connection_id);
+      m.routePricing = (e.conn && e.conn.pricing) || m.pricing || "unknown";
+      m.routeCompat = (e.conn && e.conn.compatibility) || "unknown";
+      m.altRoutes = Math.max(0, e.routes - 1);
+      return m;
+    }).sort(function (a, b) {
+      return (a.name || a.native_id || "").localeCompare(b.name || b.native_id || "");
+    });
+  }
+
+  /* Every FreeLLMAPI catalog model switchable for this agent. Injected by the
+   * backend only when a connection exists, so the dropdown can list the whole
+   * provider catalog, not just the single saved model. */
+  function freeLLMCatalogModels() {
+    return (state.models.items || []).filter(function (m) {
+      return m && m.freellm && m.freellm.catalog;
+    });
   }
 
   function providerDisabledReason() {
@@ -837,7 +852,7 @@
     var disabled = !!reason;
     btn.disabled = disabled;
     btn.classList.toggle("ws-dropdown-disabled", disabled);
-    btn.title = disabled ? reason : "Provider for this agent";
+    btn.title = disabled ? reason : (state.sourceId === "cli" ? "Provider for this agent" : "Connection for this source");
     if (disabled && $("ws-provider-menu")) $("ws-provider-menu").classList.add("hidden");
   }
 
@@ -845,6 +860,15 @@
     var el = $("ws-provider-label");
     if (!el) return;
     if (!state.agentId) { el.textContent = "Provider: \u2014"; return; }
+    if (state.sourceId !== "cli") {
+      if (state.connectionId) {
+        var c = connectionById(state.connectionId);
+        el.textContent = (state.sourceId === "provider" ? "Provider: " : "Gateway: ") + (c ? c.name : state.connectionId);
+      } else {
+        el.textContent = state.sourceId === "provider" ? "Provider: \u2014" : "Gateway: \u2014";
+      }
+      return;
+    }
     var p = providerById(state.providerId);
     if (p) { el.textContent = "Provider: " + (p.label || p.id); return; }
     var count = (state.providers || []).length;
@@ -877,6 +901,16 @@
     var host = $("ws-provider-options");
     if (!host) return;
     host.innerHTML = "";
+
+    // Connection mode: the dropdown lists the configured connections of the
+    // active source instead of CLI-derived providers.
+    if (state.sourceId !== "cli") {
+      renderProviderSetup();  // keep hidden / cleared in connection mode
+      $("ws-provider-setup").classList.add("hidden");
+      renderConnectionOptions(host);
+      return;
+    }
+
     renderProviderSetup();
 
     if (!state.agentId) {
@@ -897,14 +931,17 @@
       // The Custom provider is always offered as its own row below.
       return (p.id || "").toLowerCase() !== CUSTOM_PROVIDER_ID.toLowerCase();
     });
-    if (!providers.length && !(state.customProvider && state.customProvider.configured)) {
+    // Catalog models are only offered alongside the saved connection.
+    var customCount = (state.customProvider && state.customProvider.configured)
+      ? 1 + freeLLMCatalogModels().length : 0;
+    if (!providers.length && !customCount) {
       host.innerHTML = '<div class="px-3 py-2 text-[11px] text-slate-500">' +
         "This agent did not report any provider. Configure a Custom provider below, then press Refresh.</div>";
     }
 
     if (providers.length > 1) {
       var total = providers.reduce(function (n, p) { return n + (p.model_count || 0); }, 0);
-      if (state.customProvider && state.customProvider.configured) total += 1;
+      total += customCount;
       host.appendChild(providerRow(
         "All providers",
         total + (total === 1 ? " model" : " models"),
@@ -924,9 +961,12 @@
     // Custom provider (FreeLLMAPI): always offered, click it to connect or
     // to run the CLI on the connection saved in the FreeLLMAPI sidebar view.
     var custom = customProviderDescriptor();
+    var customCount = custom.configured ? 1 + freeLLMCatalogModels().length : 0;
     host.appendChild(providerRow(
       custom.label,
-      custom.configured ? "1 model" : (custom.supported ? "Setup" : "CC & Codex only"),
+      custom.configured
+        ? customCount + (customCount === 1 ? " model" : " models")
+        : (custom.supported ? "Setup" : "CC & Codex only"),
       state.providerId === CUSTOM_PROVIDER_ID,
       {
         id: CUSTOM_PROVIDER_ID,
@@ -939,6 +979,73 @@
               : "Custom providers currently support Claude Code and Codex CLI."),
       }
     ));
+    icons();
+  }
+
+  /* Connection rows for the active source (Provider or Gateway). Every row
+   * carries its real status and compatibility from the backend registry —
+   * a connection that is not usable by this agent is shown but disabled. */
+  function renderConnectionOptions(host) {
+    if (!state.agentId) {
+      host.innerHTML = '<div class="px-3 py-2 text-[11px] text-slate-500">Select an agent first.</div>';
+      return;
+    }
+    var conns = state.connectionSources[state.sourceId] || [];
+    var typeLabel = state.sourceId === "provider" ? "provider" : "gateway";
+    if (state.models.status === "loading" || state.models.status === "idle") {
+      host.innerHTML = '<div class="px-3 py-2 text-[11px] text-slate-500">Loading connections\u2026</div>';
+      return;
+    }
+    if (!conns.length) {
+      host.innerHTML = '<div class="px-3 py-2 text-[11px] text-slate-500 leading-snug">' +
+        "No " + esc(typeLabel) + " connections yet. Add one in " +
+        "<strong>Source \u2192 Manage connections</strong>, then press Refresh here.</div>";
+      return;
+    }
+    conns.forEach(function (c) {
+      var compatible = c.compatibility !== "incompatible";
+      var status = (c.health && c.health.status) || "unknown";
+      var statusFresh = c.health && c.health.checked_at;
+      var dot = compatible
+        ? (status === "connected" && statusFresh ? "#34d399" : (status === "auth_failed" || status === "unavailable" ? "#ef4444" : "#f59e0b"))
+        : "#94a3b8";
+      var sub = [];
+      if (c.compatibility === "auth_required") sub.push("add key");
+      else if (c.compatibility === "incompatible") sub.push("incompatible");
+      else if (status === "connected" && statusFresh) sub.push("connected");
+      else if (c.health && c.health.model_count != null) sub.push(c.health.model_count + " models");
+      else sub.push(typeLabel);
+      if (c.pricing && c.pricing !== "unknown") sub.push(c.pricing.replace("_", " "));
+      var count = (state.connectionModels || []).filter(function (m) { return m.connection_id === c.id; }).length;
+      if (count) sub.push(count + " model" + (count === 1 ? "" : "s"));
+      var btn = document.createElement("button");
+      btn.className = "ws-menu-item" + (state.connectionId === c.id ? " ws-menu-item-active" : "") +
+        (compatible ? "" : " ws-menu-item-disabled");
+      btn.innerHTML =
+        '<span class="ws-agent-dot" style="background:' + dot + '"></span>' +
+        '<span class="flex-1 text-left truncate">' + esc(c.name) + "</span>" +
+        '<span class="text-[10px] font-mono text-slate-500 shrink-0">' + esc(sub.join(" \u00b7 ")) + "</span>";
+      btn.title = (c.compatibility_reason || c.base_url || "") +
+        (c.health && c.health.detail ? " · " + c.health.detail : "");
+      if (compatible) {
+        btn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          selectConnection(c.id);
+        });
+      }
+      host.appendChild(btn);
+    });
+    var manage = document.createElement("button");
+    manage.className = "ws-menu-item";
+    manage.innerHTML =
+      '<i data-lucide="settings-2" class="w-3.5 h-3.5 text-slate-500"></i>' +
+      '<span class="flex-1 text-left">Manage connections\u2026</span>';
+    manage.addEventListener("click", function (e) {
+      e.stopPropagation();
+      closeMenus();
+      if (window.switchMainView) window.switchMainView("connections");
+    });
+    host.appendChild(manage);
     icons();
   }
 
@@ -1293,6 +1400,12 @@
     state.providerSetup = null;
     state.models = { status: "idle", items: [], error: null, current: null, liveSwitch: false, forAgent: null };
     state.panel = PanelState.agentSelected(state.panel || PanelState.defaultPanel());
+    // Restore this agent's remembered connection route (source + connection).
+    var rememberedSource = recallSource(id) || { source: "cli", connectionId: null };
+    state.sourceId = rememberedSource.source || "cli";
+    state.connectionId = rememberedSource.connectionId || null;
+    state.connectionSources = { provider: [], gateway: [] };
+    state.connectionModels = [];
     var win = currentWindow();
     if (win) {
       win.agentId = id;
@@ -1570,7 +1683,12 @@
         liveSwitch: !!(r.data && r.data.supports_live_model_switch),
         forAgent: forAgent,
       };
-      if (!state.modelId || !items.some(function (m) { return m.id === state.modelId; })) {
+      // Unified connection data (additive fields from the backend).
+      state.connectionSources = (r.data && r.data.connection_sources) || { provider: [], gateway: [] };
+      state.connectionModels = (r.data && r.data.connection_models) || [];
+      // A connection-scoped selection is not in the CLI list; keep it.
+      var connScoped = state.modelId && String(state.modelId).indexOf("conn:") === 0;
+      if (!state.modelId || (!connScoped && !items.some(function (m) { return m.id === state.modelId; }))) {
         state.modelId = state.models.current ||
           (function () {
             var def = items.filter(function (m) { return m.is_default; })[0] ||
@@ -1582,6 +1700,10 @@
       state.providerSetup = (r.data && r.data.provider_setup) || null;
       state.customProvider = (r.data && r.data.custom_provider) || null;
       state.providerId = resolveProviderId(state.providers, items);
+      // A remembered source/connection becomes active for this agent.
+      if (state.connectionId && !connectionById(state.connectionId)) {
+        state.connectionId = null;
+      }
       renderModels();
       updateModelLabel();
       if (win) { syncActiveWindow(); renderWindows(); }
@@ -1596,6 +1718,22 @@
   }
 
   function modelName(id) {
+    if (id && String(id).indexOf("conn:") === 0) {
+      var cm = (state.connectionModels || []).filter(function (x) { return x.id === id; })[0];
+      if (cm) return cm.name || cm.native_id;
+      // Fallback: strip "conn:" plus the longest known connection id prefix
+      // (derived FreeLLMAPI ids contain colons, e.g. freellmapi:claude-code).
+      var body = String(id).slice(5);
+      var known = (state.connectionSources.provider || [])
+        .concat(state.connectionSources.gateway || [])
+        .map(function (c) { return c.id; })
+        .sort(function (a, b) { return b.length - a.length; });
+      for (var i = 0; i < known.length; i++) {
+        if (body.indexOf(known[i] + ":") === 0) return body.slice(known[i].length + 1);
+      }
+      var firstColon = body.indexOf(":");
+      return firstColon === -1 ? body : body.slice(firstColon + 1);
+    }
     var m = state.models.items.filter(function (x) { return x.id === id; })[0];
     return m ? modelDisplay(m) : (id || null);
   }
@@ -1656,10 +1794,23 @@
       currentEl.classList.toggle("hidden", !current);
     }
     if (state.models.status === "empty") {
+      // In connection mode the connection's models are still pickable even
+      // when the CLI itself reported no models.
+      if (state.sourceId !== "cli" && state.connectionId) {
+        renderConnectionModels(host, []);
+        return;
+      }
       host.innerHTML = '<div class="px-3 py-2 text-[11px] text-slate-500">This CLI reported no models.</div>';
       return;
     }
     var terms = (state.modelQuery || "").toLowerCase().trim().split(/\s+/).filter(Boolean);
+    var connectionMode = state.sourceId !== "cli" && state.connectionId;
+    if (connectionMode) {
+      // Connection models first, then the agent's own CLI models, both
+      // honouring the search filter. One renderer, one early return.
+      renderConnectionModels(host, terms);
+      return;
+    }
     var shown = state.models.items.filter(function (m) {
       if (state.providerId && m.provider !== state.providerId) return false;
       if (!terms.length) return true;
@@ -1679,6 +1830,102 @@
     shown.forEach(function (m) {
       var isCurrent = (state.models.current || state.modelId) === m.id;
       var btn = document.createElement("button");
+      var catalog = m.freellm || null;
+      btn.className = "ws-menu-item" + (isCurrent ? " ws-menu-item-active" : "") +
+        (m.available ? "" : " ws-menu-item-disabled");
+      var chips = "";
+      if (catalog) {
+        // FreeLLMAPI catalog model: honest context + rate-limit metadata, and
+        // a mark when the saved endpoint is not this model's documented one.
+        var bits = [];
+        if (catalog.provider_name) bits.push(esc(catalog.provider_name));
+        if (catalog.context) bits.push("ctx " + esc(catalog.context));
+        if (catalog.rate_limit) bits.push(esc(catalog.rate_limit));
+        chips = '<span class="text-[9px] font-mono text-emerald-400/80 shrink-0">' +
+          bits.join(" · ") + "</span>";
+      }
+      btn.innerHTML =
+        '<span class="flex-1 text-left truncate">' + esc(modelDisplay(m)) + "</span>" +
+        (m.is_default ? '<span class="text-[9px] font-mono text-cyan-400 shrink-0">default</span>' : "") +
+        chips +
+        (m.available ? "" : '<span class="text-[10px] text-amber-400 shrink-0">' +
+          esc(m.reason || "unavailable") + "</span>");
+      if (m.description) btn.title = m.description;
+      if (catalog && !catalog.endpoint_match) {
+        btn.title = (btn.title ? btn.title + "\n" : "") +
+          "Switching saves this model with your current FreeLLMAPI endpoint. " +
+          "It is documented for " + (catalog.provider_name || "another provider") +
+          " (" + (catalog.base_url || "another base URL") + "), so it only works " +
+          "if your endpoint serves it.";
+      }
+      if (m.available) btn.addEventListener("click", function () { selectModel(m.id); closeMenus(); });
+      host.appendChild(btn);
+    });
+  }
+
+  /* Connection models: unified records discovered through the selected
+   * connection, rendered above the CLI's own models. Rows carry real
+   * compatibility + availability; unknown/failed discovery is honest. */
+  function renderConnectionModels(host, terms) {
+    var conn = connectionById(state.connectionId);
+    var compat = conn ? conn.compatibility : "unknown";
+    var models = (state.connectionModels || []).filter(function (m) {
+      return m.connection_id === state.connectionId;
+    });
+    if (terms && terms.length) {
+      models = models.filter(function (m) {
+        var hay = [m.name || "", m.native_id || "", m.id || ""].join(" ").toLowerCase();
+        return terms.every(function (t) { return hay.indexOf(t) !== -1; });
+      });
+    }
+    var heading = document.createElement("div");
+    heading.className = "px-3 pt-1.5 pb-1 text-[9.5px] font-mono uppercase tracking-wider text-emerald-400/80";
+    heading.textContent = "Via " + (conn ? conn.name : "connection") +
+      (models.length ? " \u00b7 " + models.length : "");
+    host.appendChild(heading);
+    if (!models.length) {
+      var empty = document.createElement("div");
+      empty.className = "px-3 py-1 text-[10.5px] text-slate-500";
+      empty.textContent = (state.models.connectionError || "") ||
+        "No models discovered for this connection yet. Use the refresh button, or add model ids in AI Connections.";
+      host.appendChild(empty);
+    }
+    models.forEach(function (m) {
+      var isCurrent = (state.models.current || state.modelId) === m.id;
+      var usable = compat !== "incompatible" && m.available !== false;
+      var btn = document.createElement("button");
+      btn.className = "ws-menu-item" + (isCurrent ? " ws-menu-item-active" : "") +
+        (usable ? "" : " ws-menu-item-disabled");
+      var caps = m.capabilities || {};
+      var chips = [];
+      if (m.pricing && m.pricing !== "unknown") chips.push(m.pricing.replace("_", " "));
+      if (m.context_window) chips.push("ctx " + humanCount(m.context_window));
+      if (caps.tools === "supported") chips.push("tools");
+      if (caps.image === "supported") chips.push("vision");
+      btn.innerHTML =
+        '<span class="flex-1 text-left truncate">' + esc(m.name || m.native_id) + "</span>" +
+        chips.map(function (c) {
+          return '<span class="text-[9px] font-mono text-slate-500 shrink-0">' + esc(c) + "</span>";
+        }).join("") +
+        (usable ? "" : '<span class="text-[10px] text-amber-400 shrink-0">' +
+          esc(compat === "incompatible" ? "incompatible" : (m.reason || "unavailable")) + "</span>");
+      btn.title = (m.native_id || "") + (conn && conn.base_url ? " · " + conn.base_url : "");
+      if (usable) btn.addEventListener("click", function () { selectModel(m.id); closeMenus(); });
+      host.appendChild(btn);
+    });
+    // The agent's own models stay reachable in connection mode.
+    var cliHeading = document.createElement("div");
+    cliHeading.className = "px-3 pt-2 pb-1 text-[9.5px] font-mono uppercase tracking-wider text-slate-600";
+    cliHeading.textContent = "Agent's own models (CLI login)";
+    host.appendChild(cliHeading);
+    var cliModels = (state.models.items || []).filter(function (m) {
+      if (!terms.length) return true;
+      var hay = [m.name || m.id, m.id, m.description || "", m.provider || ""].join(" ").toLowerCase();
+      return terms.every(function (t) { return hay.indexOf(t) !== -1; });
+    });
+    cliModels.forEach(function (m) {
+      var isCurrent = (state.models.current || state.modelId) === m.id;
+      var btn = document.createElement("button");
       btn.className = "ws-menu-item" + (isCurrent ? " ws-menu-item-active" : "") +
         (m.available ? "" : " ws-menu-item-disabled");
       btn.innerHTML =
@@ -1690,6 +1937,12 @@
       if (m.available) btn.addEventListener("click", function () { selectModel(m.id); closeMenus(); });
       host.appendChild(btn);
     });
+  }
+
+  function humanCount(n) {
+    if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, "") + "M";
+    if (n >= 1000) return Math.round(n / 1000) + "K";
+    return String(n);
   }
 
   function focusModelSearch() {
@@ -1729,9 +1982,26 @@
 
   function selectModel(id) {
     var m = state.models.items.filter(function (x) { return x.id === id; })[0];
-    if (!m || !m.available) return;
+    if (!m) {
+      // Connection-scoped models are validated by the backend compatibility
+      // registry; availability comes from the unified catalog.
+      var cm = (state.connectionModels || []).filter(function (x) { return x.id === id; })[0];
+      if (!cm || cm.available === false) return;
+      m = cm;
+    }
+    if (!m.available) return;
     var win = currentWindow();
     state.modelQuery = "";
+    // Picking a FreeLLMAPI catalog model also saves it as the agent's model,
+    // so the next launch uses it even without a live session.
+    if (m.freellm && m.freellm.catalog && !state.sessionId) {
+      api("/api/freellmapi", { method: "POST", body: {
+        agent_id: state.agentId,
+        base_url: (state.customProvider && state.customProvider.base_url) || "",
+        model: id,
+        api_key: ""   // blank keeps the saved key
+      }});
+    }
     if (!state.sessionId) {  // applied when a session starts
       state.modelId = id;
       updateModelLabel();
@@ -3171,7 +3441,7 @@
 
   // -- menus -------------------------------------------------------------
   function closeMenus() {
-    ["ws-agent-menu", "ws-provider-menu", "ws-model-menu", "ws-new-project-menu",
+    ["ws-agent-menu", "ws-source-menu", "ws-provider-menu", "ws-model-menu", "ws-new-project-menu",
      "ws-new-window-menu"].forEach(function (id) {
       var el = $(id);
       if (el) el.classList.add("hidden");
@@ -3212,6 +3482,21 @@
     bind("ws-agent-btn", "click", function (e) {
       e.stopPropagation();
       if (!e.currentTarget.disabled) toggleMenu("ws-agent-menu");
+    });
+    bind("ws-source-btn", "click", function (e) {
+      e.stopPropagation();
+      var wasHidden = $("ws-source-menu").classList.contains("hidden");
+      toggleMenu("ws-source-menu");
+      if (wasHidden) {
+        renderSourceOptions();
+        var pending = loadModels(false);
+        if (pending && pending.then) pending.then(renderSourceOptions, renderSourceOptions);
+      }
+    });
+    bind("ws-source-manage", "click", function (e) {
+      e.stopPropagation();
+      closeMenus();
+      if (window.switchMainView) window.switchMainView("connections");
     });
     bind("ws-provider-btn", "click", function (e) {
       e.stopPropagation();

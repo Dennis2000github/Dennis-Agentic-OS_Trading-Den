@@ -6,6 +6,7 @@ model registry, agent discovery, live in-OS installation, and framework routing.
 """
 
 import http.server
+
 import http.client
 import html
 import gzip
@@ -22,6 +23,7 @@ import time
 import atexit
 import shutil
 import subprocess
+import tempfile
 import pty
 import fcntl
 import termios
@@ -44,6 +46,11 @@ from backend import agent_registry as dennis_agents
 from backend import model_sources as dennis_models
 from backend import freellmapi as dennis_freellmapi
 from backend import freellm_catalog as dennis_freellm_catalog
+from backend import connections as dennis_connections
+from backend import model_catalog as dennis_model_catalog
+from backend import compatibility as dennis_compatibility
+from backend import routing as dennis_routing
+from backend import execution_router as dennis_execution_router
 from backend import session_manager as dennis_manager
 from backend import ws as dennis_ws
 from backend import preflight as dennis_preflight
@@ -82,13 +89,16 @@ from backend import studio_tools as dennis_studio_tools
 from backend import studio_videokit as dennis_studio_videokit
 from backend import studio_workspaces as dennis_studio_workspaces
 from backend import tts as dennis_tts
+from backend import digest as dennis_digest
 from backend import youtube_api as dennis_youtube_api
 from backend.sandbox import ExecContext
-from backend import tts as dennis_tts
 
 # Hermes: the orchestrator agent. Owns the Kanban board and delegates work to
 # the registered CLI sub-agents (persistent state in data/hermes.json).
 HERMES = dennis_hermes.HermesOrchestrator()
+
+# Process start time — anchors the uptime readout in /api/system/telemetry.
+SERVER_STARTED_AT = time.time()
 
 # Studio: provider registry + async generation jobs + agent tool approvals.
 # The monitor is started by run(); tests may start it explicitly.
@@ -611,6 +621,29 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(body)
 
     # ------------------------------------------------------------------
+    # Unified AI connections: shared payload helpers
+    # ------------------------------------------------------------------
+    @staticmethod
+    def _connection_models_payload(connection_id, refresh=False):
+        """Unified model records for one connection (never raises for a
+        failed refresh: cached entries come back marked stale)."""
+        try:
+            records, error = dennis_model_catalog.catalog_records(connection_id, refresh=refresh)
+        except dennis_model_catalog.CatalogError as exc:
+            return {"connection_id": connection_id, "models": [],
+                    "error": str(exc), "stale": False}
+        except dennis_connections.ConnectionError as exc:
+            return {"connection_id": connection_id, "models": [],
+                    "error": str(exc), "stale": False}
+        return {
+            "connection_id": connection_id,
+            "models": records,
+            "error": error,
+            "stale": bool(error),
+            "count": len(records),
+        }
+
+    # ------------------------------------------------------------------
     # Centralized TTS Router: speech generation + saved-audio serving
     # ------------------------------------------------------------------
     def _tts_speech(self, body):
@@ -695,6 +728,53 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Content-Type', ctype)
         self.send_header('Content-Length', str(len(data)))
         self.send_header('Content-Disposition', f'inline; filename="{filename}"')
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _system_telemetry(self):
+        """Live, honest system numbers for the JARVIS command center."""
+        cores = os.cpu_count() or 1
+        try:
+            load1, load5, load15 = os.getloadavg()
+        except (OSError, AttributeError):
+            load1 = load5 = load15 = 0.0
+        load_pct = min(100.0, round((load5 / cores) * 100.0, 1))
+        uptime_s = max(0, int(time.time() - SERVER_STARTED_AT))
+        rss_mb = 0
+        try:
+            with open('/proc/self/status') as fh:  # Linux
+                for line in fh:
+                    if line.startswith('VmRSS:'):
+                        rss_mb = int(line.split()[1]) // 1024
+                        break
+        except OSError:
+            try:
+                import resource
+                rss_mb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss // 1024  # macOS: bytes
+            except Exception:
+                rss_mb = 0
+        return {
+            "load_pct": load_pct,
+            "load_1m": round(load1, 2),
+            "cores": cores,
+            "uptime_s": uptime_s,
+            "rss_mb": rss_mb,
+            "generated_at": time.strftime('%Y-%m-%dT%H:%M:%S'),
+        }
+
+    def _digest_audio(self):
+        """GET /api/digest/audio — stream today's OpenJarvis briefing audio."""
+        try:
+            data, ctype = dennis_digest.audio()
+        except dennis_digest.DigestError as exc:
+            return self.send_json({"error": str(exc), "available": False}, 502)
+        if not data:
+            return self.send_json({"error": "No digest audio for today",
+                                   "available": True}, 404)
+        self.send_response(200)
+        self.send_header('Content-Type', ctype or 'audio/mpeg')
+        self.send_header('Content-Length', str(len(data)))
+        self.send_header('Content-Disposition', 'inline; filename="digest.mp3"')
         self.end_headers()
         self.wfile.write(data)
 
@@ -1250,6 +1330,23 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
             return self.send_json({"voices": dennis_tts.kokoro_voices()})
         if path.startswith('/api/tts/audio/'):
             return self._tts_audio_file(path[len('/api/tts/audio/'):])
+
+        # ==================================================================
+        # OpenJarvis digest bridge (daily briefings; sibling service :8000)
+        # ==================================================================
+        if path == '/api/digest':
+            return self.send_json(dennis_digest.latest())
+        if path == '/api/digest/weekly':
+            return self.send_json(dennis_digest.weekly())
+        if path == '/api/digest/history':
+            return self.send_json(dennis_digest.history())
+        if path == '/api/digest/schedule':
+            return self.send_json(dennis_digest.schedule())
+        if path == '/api/digest/service':
+            return self.send_json(dennis_digest.status())
+        if path == '/api/digest/audio':
+            return self._digest_audio()
+
         # Trading Den / DenMa backend supervisor status
         if path == '/api/trading-den':
             return self.send_json(dennis_denma.BACKEND.status())
@@ -1583,6 +1680,11 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
             if dennis_manager.MANAGER.backend_note:
                 report['backend_note'] = dennis_manager.MANAGER.backend_note
             return self.send_json(report)
+
+        # Live system telemetry for the JARVIS command center (stdlib only):
+        # load average normalized by core count, process uptime, memory.
+        if path == '/api/system/telemetry':
+            return self.send_json(self._system_telemetry())
 
         # Allowed project folders (validated server-side).
         if path == '/api/projects':
@@ -2415,6 +2517,9 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
                     models.append(free_model)
                 else:
                     models[existing] = free_model
+                # Every catalog model for this provider is switchable too:
+                # appended after the pinned one so the dropdown can list them.
+                models.extend(dennis_freellmapi.catalog_models(agent_id))
             current = None
             live = None
             session_id = qs.get('session_id', [None])[0]
@@ -2424,6 +2529,17 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
             prof = dennis_agents.profile(agent_id) or {}
             custom = dennis_freellmapi.status(agent_id)
             custom["supported"] = agent_id in dennis_freellmapi.SUPPORTED_AGENTS
+            # Unified connection layer (additive): compatible connections
+            # per source type plus their discovered models. The legacy
+            # fields above are unchanged for existing consumers.
+            compat_connections = dennis_compatibility.compatible_connections(agent_id)
+            connection_models = []
+            for entry in compat_connections:
+                if entry.get("compatibility") == dennis_compatibility.INCOMPATIBLE:
+                    continue
+                payload = self._connection_models_payload(entry["id"])
+                for record in payload.get("models") or []:
+                    connection_models.append(record)
             return self.send_json({
                 "agent_id": agent_id,
                 "models": models,
@@ -2434,6 +2550,12 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
                 "session_status": live["status"] if live else None,
                 "supports_live_model_switch": bool(prof.get("supports_live_model_switch")),
                 "backend": dennis_manager.MANAGER.backend_name,
+                # Unified connection architecture (new fields):
+                "connection_sources": {
+                    "provider": [c for c in compat_connections if c.get("type") == dennis_connections.PROVIDER],
+                    "gateway": [c for c in compat_connections if c.get("type") == dennis_connections.GATEWAY],
+                },
+                "connection_models": connection_models,
             })
 
         if path == '/api/freellmapi/catalog':
@@ -2456,6 +2578,81 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
                 return
             agent_id = parse_qs(parsed.query).get('agent_id', [''])[0]
             return self.send_json({"settings": dennis_freellmapi.status(agent_id)})
+
+        # ==================================================================
+        # UNIFIED AI CONNECTIONS: connection sources, model catalog,
+        # compatibility and routing preferences. Connections never carry
+        # secrets into responses (public views return key hints only).
+        # ==================================================================
+        if path == '/api/connections':
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            qs = parse_qs(parsed.query)
+            conn_type = (qs.get('type', [''])[0] or None)
+            conns = dennis_connections.list_connections()
+            if conn_type:
+                conns = [c for c in conns if c.get('type') == conn_type]
+            return self.send_json({
+                "connections": dennis_connections.public_views(conns),
+                "presets": {
+                    "providers": dennis_connections.PROVIDER_PRESETS,
+                    "gateways": dennis_connections.GATEWAY_PRESETS,
+                },
+                "matrix": dennis_compatibility.matrix_public(),
+            })
+
+        if path.startswith('/api/connections/'):
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            rest = path[len('/api/connections/'):]
+            parts = [p for p in rest.split('/') if p]
+            connection_id = parts[0] if parts else ''
+            conn = dennis_connections.get_connection(connection_id)
+            if conn is None:
+                return self.send_json({"error": "Unknown connection"}, 404)
+            if len(parts) == 1:
+                view = dennis_connections.public_view(conn)
+                view["models"] = self._connection_models_payload(connection_id)
+                return self.send_json({"connection": view})
+            if len(parts) == 2 and parts[1] == 'models':
+                refresh = parse_qs(parsed.query).get('refresh', ['0'])[0] in ('1', 'true', 'yes')
+                return self.send_json(self._connection_models_payload(connection_id, refresh=refresh))
+            if len(parts) == 2 and parts[1] == 'health':
+                return self.send_json({"health": dennis_connections.get_health(connection_id),
+                                       "status": dennis_connections.effective_status(conn)})
+            return self.send_json({"error": "Connection endpoint not found"}, 404)
+
+        if path == '/api/compatibility':
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            return self.send_json({"matrix": dennis_compatibility.matrix_public()})
+
+        if path.startswith('/api/compatibility/'):
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            agent_id = path[len('/api/compatibility/'):]
+            qs = parse_qs(parsed.query)
+            connections_list = dennis_compatibility.compatible_connections(agent_id)
+            payload = {
+                "agent_id": agent_id,
+                "matrix_entry": dennis_compatibility.matrix_entry(agent_id) is not None,
+                "connections": connections_list,
+            }
+            model_id = (qs.get('model', [''])[0] or '').strip()
+            if model_id:
+                diagnostic = dennis_compatibility.evaluate(agent_id, model_id)
+                payload["evaluation"] = diagnostic
+            return self.send_json(payload)
+
+        if path == '/api/routing/preferences':
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            return self.send_json({"preferences": dennis_routing.preferences()})
 
         # Fallback to static files
         return super().do_GET()
@@ -2532,6 +2729,26 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
         if path == '/api/tts/speech':
             return self._tts_speech(body)
 
+        # ==================================================================
+        # OpenJarvis digest bridge (writes): generate, schedule, service.
+        # ==================================================================
+        if path == '/api/digest/generate':
+            kind = (body or {}).get("kind") or "daily"
+            try:
+                return self.send_json(dennis_digest.generate(kind))
+            except dennis_digest.DigestError as exc:
+                return self.send_json({"error": str(exc), "available": False}, 400)
+        if path == '/api/digest/schedule':
+            return self.send_json(dennis_digest.save_schedule(
+                bool((body or {}).get("enabled")),
+                (body or {}).get("cron")))
+        if path == '/api/digest/service':
+            action = (body or {}).get("action") or "status"
+            try:
+                return self.send_json(dennis_digest.service_control(action))
+            except dennis_digest.DigestError as exc:
+                return self.send_json({"error": str(exc)}, 400)
+
         # Trading Den / DenMa backend supervisor controls
         if path == '/api/trading-den/restart':
             dennis_denma.BACKEND.restart()
@@ -2555,6 +2772,139 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
             dennis_models.clear_cache()
             return self.send_json({"settings": settings})
 
+        # ==================================================================
+        # UNIFIED AI CONNECTIONS (writes): CRUD, test, discovery, manual
+        # models, aliases, routing preferences and paid-fallback consent.
+        # ==================================================================
+        if path == '/api/connections':
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            try:
+                conn = dennis_connections.create_connection(body or {})
+            except dennis_connections.ConnectionError as exc:
+                return self.send_json({"error": str(exc)}, exc.status)
+            return self.send_json({"connection": dennis_connections.public_view(conn)}, 201)
+
+        if path.startswith('/api/connections/'):
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            rest = path[len('/api/connections/'):]
+            parts = [p for p in rest.split('/') if p]
+            connection_id = parts[0] if parts else ''
+            conn = dennis_connections.get_connection(connection_id)
+            if conn is None:
+                return self.send_json({"error": "Unknown connection"}, 404)
+            action = parts[1] if len(parts) == 2 else ''
+
+            if action == 'test':
+                result = dennis_connections.test_connection(connection_id)
+                return self.send_json({"health": result,
+                                       "status": dennis_connections.effective_status(conn)})
+
+            if action == 'discover':
+                try:
+                    records, error = dennis_model_catalog.catalog_records(connection_id, refresh=True)
+                except dennis_model_catalog.CatalogError as exc:
+                    return self.send_json({"error": str(exc), "retry": True}, 502)
+                except dennis_connections.ConnectionError as exc:
+                    return self.send_json({"error": str(exc)}, exc.status)
+                return self.send_json(self._connection_models_payload(connection_id))
+
+            if action == 'models':
+                native_id = (body.get('native_id') or body.get('model_id') or '').strip()
+                if not native_id:
+                    return self.send_json({"error": "native_id is required"}, 400)
+                try:
+                    if body.get('remove'):
+                        result = dennis_model_catalog.remove_model(connection_id, native_id)
+                        return self.send_json({"success": True, **result})
+                    record = dennis_model_catalog.register_model(
+                        connection_id, native_id,
+                        name=body.get('name'), metadata=body.get('metadata'))
+                except dennis_model_catalog.CatalogError as exc:
+                    return self.send_json({"error": str(exc)}, 400)
+                except dennis_connections.ConnectionError as exc:
+                    return self.send_json({"error": str(exc)}, exc.status)
+                return self.send_json({"success": True, "model": record})
+
+            if action == 'aliases':
+                try:
+                    result = dennis_model_catalog.set_alias(
+                        connection_id,
+                        (body.get('gateway_model_id') or '').strip(),
+                        (body.get('upstream_model_id') or '').strip())
+                except dennis_model_catalog.CatalogError as exc:
+                    return self.send_json({"error": str(exc)}, 400)
+                except dennis_connections.ConnectionError as exc:
+                    return self.send_json({"error": str(exc)}, exc.status)
+                return self.send_json({"success": True, **result})
+
+            return self.send_json({"error": "Connection endpoint not found"}, 404)
+
+        if path == '/api/routing/preferences':
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            try:
+                if body.get('agent_id') is not None or body.get('agent_mode') is not None:
+                    prefs = dennis_routing.set_agent_override(
+                        (body.get('agent_id') or '').strip(), body.get('agent_mode'))
+                elif body.get('task') is not None or body.get('task_mode') is not None:
+                    prefs = dennis_routing.set_task_override(
+                        (body.get('task') or '').strip(), body.get('task_mode'))
+                else:
+                    global_mode = body.get('mode')
+                    if global_mode is None:
+                        return self.send_json({"error": "mode is required"}, 400)
+                    dennis_routing.set_global(global_mode,
+                                              allow_paid_fallback=body.get('allow_paid_fallback'))
+                    prefs = dennis_routing.preferences()
+            except dennis_routing.RoutingError as exc:
+                return self.send_json({"error": str(exc)}, exc.status)
+            return self.send_json({"preferences": prefs})
+
+        if path == '/api/routing/resolve':
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            try:
+                decision = dennis_routing.resolve_route(
+                    (body.get('agent_id') or '').strip(),
+                    model_id=(body.get('model_id') or '').strip() or None,
+                    connection_id=(body.get('connection_id') or '').strip() or None,
+                    task=(body.get('task') or '').strip() or None)
+            except dennis_routing.RoutingError as exc:
+                return self.send_json({"error": str(exc)}, exc.status)
+            return self.send_json(decision)
+
+        if path == '/api/routing/authorize-paid':
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            connection_id = (body.get('connection_id') or '').strip()
+            if not connection_id:
+                return self.send_json({"error": "connection_id is required"}, 400)
+            record = dennis_routing.authorize_paid_fallback(
+                connection_id, reason=body.get('reason') or '',
+                agent_id=(body.get('agent_id') or '').strip() or None)
+            return self.send_json({"success": True, "authorization": record,
+                                   "preferences": dennis_routing.preferences()})
+
+        if path == '/api/routing/fallback':
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            agent_id = (body.get('agent_id') or '').strip()
+            if not agent_id:
+                return self.send_json({"error": "agent_id is required"}, 400)
+            plan = dennis_routing.propose_fallback(
+                agent_id,
+                failed_connection_id=(body.get('failed_connection_id') or '').strip() or None,
+                task=(body.get('task') or '').strip() or None)
+            return self.send_json(plan)
+
         if path == '/api/deepseek/credentials':
             owner = self._require_owner(parsed)
             if not owner:
@@ -2568,9 +2918,29 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
             owner = self._require_owner(parsed)
             if not owner:
                 return
+            requested_model = (body.get("model_id") or "").strip()
+            if dennis_model_catalog.is_connection_model(requested_model):
+                # Connection-scoped chat model: validate the route, then
+                # create the conversation under the override so the
+                # connection-scoped id is accepted and persisted.
+                _ok, diag = dennis_execution_router.validate_model_for_agent(
+                    "deepseek-harness", requested_model)
+                if not _ok:
+                    return self.send_json(
+                        {"error": diag.get("reason") or "Model is not compatible."}, 400)
+                with dennis_execution_router.api_endpoint_override(requested_model) as resolved:
+                    if not resolved:
+                        return self.send_json(
+                            {"error": "This connection cannot execute in-process chat."}, 400)
+                    try:
+                        conv = dennis_deepseek.create_conversation(
+                            owner, model_id=requested_model, title=body.get("title"))
+                    except dennis_deepseek.ChatError as exc:
+                        return self.send_json({"error": str(exc)}, 400)
+                return self.send_json({"success": True, "conversation": conv})
             try:
                 conv = dennis_deepseek.create_conversation(
-                    owner, model_id=body.get("model_id"), title=body.get("title"))
+                    owner, model_id=requested_model or None, title=body.get("title"))
             except dennis_deepseek.ChatError as exc:
                 return self.send_json({"error": str(exc)}, 400)
             return self.send_json({"success": True, "conversation": conv})
@@ -2580,19 +2950,28 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
             if not owner:
                 return
             conversation_id = path[len('/api/deepseek/conversations/'):-len('/messages')]
-            try:
-                exchange = dennis_deepseek.prepare_exchange(
-                    owner, conversation_id, body.get("content"),
-                    model_id=body.get("model_id"))
-            except dennis_deepseek.NotFound as exc:
-                return self.send_json({"error": str(exc)}, 404)
-            except dennis_deepseek.ChatBusy as exc:
-                return self.send_json({"error": str(exc)}, 409)
-            except dennis_deepseek.NotConfigured as exc:
-                return self.send_json({"error": str(exc), "needs_key": True}, 409)
-            except dennis_deepseek.ChatError as exc:
-                return self.send_json({"error": str(exc)}, 400)
-            return self._serve_deepseek_stream(exchange)
+            # Unified routing: a connection-scoped model id routes this
+            # in-process chat through the registered OpenAI-compatible
+            # connection. Without one, behaviour is exactly as before.
+            requested_model = (body.get("model_id") or "").strip()
+            if not requested_model:
+                conv = dennis_deepseek.get_conversation(owner, conversation_id)
+                requested_model = ((conv or {}).get("model_id") or "").strip()
+            with dennis_execution_router.api_endpoint_override(requested_model) as resolved:
+                effective_model = resolved["model"] if resolved else (requested_model or None)
+                try:
+                    exchange = dennis_deepseek.prepare_exchange(
+                        owner, conversation_id, body.get("content"),
+                        model_id=effective_model)
+                except dennis_deepseek.NotFound as exc:
+                    return self.send_json({"error": str(exc)}, 404)
+                except dennis_deepseek.ChatBusy as exc:
+                    return self.send_json({"error": str(exc)}, 409)
+                except dennis_deepseek.NotConfigured as exc:
+                    return self.send_json({"error": str(exc), "needs_key": True}, 409)
+                except dennis_deepseek.ChatError as exc:
+                    return self.send_json({"error": str(exc)}, 400)
+                return self._serve_deepseek_stream(exchange)
 
         # ==================================================================
         # STUDIO (writes): credentials, uploads, jobs, tools, MCP config.
@@ -3873,7 +4252,10 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
             if not binary_name:
                 binary_name = (entry.get("binary") or "").strip()
 
-            env = dennis_agents.get_augmented_env(active_id)
+            # Audit fix (2026-11-14): this used an undefined ``active_id``
+            # (NameError on every valid install request). The installer only
+            # needs the augmented PATH, not an agent binding.
+            env = dennis_agents.get_augmented_env()
             install_timeout = int(entry.get("install_timeout") or 120)
             try:
                 # Run the real installation command
@@ -4289,12 +4671,16 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
                     return self.send_json({"success": False, "error": f"Executable not found: {binary_path}"}, 404)
                 binary_path = resolved
 
-            script_path = os.path.join("/tmp", f"dennis-launch-{agent_id}.command")
+            # Audit fix (2026-11-14): the source previously contained literal
+            # "\\n" (backslash-n), so the whole launcher was a single comment
+            # line and the Terminal window opened nothing. Real newlines now.
+            script_path = os.path.join(tempfile.gettempdir(),
+                                       f"dennis-launch-{agent_id}.command")
             with open(script_path, "w", encoding="utf-8") as f:
-                f.write("#!/bin/zsh\\n")
-                f.write("export PATH=\"" + env["PATH"] + "\"\\n")
-                f.write('cd "' + DIRECTORY.replace('"', '\\"') + '"\\n')
-                f.write('exec "' + binary_path.replace('"', '\\"') + '"\\n')
+                f.write("#!/bin/zsh\n")
+                f.write("export PATH=\"" + env["PATH"] + "\"\n")
+                f.write('cd "' + DIRECTORY.replace('"', '\\"') + '"\n')
+                f.write('exec "' + binary_path.replace('"', '\\"') + '"\n')
             os.chmod(script_path, 0o755)
 
             try:
@@ -4482,34 +4868,61 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
             if not dennis_projects.validate_path(project_path):
                 return self.send_json({"error": "Project folder is no longer available"}, 400)
 
-            # Validate against a freshly loaded CLI list; reject anything else.
-            ctx = self._exec_ctx(project_path, agent_id=rec.get('agent_id'))
-            try:
-                models = dennis_models.list_models(rec['agent_id'], ctx,
-                                                   cwd=project_path, refresh=True)
-            except dennis_models.ModelListError as e:
+            # Unified routing: connection-scoped models are validated against
+            # the compatibility registry instead of the CLI's own list.
+            if dennis_model_catalog.is_connection_model(model_id):
+                _ok, diagnostic = dennis_execution_router.validate_model_for_agent(
+                    rec.get('agent_id'), model_id)
+                if not _ok:
+                    return self.send_json({
+                        "error": diagnostic.get("reason") or "Model is not compatible with this agent.",
+                        "compatibility": diagnostic.get("status"),
+                    }, 400)
+            elif any(m.get("id") == model_id
+                     for m in dennis_freellmapi.catalog_models(rec.get('agent_id'))):
+                # A FreeLLMAPI catalog model: switching to it also becomes the
+                # agent's saved FreeLLMAPI model (endpoint + key unchanged).
+                saved = dennis_freellmapi.status(rec.get('agent_id'))
+                if saved.get("base_url"):
+                    try:
+                        dennis_freellmapi.set_config({
+                            "agent_id": rec.get('agent_id'),
+                            "base_url": saved["base_url"],
+                            "api_key": "",  # blank keeps the saved key
+                            "model": model_id,
+                        })
+                    except dennis_freellmapi.FreeLLMAPIError:
+                        pass  # keep the previous saved model; switch applies
+                dennis_models.clear_cache()
+            else:
+                # Validate against a freshly loaded CLI list; reject anything else.
+                ctx = self._exec_ctx(project_path, agent_id=rec.get('agent_id'))
+                try:
+                    models = dennis_models.list_models(rec['agent_id'], ctx,
+                                                       cwd=project_path, refresh=True)
+                except dennis_models.ModelListError as e:
+                    free_model = dennis_freellmapi.model_entry(rec.get('agent_id'))
+                    if free_model:
+                        models = [free_model]
+                    else:
+                        return self.send_json({"error": str(e), "retry": True}, 502)
                 free_model = dennis_freellmapi.model_entry(rec.get('agent_id'))
                 if free_model:
-                    models = [free_model]
-                else:
-                    return self.send_json({"error": str(e), "retry": True}, 502)
-            free_model = dennis_freellmapi.model_entry(rec.get('agent_id'))
-            if free_model:
-                existing = next((i for i, m in enumerate(models)
-                                 if m.get("id") == free_model["id"]), None)
-                if existing is None:
-                    models.append(free_model)
-                else:
-                    models[existing] = free_model
-            match = next((m for m in models if m['id'] == model_id), None)
-            if not match:
-                return self.send_json({
-                    "error": f"'{model_id}' is not offered by this agent's CLI",
-                }, 400)
-            if not match.get('available', True):
-                return self.send_json({
-                    "error": match.get('reason') or "Model unavailable in this CLI",
-                }, 400)
+                    existing = next((i for i, m in enumerate(models)
+                                     if m.get("id") == free_model["id"]), None)
+                    if existing is None:
+                        models.append(free_model)
+                    else:
+                        models[existing] = free_model
+                match = next((m for m in models if m['id'] == model_id), None)
+                if not match:
+                    return self.send_json({
+                        "error": f"'{model_id}' is not offered by this agent's CLI",
+                    }, 400)
+                if not match.get('available', True):
+                    return self.send_json({
+                        "error": match.get('reason') or "Model unavailable in this CLI",
+                    }, 400)
 
             sess = dennis_manager.MANAGER.get(session_id)
             running = bool(sess and sess.is_alive())
@@ -4583,6 +4996,19 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
                 return self.send_json({"error": "Session not found"}, 404)
             return self.send_json({"success": True, "session": rec})
 
+        # Unified AI connections: edit a stored connection (never derived
+        # FreeLLMAPI ones - those stay managed by freellmapi).
+        if path.startswith('/api/connections/'):
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            connection_id = path[len('/api/connections/'):]
+            try:
+                conn = dennis_connections.update_connection(connection_id, body or {})
+            except dennis_connections.ConnectionError as exc:
+                return self.send_json({"error": str(exc)}, exc.status)
+            return self.send_json({"connection": dennis_connections.public_view(conn)})
+
         if path.startswith('/api/studio/workspaces/'):
             rest = path[len('/api/studio/workspaces/'):]
             parts = [part for part in rest.split('/') if part]
@@ -4623,6 +5049,31 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
             settings = dennis_freellmapi.clear(agent_id)
             dennis_models.clear_cache()
             return self.send_json({"settings": settings})
+
+        # Unified AI connections: remove a connection (deleting a derived
+        # FreeLLMAPI connection clears that agent's FreeLLMAPI settings) or
+        # drop one manually-registered model from it.
+        if path.startswith('/api/connections/'):
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            rest = path[len('/api/connections/'):]
+            parts = [p for p in rest.split('/') if p]
+            connection_id = parts[0] if parts else ''
+            if len(parts) == 2 and parts[1] == 'models':
+                native_id = query_params.get('native_id', [''])[0]
+                try:
+                    result = dennis_model_catalog.remove_model(connection_id, native_id)
+                except dennis_model_catalog.CatalogError as exc:
+                    return self.send_json({"error": str(exc)}, 404)
+                except dennis_connections.ConnectionError as exc:
+                    return self.send_json({"error": str(exc)}, exc.status)
+                return self.send_json({"success": True, **result})
+            try:
+                result = dennis_connections.delete_connection(connection_id)
+            except dennis_connections.ConnectionError as exc:
+                return self.send_json({"error": str(exc)}, exc.status)
+            return self.send_json({"success": True, **result})
 
         # DeepSeek Harness: remove a saved key or one conversation.
         if path == '/api/deepseek/credentials':
@@ -5049,6 +5500,11 @@ def run(port=PORT):
     atexit.register(dennis_denma.BACKEND.stop)
     STUDIO_RUNNER.recover()
     atexit.register(STUDIO_RUNNER.shutdown)
+    # Weekly briefing auto-run (OpenJarvis bridge; env-gated, daemon thread).
+    if dennis_digest.start_weekly_scheduler():
+        print("  Weekly briefing scheduler: on "
+              f"({dennis_digest.weekly_schedule_info()['day']}s, "
+              f"{dennis_digest.weekly_schedule_info()['hour']:02d}:00 local)")
     bind_host = "127.0.0.1" if os.environ.get("DENNIS_DESKTOP") == "1" else ""
     with DennisHTTPServer((bind_host, port), DennisOSHandler) as httpd:
         print(f"==========================================================")

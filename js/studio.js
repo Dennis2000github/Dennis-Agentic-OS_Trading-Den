@@ -511,10 +511,11 @@
   }
 
   function renderAgents() {
-    /* One agent list, several hosts: the Activity console plus the Build
-       dropdowns in the Ads and YouTube headers. Agents keep their own
-       provider + model — they build; generation uses Provider/Model. */
-    var hosts = ["studio-agent-options", "ads-agent-options", "yt-agent-options"];
+    /* One agent list, one host: the Activity console. Ads Studio renders the
+       same shared state in its right-side runtime rail, so there is no second
+       dropdown in the header. Agents keep their own provider + model — they
+       build; generation uses Provider/Model. */
+    var hosts = ["studio-agent-options"];
     hosts.forEach(function (hostId) {
       var host = $(hostId);
       if (!host) return;
@@ -538,12 +539,13 @@
           '</button>';
       }).join("");
     });
-    ["studio-agent-label", "ads-agent-label", "yt-agent-label"].forEach(function (labelId) {
+    ["studio-agent-label"].forEach(function (labelId) {
       var el = $(labelId);
       if (el) el.textContent = S.agent ? (S.agent.name || S.agent.id) : "—";
     });
     var btn = $("studio-agent-btn");
     if (btn) btn.disabled = !S.agents.length;
+    try { document.dispatchEvent(new CustomEvent("studio:agents-updated")); } catch (err) { /* no-op */ }
     icons();
   }
 
@@ -4072,7 +4074,10 @@
       selectJob(jobId);
       setTab("history");
     },
-    providerId: function () { return S.providerId; }
+    providerId: function () { return S.providerId; },
+    agents: function () { return S.agents.slice(); },
+    agentId: function () { return S.agentId; },
+    setAgent: chooseAgent
   };
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

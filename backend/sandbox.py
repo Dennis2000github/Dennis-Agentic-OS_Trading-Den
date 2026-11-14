@@ -74,6 +74,7 @@ def secret_env(agent_id=None, model_id=None):
            if agent_id else os.environ)
     allowed = SECRET_ENV_ALLOWLIST + (
         "ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL", "OPENAI_BASE_URL",
+        "ANTHROPIC_CUSTOM_MODEL_OPTION", "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
     )
     return {k: env[k] for k in allowed if env.get(k)}
 

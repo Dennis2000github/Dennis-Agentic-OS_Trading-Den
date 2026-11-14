@@ -214,9 +214,10 @@ def phase_step4(r):
     time.sleep(0.4)
     r.check("Step 4 section visible",
             r.ev("!document.getElementById('step-4-content').classList.contains('hidden')"))
-    r.check("Preset Video tab shown by default",
-            r.ev("!document.getElementById('step1-preset-view').classList.contains('hidden')"
-                 " && document.getElementById('tab-preset-video').classList.contains('is-active')"))
+    r.check("Upload-only reference video view visible",
+            r.ev("!document.getElementById('step1-upload-view').classList.contains('hidden')"
+                 " && !document.getElementById('step1-preset-view')"
+                 " && !document.getElementById('tab-preset-video')"))
     r.check("Storyboard prompt box present",
             r.ev("!!document.getElementById('fashion-storyboard')"))
     r.check("Skip control present",

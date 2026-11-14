@@ -14,6 +14,7 @@ import threading
 from urllib.parse import urlsplit
 
 from . import config
+from . import freellm_catalog
 
 CONFIG_FILE = os.path.join(config.DATA_DIR, "freellmapi.json")
 _AGENT_ENVS = {
@@ -79,7 +80,10 @@ def get(agent_id):
         data = _agent_data(agent_id)
     if not all(data.get(k) for k in ("base_url", "api_key", "model")):
         return None
-    return {k: data[k] for k in ("base_url", "api_key", "model")}
+    result = {k: data[k] for k in ("base_url", "api_key", "model")}
+    if isinstance(data.get("context_tokens"), int) and data["context_tokens"] > 0:
+        result["context_tokens"] = data["context_tokens"]
+    return result
 
 
 def set_config(values):
@@ -118,7 +122,20 @@ def set_config(values):
         raise FreeLLMAPIError("Enter a provider base URL without embedded credentials.")
     if not re.fullmatch(r"[A-Za-z0-9._:/@_+-]+", model):
         raise FreeLLMAPIError("Model ID contains unsupported characters.")
+    # Optional: the model's real context window. When set, Claude Code is
+    # told the window explicitly (CLAUDE_CODE_MAX_CONTEXT_TOKENS), which
+    # both silences its "doesn't recognize the model" notice and makes
+    # auto-compaction correct for gateway model ids.
+    context_tokens = values.get("context_tokens")
     record = {"base_url": base_url, "api_key": api_key, "model": model}
+    if context_tokens not in (None, ""):
+        try:
+            context_tokens = int(context_tokens)
+        except (TypeError, ValueError):
+            raise FreeLLMAPIError("Context window must be a whole number of tokens.")
+        if context_tokens <= 0 or context_tokens > 10_000_000:
+            raise FreeLLMAPIError("Context window must be between 1 and 10,000,000 tokens.")
+        record["context_tokens"] = context_tokens
     with _LOCK:
         all_data = _read()
         all_data.setdefault("agents", {})[agent_id] = record
@@ -193,6 +210,65 @@ def model_entry(agent_id):
     }
 
 
+def catalog_models(agent_id):
+    """FreeLLMAPI catalog models switchable for this agent, catalog order.
+
+    Excludes the saved model itself (callers inject that separately via
+    ``model_entry``). With no connection saved, returns []. Entries are
+    metadata only; switching persists nothing until the model is actually
+    picked, at which point the caller saves it via ``set_config``.
+    """
+    data = get(agent_id)
+    if not data:
+        return []
+    try:
+        catalog = freellm_catalog.catalog()
+    except Exception:
+        return []
+    if not isinstance(catalog, dict) or not catalog.get("ok"):
+        return []
+    base = data.get("base_url") or ""
+    saved_model = data.get("model") or ""
+    entries = []
+    seen = set()
+    for provider in catalog.get("providers") or []:
+        if not isinstance(provider, dict):
+            continue
+        provider_base = (provider.get("base_url") or "").strip().rstrip("/")
+        for model in provider.get("models") or []:
+            if not isinstance(model, dict):
+                continue
+            model_id = str(model.get("id") or "").strip()
+            if not model_id or model_id in seen or model_id == saved_model:
+                continue
+            seen.add(model_id)
+            entries.append({
+                "id": model_id,
+                "name": str(model.get("name") or model_id),
+                "description": "FreeLLMAPI catalog model · "
+                               + str(provider.get("name") or ""),
+                "is_default": False,
+                "available": True,
+                "reason": None,
+                "provider": "FreeLLMAPI",
+                # FreeLLMAPI-only fields (no other model record carries them).
+                "freellm": {
+                    "catalog": True,
+                    "provider_name": provider.get("name") or "",
+                    "provider_id": provider.get("id") or "",
+                    "base_url": provider_base,
+                    # An exact base-URL match means the saved endpoint is the
+                    # documented one for this model; anything else needs the
+                    # user's own gateway-style endpoint.
+                    "endpoint_match": bool(provider_base and provider_base == base),
+                    "context": model.get("context") or "",
+                    "rate_limit": model.get("rate_limit") or "",
+                    "url": model.get("url") or "",
+                },
+            })
+    return entries
+
+
 def apply_agent_env(env, agent_id, model_id=None):
     """Add the endpoint only when the FreeLLMAPI model is selected."""
     data = get(agent_id)
@@ -204,4 +280,12 @@ def apply_agent_env(env, agent_id, model_id=None):
     if agent_id == "claude-code":
         result["ANTHROPIC_API_KEY"] = ""
         result["ANTHROPIC_MODEL"] = data["model"]
+        # Declare the gateway model id so Claude Code skips its local model
+        # validation ("Model ... isn't recognized" warning). Documented
+        # mechanism for gateway/custom model ids; harmless for known ids.
+        result["ANTHROPIC_CUSTOM_MODEL_OPTION"] = data["model"]
+        if data.get("context_tokens"):
+            # Declaring the real window silences the "assumes 1m tokens"
+            # notice and makes auto-compaction correct for gateway ids.
+            result["CLAUDE_CODE_MAX_CONTEXT_TOKENS"] = str(data["context_tokens"])
     return result

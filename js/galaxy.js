@@ -5,13 +5,10 @@
 
 class HermesGalaxy {
   constructor(canvasId) {
-    this.canvas = document.getElementById(canvasId);
-    if (!this.canvas) return;
-    this.ctx = this.canvas.getContext('2d');
-    this.stars = [];
-    this.arms = 2;
-    this.starCount = 360;
-    this.angleOffset = 0;
+    // The sidebar core widget was removed; the galaxy renderer only mounts
+    // when a canvas exists. The voice engine always initializes because the
+    // JARVIS dashboard (jarvisDashboard.js) drives it via window.hermesApollo.
+    this.canvas = document.getElementById(canvasId) || null;
 
     // Voice & State Engine
     this.state = 'standby'; // 'standby' | 'listening' | 'awake' | 'speaking' | 'muted'
@@ -30,7 +27,14 @@ class HermesGalaxy {
     this.visible = true;
     this._raf = null;
 
-    this.init();
+    if (this.canvas) {
+      this.ctx = this.canvas.getContext('2d');
+      this.stars = [];
+      this.arms = 2;
+      this.starCount = 360;
+      this.angleOffset = 0;
+      this.init();
+    }
     this.initAudioAndVoice();
     this.initTtsBridge();
   }
@@ -42,7 +46,6 @@ class HermesGalaxy {
     this.resize();
     this.resizeObserver = new ResizeObserver(() => this.resize());
     this.resizeObserver.observe(this.canvas);
-    this.bindDomElements();
     this.bindVoiceControls();
 
     // Pause the animation while the tab is hidden or the widget is off screen.
@@ -542,6 +545,12 @@ class HermesGalaxy {
       return;
     }
 
+    // 3g. Daily briefing (OpenJarvis digest bridge)
+    if (lower.includes('briefing') || lower.includes('brief me')) {
+      this.handleBriefingCommand();
+      return;
+    }
+
     // 3f. Skill Builder / Plugins / FreeLLMAPI
     if (lower.includes('skill builder') || lower.includes('skill')) {
       if (window.switchMainView) window.switchMainView('skill-builder');
@@ -688,9 +697,6 @@ class HermesGalaxy {
       clearTimeout(this.wakeTimeout);
     }
 
-    const widget = document.getElementById('hermes-apollo-widget');
-    if (widget) widget.classList.add('apollo-awake');
-
     this.playWakeChime();
     this.spawnShockwave('#00f0ff');
     this.spawnShockwave('#38bdf8');
@@ -720,9 +726,6 @@ class HermesGalaxy {
       clearTimeout(this.wakeTimeout);
       this.wakeTimeout = null;
     }
-
-    const widget = document.getElementById('hermes-apollo-widget');
-    if (widget) widget.classList.remove('apollo-awake');
 
     this.playSleepChime();
     this.state = this.isVoiceWakeActive ? 'standby' : 'muted';
@@ -760,37 +763,32 @@ class HermesGalaxy {
   }
 
   // -----------------------------------------------------------------------
-  // 7. UI BINDINGS & HUD CONTROLS
+  // 6b. DAILY BRIEFING (OpenJarvis digest bridge → spoken in the JARVIS voice)
   // -----------------------------------------------------------------------
-  bindDomElements() {
-    // 1. Click Canvas / Wrap to Wake
-    const canvasWrap = document.getElementById('apollo-canvas-wrap');
-    if (canvasWrap) {
-      canvasWrap.addEventListener('click', () => {
-        this.getAudioContext();
-        this.wake(true);
-      });
-    }
-
-    // 2. Test Wake Button
-    const testWakeBtn = document.getElementById('apollo-test-wake');
-    if (testWakeBtn) {
-      testWakeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.getAudioContext();
-        this.wake(true);
-      });
-    }
-
-    // 3. Mic / Voice Wake Toggle Button
-    const micToggleBtn = document.getElementById('apollo-mic-toggle');
-    if (micToggleBtn) {
-      micToggleBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        this.getAudioContext();
-        this.toggleVoiceWake();
-      });
-    }
+  handleBriefingCommand() {
+    this.respond('One moment, Dennis. Retrieving your briefing.');
+    fetch('/api/digest', { cache: 'no-store' })
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d || d.available !== true) {
+          this.respond('The briefing service is offline. Use the briefing panel on my dashboard to start it, Dennis.');
+          return;
+        }
+        if (!d.digest || !d.digest.text) {
+          this.respond('No briefing is ready for today yet, Dennis. Say generate briefing, or tap Generate on the dashboard.');
+          return;
+        }
+        // Speak through the centralized TTS router so the briefing uses the
+        // same JARVIS voice as every other Apollo response.
+        if (window.DennisTTS && typeof window.DennisTTS.speak === 'function') {
+          this.state = 'speaking';
+          this.updateUiStatus('Delivering your briefing, sir', 'cyan');
+          window.DennisTTS.speak(d.digest.text, { preset: 'jarvis-british-male', studio: 'apollo' });
+        } else {
+          this.respond(d.digest.text);
+        }
+      })
+      .catch(() => this.respond('I could not reach the OS backend for your briefing, Dennis.'));
   }
 
   // -----------------------------------------------------------------------
@@ -1087,6 +1085,7 @@ class HermesGalaxy {
   }
 
   spawnShockwave(color = '#00f0ff') {
+    if (!this.canvas) return;
     this.shockwaves.push({
       r: 10,
       maxR: Math.min(this.canvas.width, this.canvas.height) * 0.46,

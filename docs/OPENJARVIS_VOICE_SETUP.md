@@ -88,6 +88,56 @@ They are deliberately **parallel, not merged**: the Dennis OS keeps its
 integrated Hermes Apollo voice core (wake word, galaxy visual, dashboard);
 OpenJarvis provides its own speech stack (`speech/` backends: Kokoro, ElevenLabs,
 Cartesia, Deepgram, OpenAI + Whisper STT) for its agents (morning digest,
-deep research, …). Both now share the same ElevenLabs key. A future bridge
-could point `backend/tts.py`'s ElevenLabs tier at the same voice George uses in
-OpenJarvis for a consistent identity across both.
+deep research, …). Both now share the same ElevenLabs key.
+
+**The bridge exists since 2026-11-13** (steps 1-2 of the JARVIS build order):
+
+- The OS owns the mic, wake word and voice (Apollo in `js/galaxy.js`);
+  OpenJarvis runs headless as the **briefing service**.
+- `backend/digest.py` proxies OpenJarvis's `/api/digest*` REST API with hard
+  timeouts and graceful degradation; `scripts/openjarvis_service.py` manages
+  exactly one `jarvis serve` process (PID/log in `data/openjarvis/`) and
+  starts **Ollama on demand** (engine discovery otherwise falls back to NIM
+  without a key — observed live).
+- **Engine: GLM 5.3 Flash via NVIDIA NIM** (2026-11-13). The NIM key was
+  copied from the OpenCode provider auth into
+  `~/.openjarvis/credentials.toml` (`[nim] NIM_API_KEY`, 0600) and
+  `~/.openjarvis/config.toml` now sets `engine.default = "nim"` with
+  `default_model = "z-ai/glm-5.3-flash"` (confirmed present on NIM's model
+  list). Ollama `qwen3:0.6b` remains the local fallback. This replaced the
+  incoherent 0.6b digest ramble with a proper Jarvis-persona briefing.
+- **Connectors to the OS (2026-11-13)**: the OS vault is wired in as a
+  digest source — `scripts/openjarvis_service.py` exports
+  `OBSIDIAN_VAULT_PATH=<repo>/vault`, the Obsidian connector gained the env
+  fallback + a naive/aware `since` fix, and `digest_collect.py` gained a
+  MEMORY section (`obsidian`, `apple_notes`, `granola`). `apple_calendar`
+  joined CALENDAR and `hackernews` covers WORLD. Notes/iMessage/Calendar
+  sqlite reads are TCC-blocked until Full Disk Access is granted to the
+  host process — the connectors then light up with zero code changes.
+- OS endpoints (owner-token gated): `GET /api/digest`,
+  `GET /api/digest/weekly`, `GET|POST /api/digest/schedule`,
+  `GET /api/digest/history`, `GET /api/digest/audio`,
+  `GET /api/digest/service`, `POST /api/digest/generate` (body
+  `{"kind": "daily"|"weekly"}`), `POST /api/digest/service`.
+- Dashboard: **Briefing history** panel (DAILY/WEEKLY badges, tap to reopen,
+  latest speaks through DennisTTS with the JARVIS preset) with separate
+  daily/weekly generate buttons, plus the telemetry strip and command bar.
+- **Voice command**: "Hey Apollo … daily briefing / brief me" speaks the
+  latest briefing through the JARVIS voice
+  (`HermesGalaxy.handleBriefingCommand`).
+- **Weekly briefings**: digest artifacts carry a `kind` (`daily`/`weekly`,
+  migrated column); the digest agent uses a 168 h window and a weekly hint
+  when asked for a weekly digest. The OS runs a weekly auto-scheduler daemon
+  (`dennis_digest.start_weekly_scheduler()`, default Monday 08:00 local,
+  `DENNIS_WEEKLY_BRIEFING=0` to disable) and the panel can generate one on
+  demand.
+- Local OpenJarvis patches (kept minimal, upstream Apache-2.0):
+  `connectors/obsidian.py` (env vault path + tz fix), `tools/digest_collect.py`
+  (MEMORY section + obsidian formatter), `agents/morning_digest.py`
+  (memory sources, weekly window/kind), `agents/digest_store.py` (kind column
+  via the existing `_migrate` pattern), `server/digest_routes.py`
+  (kind params + `/api/digest/latest`).
+- Config knobs: `OPENJARVIS_URL` (default `http://127.0.0.1:8000`),
+  `OPENJARVIS_HOME` (default `../OpenJarvis`), `OPENJARVIS_CMD`,
+  `OPENJARVIS_API_KEY` (only when the service runs with auth),
+  `DENNIS_WEEKLY_BRIEFING[_DAY|_HOUR]`.
