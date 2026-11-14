@@ -23,7 +23,9 @@ document.addEventListener('DOMContentLoaded', () => {
   initQuickToolsAndModals();
 
   // 7. JARVIS is the default dashboard: land on it, not the workspace.
-  switchMainView('jarvis');
+  // A pasted #cosmos/<agent> deep link boots straight into COSMOS.
+  const bootCosmos = /^#cosmos\b/i.test(window.location.hash) && !!window.Cosmos;
+  switchMainView(bootCosmos ? 'cosmos' : 'jarvis');
 
   // 8. Fullscreen command-center mode is the default when the OS opens.
   setJarvisMode('fullscreen');
@@ -89,6 +91,7 @@ function switchMainView(viewName) {
   const vaultView = document.getElementById('vault-view');
   const hermesView = document.getElementById('hermes-view');
   const studioView = document.getElementById('studio-view');
+  const cosmosView = document.getElementById('cosmos-view');
   const skillBuilderView = document.getElementById('skill-builder-view');
   const pluginsView = document.getElementById('plugins-view');
   const installedPluginsView = document.getElementById('installed-plugins-view');
@@ -107,11 +110,13 @@ function switchMainView(viewName) {
   const connectionsNav = document.getElementById('sidebar-nav-connections');
   const galaxyNav = document.getElementById('sidebar-nav-galaxy');
   const studioNav = document.getElementById('sidebar-nav-studio');
+  const cosmosNav = document.getElementById('sidebar-nav-cosmos');
 
   const navs = [
     { nav: jarvisNav, view: 'jarvis' },
     { nav: workspaceNav, view: 'workspace' },
     { nav: studioNav, view: 'studio' },
+    { nav: cosmosNav, view: 'cosmos' },
     { nav: tradingNav, view: 'trading-den' },
     { nav: vaultNav, view: 'vault' },
     { nav: galaxyNav, view: 'memory-galaxy' },
@@ -122,7 +127,7 @@ function switchMainView(viewName) {
     { nav: freellmNav, view: 'freellm' },
     { nav: connectionsNav, view: 'connections' }
   ];
-  const VIEWS = ['jarvis', 'workspace', 'trading-den', 'vault', 'memory-galaxy', 'hermes', 'studio', 'skill-builder', 'plugins', 'installed-plugins', 'freellm', 'connections'];
+  const VIEWS = ['jarvis', 'workspace', 'trading-den', 'vault', 'memory-galaxy', 'hermes', 'studio', 'cosmos', 'skill-builder', 'plugins', 'installed-plugins', 'freellm', 'connections'];
   // JARVIS is the default dashboard: unknown names fall back to it.
   const active = VIEWS.includes(viewName) ? viewName : 'jarvis';
 
@@ -153,6 +158,7 @@ function switchMainView(viewName) {
   if (galaxyView) galaxyView.classList.toggle('hidden', active !== 'memory-galaxy');
   if (hermesView) hermesView.classList.toggle('hidden', active !== 'hermes');
   if (studioView) studioView.classList.toggle('hidden', active !== 'studio');
+  if (cosmosView) cosmosView.classList.toggle('hidden', active !== 'cosmos');
   const osMain = document.getElementById('os-main');
   if (osMain) osMain.classList.toggle('os-studio-active', active === 'studio');
   if (skillBuilderView) skillBuilderView.classList.toggle('hidden', active !== 'skill-builder');
@@ -169,6 +175,13 @@ function switchMainView(viewName) {
       window.history.replaceState(null, '', window.location.pathname + window.location.search);
     } catch (err) { /* keep the hash rather than break navigation */ }
   }
+  // The same rule applies to COSMOS agent deep links.
+  if (active !== 'cosmos' && /^#cosmos\b/i.test(window.location.hash)) {
+    try {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    } catch (err) { /* keep the hash rather than break navigation */ }
+  }
+  if (active === 'cosmos' && window.Cosmos) window.Cosmos.refresh();
   if (active === 'jarvis' && window.JarvisDashboard) window.JarvisDashboard.refresh();
   if (active === 'hermes' && window.Hermes) window.Hermes.reload();
   if (active === 'studio' && window.Studio) window.Studio.refresh();
@@ -224,7 +237,9 @@ function initSidebar() {
       item.classList.add('bg-blue-600', 'text-white', 'shadow-lg', 'shadow-blue-500/20');
 
       const label = item.textContent.toLowerCase();
-      if (label.includes('jarvis')) {
+      if (item.id === 'sidebar-nav-cosmos') {
+        switchMainView('cosmos');
+      } else if (label.includes('jarvis')) {
         switchMainView('jarvis');
       } else if (label.includes('memory galaxy')) {
         switchMainView('memory-galaxy');

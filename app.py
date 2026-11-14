@@ -91,6 +91,8 @@ from backend import studio_workspaces as dennis_studio_workspaces
 from backend import tts as dennis_tts
 from backend import digest as dennis_digest
 from backend import youtube_api as dennis_youtube_api
+from backend import cosmos_api as dennis_cosmos_api
+from backend import studio_create as dennis_studio_create
 from backend.sandbox import ExecContext
 
 # Hermes: the orchestrator agent. Owns the Kanban board and delegates work to
@@ -1375,6 +1377,16 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
                 return self.send_json({"active": dennis_studio_workspaces.get_active()})
             except Exception as exc:
                 return self._studio_send_error(exc)
+
+        # COSMOS multi-agent intelligence (read).
+        if path == '/api/cosmos' or path.startswith('/api/cosmos/'):
+            status, payload = dennis_cosmos_api.handle('GET', path, parse_qs(parsed.query), None)
+            return self.send_json(payload, status)
+
+        # Ads Studio Create briefs (read).
+        if path == '/api/studio/ads/create' or path.startswith('/api/studio/ads/create/'):
+            status, payload = dennis_studio_create.handle('GET', path, parse_qs(parsed.query), None)
+            return self.send_json(payload, status)
 
         # YouTube Studio editorial APIs (channels, research, topics, scripts).
         if path.startswith('/api/studio/youtube/'):
@@ -2976,6 +2988,16 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
         # ==================================================================
         # STUDIO (writes): credentials, uploads, jobs, tools, MCP config.
         # ==================================================================
+        # COSMOS multi-agent intelligence (execute, review, configure).
+        if path == '/api/cosmos' or path.startswith('/api/cosmos/'):
+            status, payload = dennis_cosmos_api.handle('POST', path, parse_qs(parsed.query), body)
+            return self.send_json(payload, status)
+
+        # Ads Studio Create briefs (write).
+        if path == '/api/studio/ads/create' or path.startswith('/api/studio/ads/create/'):
+            status, payload = dennis_studio_create.handle('POST', path, parse_qs(parsed.query), body)
+            return self.send_json(payload, status)
+
         if path.startswith('/api/studio/youtube/'):
             status, payload = dennis_youtube_api.handle('POST', path, parse_qs(parsed.query), body)
             return self.send_json(payload, status)
@@ -5024,6 +5046,11 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
             except Exception as exc:
                 return self._studio_send_error(exc)
 
+        # COSMOS multi-agent intelligence (template/backlog edits).
+        if path == '/api/cosmos' or path.startswith('/api/cosmos/'):
+            status, payload = dennis_cosmos_api.handle('PATCH', path, parse_qs(parsed.query), body)
+            return self.send_json(payload, status)
+
         # YouTube Studio editorial APIs.
         if path.startswith('/api/studio/youtube/'):
             status, payload = dennis_youtube_api.handle('PATCH', path, parse_qs(parsed.query), body)
@@ -5107,6 +5134,16 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
             except Exception as exc:
                 return self._studio_send_error(exc)
             return self.send_json({"error": "Workspace endpoint not found"}, 404)
+
+        # COSMOS multi-agent intelligence (soft-delete backlog rows).
+        if path == '/api/cosmos' or path.startswith('/api/cosmos/'):
+            status, payload = dennis_cosmos_api.handle('DELETE', path, parse_qs(parsed.query), None)
+            return self.send_json(payload, status)
+
+        # Ads Studio Create briefs (soft delete).
+        if path == '/api/studio/ads/create' or path.startswith('/api/studio/ads/create/'):
+            status, payload = dennis_studio_create.handle('DELETE', path, parse_qs(parsed.query), None)
+            return self.send_json(payload, status)
 
         # YouTube Studio editorial APIs.
         if path.startswith('/api/studio/youtube/'):

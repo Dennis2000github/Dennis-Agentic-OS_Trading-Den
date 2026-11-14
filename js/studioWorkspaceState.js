@@ -11,7 +11,9 @@
 
   // Existing Studio tabs. These keys must never change: the Ads workspace
   // relies on them.
-  var ADS_SECTIONS = ["fashion", "assets", "library", "playlists", "preset", "history", "setup"];
+  // Create and Product Backlog are additive; the five-step Generate workflow
+  // remains the default Ads landing section.
+  var ADS_SECTIONS = ["fashion", "create", "backlog", "assets", "library", "playlists", "preset", "history", "setup"];
 
   // YouTube Studio sections (master spec v1.0). The default landing page is
   // Create. Settings holds channel connection, defaults and providers.

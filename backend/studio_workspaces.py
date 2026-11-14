@@ -79,7 +79,17 @@ WORKSPACES = {
         "label": "Ads Studio",
         "subtitle": "Advertising and marketing creative production",
         "sections": [],
-        "legacy_tabs": ["fashion", "assets", "library", "playlists", "preset", "history", "setup"],
+        "legacy_tabs": [
+            "fashion",
+            "create",
+            "backlog",
+            "assets",
+            "library",
+            "playlists",
+            "preset",
+            "history",
+            "setup",
+        ],
     },
     "youtube": {
         "id": "youtube",

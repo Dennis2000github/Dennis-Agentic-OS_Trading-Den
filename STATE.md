@@ -2304,3 +2304,66 @@ assuming):
   session model is switched during tests.
 - **Live server note**: the `app.py` process on :8080 predates these
   changes; restart it and reload the page to see the flattened UI.
+
+## 2026-11-15 (COSMOS) — Five-agent intelligence dashboards + Ads Create/Product Backlog
+
+- **What shipped**: the COSMOS intelligence layer. Five agents (ANDROMEDA
+  discovery, POLARIS strategy, PLEIADES creative, QUASAR research, HELIOS
+  performance) each get an independent dashboard at `#cosmos/<agent>` with
+  the same two permanent divisions: **Ads Intelligence left, YouTube
+  Intelligence right** (stacked below 1180px). Every agent has its own
+  identity, role, responsibilities, domain capability, composer, execution
+  history, results and activity; divisions never share data or history.
+- **Configuration**: 5 editable Ads templates (Women's Apparel, Beauty &
+  Skincare, Electronics & Gadgets, Home & Living, Health & Lifestyle) and
+  5 editable YouTube templates (Educational Video, Documentary / Explainer,
+  Faceless YouTube, Entertainment / Storytelling, Product Review), plus an
+  explicit active template per domain (and active channel for YouTube).
+  Every execution stores an **effective configuration snapshot**; template
+  edits never rewrite history (proved by tests).
+- **Honesty guardrails**: discovery outputs are labelled AI hypotheses and
+  qualified against the active config (relevance ≥ 60 + keyword/pillar
+  alignment); fewer than 5 qualified results are reported as
+  `insufficient_results` with the filter reasons, never padded. Affiliate
+  status is forced `unvalidated` by discovery; validation is a separate,
+  explicit owner operation. Nothing auto-publishes.
+- **Routing**: Ads drafts land in a new **Ads Product Backlog** (forward-only
+  statuses, archived terminal, dedupe, provenance back to the execution and
+  recommendation). YouTube drafts reuse the existing **Topic Backlog**
+  (`idea` status, provenance in notes). "Refine" runs the same agent and
+  links the original card to the refined one.
+- **Ads Studio additions**: sidebar now has **Create** and **Product
+  Backlog** next to the untouched five-step Generate workflow. Create
+  composes a deterministic structured brief (prompt + disclosures), requires
+  an owner-validated affiliate link to include one, and hands off to a draft
+  Ads project + prefilled Generate prompt — never a render.
+- **Backend**: new `backend/cosmos_common.py`, `cosmos_registry.py`,
+  `cosmos_config.py`, `cosmos_store.py`, `cosmos_engine.py`,
+  `cosmos_backlog.py`, `cosmos_api.py`, `ads_backlog.py`, `studio_create.py`;
+  dispatch wired in `app.py` for `/api/cosmos/*` and
+  `/api/studio/ads/create/*`; Ads workspace `legacy_tabs` extended.
+- **Frontend**: new `js/cosmosState.js` (pure state), `js/cosmosDashboard.js`
+  (DOM/HTTP), `js/studioCreate.js` (Create + Product Backlog), `css/cosmos.css`;
+  additive edits in `index.html` (sidebar item, `#cosmos-view`, modal/toast,
+  Ads panels), `js/app.js` (view routing, `#cosmos` deep links, hash
+  cleanup), `js/studio.js` (`setTab` + `Studio.prefillPrompt`),
+  `js/studioWorkspaceState.js`.
+- **Fixed during implementation**: engine marked the execution failed on
+  invalid model JSON; per-item normalization errors are filtered instead of
+  aborting the run; refine is no longer blocked by its own dedupe key;
+  manual Create briefs now accept `price` as a number or an
+  `{amount, currency}` object (live smoke test caught the object form
+  silently becoming 0).
+- **Locked behaviour**: existing YouTube Topic Backlog, five-step Generate
+  workflow and provider/model routing (`studio_llm`) are unchanged; COSMOS
+  adds no duplicate model selector and no provider calls of its own beyond
+  the shared routing.
+- **Tests**: 760 Python tests OK (`python3 -m unittest discover -s tests`),
+  including 99 new COSMOS/Ads tests
+  (`test_cosmos_registry|config|store|engine|backlog|api|workflows`,
+  `test_ads_backlog`, `test_studio_create`); JS state tests all green
+  (`node tests/cosmosState.test.js` 12/12, plus studio/panel/kanban/
+  agentDashboards/studioWorkspaceState suites); live server smoke on
+  `/api/cosmos/overview` and `/api/studio/ads/create/*` (compose, backlog
+  add → status → delete, brief delete) with the real registry, defaults and
+  the existing `The Business Money Blueprint` channel.

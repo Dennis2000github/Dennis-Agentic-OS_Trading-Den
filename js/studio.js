@@ -2539,7 +2539,7 @@
       S.higgsfieldTab = tab;
       tab = "higgsfield";
     }
-    if (["higgsfield", "fashion", "setup", "assets", "preset"].indexOf(tab) === -1) tab = "fashion";
+    if (["higgsfield", "fashion", "setup", "assets", "preset", "create", "backlog"].indexOf(tab) === -1) tab = "fashion";
     S.tab = tab;
     updateHeader();
     Array.prototype.forEach.call(document.querySelectorAll("[data-studio-tab]"), function (button) {
@@ -2562,6 +2562,8 @@
     show($("studio-panel-fashion"), tab === "fashion");
     show($("studio-panel-assets"), tab === "assets");
     show($("studio-panel-preset"), tab === "preset");
+    show($("studio-panel-create"), tab === "create");
+    show($("studio-panel-backlog"), tab === "backlog");
     show($("studio-panel-setup"), tab === "setup");
     var settings = $("studio-settings-btn");
     if (settings) settings.classList.toggle("active", tab === "setup");
@@ -2583,6 +2585,8 @@
       window.StudioFashion.showPresetPage();
     }
     if (tab === "setup") renderSetup();
+    if (tab === "create" && window.StudioCreate) window.StudioCreate.showCreate();
+    if (tab === "backlog" && window.StudioCreate) window.StudioCreate.showBacklog();
   }
 
   function providerSafeUrl(url) {
@@ -4077,7 +4081,22 @@
     providerId: function () { return S.providerId; },
     agents: function () { return S.agents.slice(); },
     agentId: function () { return S.agentId; },
-    setAgent: chooseAgent
+    setAgent: chooseAgent,
+    // Ads Create hands a composed brief to the existing Generate workflow:
+    // the prompt is filled in, but nothing is submitted automatically.
+    prefillPrompt: function (text) {
+      var value = String(text == null ? "" : text);
+      setTab("fashion");
+      S.values.prompt = value;
+      var area = $("studio-prompt");
+      if (area) {
+        area.value = value;
+        updatePromptHint();
+        area.focus();
+      }
+      toast("Brief loaded into the Generate prompt.");
+      return !!area;
+    }
   };
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

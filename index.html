@@ -58,6 +58,7 @@
   <link rel="stylesheet" href="css/studio-ads.css?v=20261113-runtime-rail">
   <!-- UI UX Pro Max design system skin (design-system/dennis-agentic-os/MASTER.md) -->
   <link rel="stylesheet" href="css/theme-uiuxpro.css?v=20261112-uupm1">
+  <link rel="stylesheet" href="css/cosmos.css?v=20261115-cosmos1">
 </head>
 <body class="bg-[#060913] text-slate-100 h-screen overflow-hidden flex flex-col font-sans select-none">
 
@@ -128,6 +129,11 @@
         <button id="sidebar-nav-studio" class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 font-medium text-xs transition">
           <span class="studio-mark" aria-hidden="true"></span>
           <span>Studio</span>
+        </button>
+
+        <button id="sidebar-nav-cosmos" class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 font-medium text-xs transition">
+          <i data-lucide="orbit" class="w-4 h-4"></i>
+          <span>COSMOS</span>
         </button>
 
         <button id="sidebar-nav-trading" class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 font-medium text-xs transition">
@@ -1576,7 +1582,9 @@
           <aside class="collart-sidebar" id="studio-ads-sidebar">
             <div class="collart-side-top">
               <nav class="collart-side-nav">
+                <button type="button" class="collart-side-item" data-studio-tab="create" data-nav-key="create"><i data-lucide="pen-line" class="w-4 h-4"></i><span>Create</span></button>
                 <button type="button" class="collart-side-item is-active" data-studio-tab="fashion" data-nav-key="generate"><i data-lucide="sparkles" class="w-4 h-4"></i><span>Generate</span></button>
+                <button type="button" class="collart-side-item" data-studio-tab="backlog" data-nav-key="ads-backlog"><i data-lucide="list-checks" class="w-4 h-4"></i><span>Product Backlog</span></button>
                 <button type="button" class="collart-side-item" data-studio-tab="assets" data-nav-key="assets"><i data-lucide="folder" class="w-4 h-4"></i><span>Assets</span></button>
                 <button type="button" class="collart-side-item" data-studio-subtab="library" data-nav-key="library"><i data-lucide="library" class="w-4 h-4"></i><span>Library</span></button>
                 <button type="button" class="collart-side-item" data-studio-subtab="playlists" data-nav-key="playlists"><i data-lucide="list-music" class="w-4 h-4"></i><span>Playlists</span></button>
@@ -2556,6 +2564,139 @@
           <div id="preset-page-grid" class="collart-grid"></div>
         </div>
 
+        <!-- ============ Ads Create: structured brief -> Generate handoff ============ -->
+        <div id="studio-panel-create" class="studio-panel studio-panel-create hidden">
+          <h1 class="collart-h1">Ads Create</h1>
+          <p class="collart-note">Compose a reviewable creative brief from the active Ads template. Nothing renders or publishes until you continue in Generate.</p>
+
+          <div class="adc-grid">
+            <section class="adc-card">
+              <h2>1 · Product</h2>
+              <label class="adc-field"><span>Product from the Product Backlog</span>
+                <select id="adc-product"><option value="">Enter a product manually</option></select>
+              </label>
+              <p class="adc-or">or enter it manually</p>
+              <div class="adc-row">
+                <label class="adc-field"><span>Product name</span><input id="adc-name" maxlength="200" placeholder="Floral midi dress"></label>
+                <label class="adc-field"><span>Merchant</span><input id="adc-merchant" maxlength="160" placeholder="Shopee"></label>
+              </div>
+              <div class="adc-row">
+                <label class="adc-field"><span>Price</span><input id="adc-price" type="number" min="0" step="0.01" placeholder="899"></label>
+                <label class="adc-field"><span>Currency</span><input id="adc-currency" maxlength="8" value="PHP"></label>
+              </div>
+              <div class="adc-row">
+                <label class="adc-field"><span>Category</span><input id="adc-category" maxlength="160" placeholder="Dresses"></label>
+                <label class="adc-field"><span>Target audience</span><input id="adc-audience" maxlength="600" placeholder="Women 18-35"></label>
+              </div>
+              <label class="adc-field"><span>Product description</span><textarea id="adc-description" rows="2" maxlength="4000" placeholder="Breathable floral midi dress with a fitted bodice."></textarea></label>
+              <label class="adc-field"><span>Product URL</span><input id="adc-url" maxlength="1000" placeholder="https://…"></label>
+            </section>
+
+            <section class="adc-card">
+              <h2>2 · Creative direction</h2>
+              <label class="adc-field"><span>Instruction</span><textarea id="adc-instruction" rows="4" maxlength="4000" placeholder="Create a 15-second try-on video for TikTok with a hook in the first 2 seconds."></textarea></label>
+              <div class="adc-row">
+                <label class="adc-field"><span>Duration (seconds)</span><input id="adc-duration" type="number" min="5" max="180" value="15"></label>
+                <label class="adc-field"><span>Target platforms</span><input id="adc-platforms" maxlength="300" placeholder="TikTok, Instagram Reels"></label>
+              </div>
+              <label class="adc-field"><span>Creative style override (optional)</span><input id="adc-style" maxlength="500" placeholder="Warm natural daylight; mirror try-on."></label>
+              <label class="adc-check"><input type="checkbox" id="adc-sponsored"> Sponsored content (adds a disclosure)</label>
+
+              <div class="adc-affiliate">
+                <h3>Affiliate destination</h3>
+                <p>Only record a link you have already validated. Unvalidated links are excluded from the brief.</p>
+                <label class="adc-check"><input type="checkbox" id="adc-aff-validated"> This affiliate link is validated</label>
+                <div class="adc-row">
+                  <label class="adc-field"><span>Program</span><input id="adc-aff-program" maxlength="200" placeholder="Shopee Affiliate"></label>
+                  <label class="adc-field"><span>Tracking URL</span><input id="adc-aff-url" maxlength="1000" placeholder="https://…"></label>
+                </div>
+              </div>
+
+              <div class="adc-actions">
+                <button id="adc-compose" type="button" class="collart-btn">Compose brief</button>
+                <span class="adc-hint">The brief composes locally from the active template.</span>
+              </div>
+              <p id="adc-error" class="adc-error hidden"></p>
+            </section>
+          </div>
+
+          <section id="adc-preview" class="adc-card adc-preview hidden">
+            <div class="adc-preview-head">
+              <h2>3 · Review the handoff</h2>
+              <span id="adc-preview-badge" class="adc-badge">Draft</span>
+            </div>
+            <div id="adc-preview-meta" class="adc-meta"></div>
+            <div id="adc-preview-disclosures" class="adc-disclosures"></div>
+            <pre id="adc-preview-prompt" class="adc-prompt"></pre>
+            <div class="adc-actions">
+              <button id="adc-handoff" type="button" class="collart-btn" data-cta>Send to Generate</button>
+              <button id="adc-copy" type="button" class="collart-btn-soft">Copy prompt</button>
+              <button id="adc-discard" type="button" class="collart-btn-soft">Discard</button>
+              <span class="adc-hint">Creates a draft Ads project and loads the prompt into Generate. No render is started.</span>
+            </div>
+            <p id="adc-preview-note" class="adc-hint"></p>
+          </section>
+
+          <section class="adc-card">
+            <div class="adc-preview-head">
+              <h2>Recent briefs</h2>
+              <span id="adc-brief-count" class="adc-badge">0</span>
+            </div>
+            <div id="adc-briefs" class="adc-briefs"></div>
+          </section>
+        </div>
+
+        <!-- ============ Ads Product Backlog ============ -->
+        <div id="studio-panel-backlog" class="studio-panel studio-panel-backlog hidden">
+          <h1 class="collart-h1">Ads Product Backlog</h1>
+          <p class="collart-note">Products discovered or entered by the owner. Drafts land here first; status moves forward only, and publishing is never automatic.</p>
+
+          <div class="adc-grid">
+            <section class="adc-card">
+              <h2>Add a product</h2>
+              <label class="adc-field"><span>Product name</span><input id="adb-name" maxlength="200" placeholder="Floral midi dress"></label>
+              <div class="adc-row">
+                <label class="adc-field"><span>Merchant</span><input id="adb-merchant" maxlength="160" placeholder="Shopee"></label>
+                <label class="adc-field"><span>Category</span><input id="adb-category" maxlength="160" placeholder="Dresses"></label>
+              </div>
+              <div class="adc-row">
+                <label class="adc-field"><span>Price</span><input id="adb-price" type="number" min="0" step="0.01" placeholder="899"></label>
+                <label class="adc-field"><span>Currency</span><input id="adb-currency" maxlength="8" value="PHP"></label>
+              </div>
+              <label class="adc-field"><span>Product URL</span><input id="adb-url" maxlength="1000" placeholder="https://…"></label>
+              <label class="adc-field"><span>Target audience</span><input id="adb-audience" maxlength="600" placeholder="Women 18-35"></label>
+              <div class="adc-actions">
+                <button id="adb-add" type="button" class="collart-btn">Add product</button>
+              </div>
+              <p id="adb-error" class="adc-error hidden"></p>
+            </section>
+
+            <section class="adc-card">
+              <div class="adc-preview-head">
+                <h2>Products</h2>
+                <span id="adb-total" class="adc-badge">0</span>
+              </div>
+              <div class="adc-row">
+                <label class="adc-field"><span>Search</span><input id="adb-search" placeholder="Name, merchant, category…"></label>
+                <label class="adc-field"><span>Status</span>
+                  <select id="adb-status-filter">
+                    <option value="">All active</option>
+                    <option value="drafted">Drafted</option>
+                    <option value="discovered">Discovered</option>
+                    <option value="reviewing">Reviewing</option>
+                    <option value="approved">Approved</option>
+                    <option value="ready_for_creation">Ready for creation</option>
+                    <option value="in_production">In production</option>
+                    <option value="published">Published</option>
+                    <option value="archived">Archived</option>
+                  </select>
+                </label>
+              </div>
+              <div id="adb-list" class="adc-briefs"></div>
+            </section>
+          </div>
+        </div>
+
       </div><!-- /collart-content -->
 
       <footer class="collart-dock" id="collart-dock">
@@ -3023,6 +3164,50 @@
           </div>
         </div>
       </section>
+
+
+      <!-- ========================================================================= -->
+      <!-- COSMOS: five independent intelligence agents, two divisions each          -->
+      <!-- ========================================================================= -->
+      <section id="cosmos-view" class="hidden flex-1 min-h-0 overflow-y-auto pb-6">
+        <div class="cosmos-page">
+          <header class="cosmos-header">
+            <div>
+              <span class="cosmos-eyebrow"><i data-lucide="orbit" class="w-3.5 h-3.5"></i> COSMOS Intelligence Layer</span>
+              <h1>Five agents. Two permanent divisions.</h1>
+              <p id="cosmos-subtitle">Five independent agents. Two permanent divisions each: Ads Intelligence on the left, YouTube Intelligence on the right.</p>
+            </div>
+            <div class="cosmos-header-right">
+              <div id="cosmos-runtime" class="cosmos-runtime is-warn">
+                <span class="cosmos-dot"></span>
+                <b>Checking model…</b>
+                <em>Shared Studio routing</em>
+              </div>
+              <button id="cosmos-refresh" type="button" class="cosmos-btn"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh</button>
+            </div>
+          </header>
+
+          <div id="cosmos-alert" class="cosmos-alert hidden" role="status" aria-live="polite"></div>
+          <div id="cosmos-agent-tabs" class="cosmos-agent-tabs" role="tablist" aria-label="COSMOS agents"></div>
+          <div id="cosmos-agent"></div>
+        </div>
+      </section>
+
+      <!-- COSMOS modal: template editing, refine, affiliate validation, reject -->
+      <div id="cosmos-modal" class="cosmos-modal hidden" role="dialog" aria-modal="true" aria-labelledby="cosmos-modal-title">
+        <div class="cosmos-modal-card">
+          <div class="cosmos-modal-head">
+            <h3 id="cosmos-modal-title">COSMOS</h3>
+            <button id="cosmos-modal-close" type="button" aria-label="Close">×</button>
+          </div>
+          <div id="cosmos-modal-body" class="cosmos-modal-body"></div>
+          <div class="cosmos-modal-actions">
+            <button id="cosmos-modal-cancel" type="button" class="cosmos-btn">Cancel</button>
+            <button id="cosmos-modal-submit" type="button" class="cosmos-btn is-primary">Save</button>
+          </div>
+        </div>
+      </div>
+      <div id="cosmos-toast" class="cosmos-toast hidden" role="status" aria-live="polite"></div>
 
 
       <!-- ========================================================================= -->
@@ -4336,6 +4521,9 @@
   <script defer src="js/studioWorkspaceState.js?v=20261112-yt-phase2"></script>
   <script defer src="js/studioYoutube.js?v=20261113-yt-cleanup"></script>
   <script defer src="js/studioWorkspaces.js?v=20261112-yt-phase2"></script>
+  <script defer src="js/cosmosState.js?v=20261115-cosmos1"></script>
+  <script defer src="js/cosmosDashboard.js?v=20261115-cosmos1"></script>
+  <script defer src="js/studioCreate.js?v=20261115-cosmos1"></script>
   <script defer src="js/skill-builder.js?v=20261112-video-reverse"></script>
   <script defer src="vendor/marked.min.js"></script>
   <script defer src="js/plugins.js?v=20261023-repo1"></script>
