@@ -18,7 +18,7 @@
   var MAX_BYTES = 25 * 1024 * 1024;
   var POLL_MS = 3000;
   var STEP_COUNT = 5;
-  var AUTOSAVE_MS = 60 * 1000; // Preset Images auto-save after 1 minute
+  var AUTOSAVE_MS = 60 * 1000; // uploads/generated media auto-save after 1 minute
 
   var PROMPT_1 = "use the attached image to create a character sheet, grey background, 9:16. " +
     "Do not modify the skin tone and original facial features.";
@@ -66,7 +66,6 @@
     dressingCreating: false,
 
     /* Step 4 · Reference Video */
-    refTab: "presets",
     reference: { url: "", name: "", duration: 0 },
     presetId: "",
     refSkipped: false,
@@ -318,6 +317,139 @@
         if (gen.model) modelSel.value = gen.model;
       }
     });
+    renderRuntimeRail();
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Shared runtime rail (Agent · Provider · Model)                      */
+  /* ------------------------------------------------------------------ */
+  function runtimeGenStep() {
+    /* Step 4 is a reference clip; the video model it feeds lives in Step 5. */
+    return S.step === 4 ? "5" : String(S.step);
+  }
+
+  function runtimeProviders(kind) {
+    return ((S.registry && S.registry.providers) || []).filter(function (p) {
+      if (!p.adapter) return false;
+      if (p.id === "auto") return true;
+      if (!p.connected) return false;
+      return genCatalogModels(p.id, kind).length > 0;
+    });
+  }
+
+  function renderRuntimeAgent() {
+    var select = $("fashion-runtime-agent");
+    if (!select) return;
+    var roster = (window.Studio && window.Studio.agents) ? window.Studio.agents() : [];
+    var activeId = (window.Studio && window.Studio.agentId) ? window.Studio.agentId() : "";
+    select.innerHTML = "";
+    if (!roster.length) {
+      var empty = document.createElement("option");
+      empty.value = "";
+      empty.textContent = "No agents detected";
+      select.appendChild(empty);
+      select.disabled = true;
+      return;
+    }
+    select.disabled = false;
+    roster.forEach(function (agent) {
+      var option = document.createElement("option");
+      option.value = agent.id;
+      option.textContent = (agent.name || agent.id) +
+        (agent.available === false ? " (not installed)" : "");
+      option.selected = agent.id === activeId;
+      select.appendChild(option);
+    });
+  }
+
+  function renderRuntimeRail() {
+    var genStep = runtimeGenStep();
+    var kind = genKind(genStep);
+    var gen = genEntry(genStep);
+
+    var stepLabel = $("fashion-runtime-step");
+    if (stepLabel) {
+      stepLabel.textContent = "Step " + S.step + " · " + (kind === "video" ? "video" : "image");
+    }
+
+    var providerSel = $("fashion-runtime-provider");
+    if (providerSel) {
+      var providers = runtimeProviders(kind);
+      providerSel.innerHTML = "";
+      if (!providers.length) {
+        var loading = document.createElement("option");
+        loading.value = "";
+        loading.textContent = "Loading providers…";
+        providerSel.appendChild(loading);
+        providerSel.disabled = true;
+      } else {
+        providerSel.disabled = false;
+        providers.forEach(function (p) {
+          var option = document.createElement("option");
+          option.value = p.id;
+          option.textContent = p.label || p.id;
+          option.selected = p.id === gen.provider;
+          providerSel.appendChild(option);
+        });
+        if (!providers.some(function (p) { return p.id === gen.provider; })) {
+          gen.provider = "auto";
+          providerSel.value = "auto";
+        }
+      }
+    }
+
+    var modelSel = $("fashion-runtime-model");
+    if (modelSel) {
+      var models = genCatalogModels(gen.provider, kind);
+      if (models.length) {
+        modelSel.innerHTML = genModelOptionsHtml(gen.provider, kind);
+        if (!models.some(function (m) { return m.id === gen.model; })) {
+          gen.model = models[0].id;
+        }
+        modelSel.value = gen.model;
+        modelSel.disabled = false;
+      } else {
+        modelSel.innerHTML = '<option value="">No ' + esc(kind) + ' models</option>';
+        modelSel.disabled = true;
+      }
+    }
+
+    var kindHint = $("fashion-runtime-kind");
+    if (kindHint) {
+      kindHint.textContent = kind === "video"
+        ? "Video model — used by Production."
+        : "Image model for Steps 1–3.";
+    }
+
+    renderRuntimeAgent();
+  }
+
+  function setRuntimeProvider(value) {
+    var genStep = runtimeGenStep();
+    var gen = S.gen[genStep];
+    if (!gen) return;
+    gen.provider = value;
+    var models = genCatalogModels(value, genKind(genStep));
+    gen.model = models.length ? models[0].id : "auto";
+    if (genStep === "5") S.modelId = gen.model;
+    renderGenSelects();
+    renderStatus();
+    renderEngines();
+  }
+
+  function setRuntimeModel(value) {
+    var genStep = runtimeGenStep();
+    var gen = S.gen[genStep];
+    if (!gen) return;
+    gen.model = value;
+    if (genStep === "5") {
+      S.modelId = value;
+      applyModelDefaults(true);
+    }
+    renderGenSelects();
+    renderStatus();
+    renderEngines();
+    renderDock();
   }
 
   function genModelOptionsHtml(provider, kind) {
@@ -375,13 +507,13 @@
     }
     if (engine === "pollinations-flux" || engine === "pollinations-turbo") {
       if (refs.length && !allRefsPublic(refs)) {
-        throw new Error("Pollinations can only edit images that are already public — connect Google (free key) in Provider Setup to edit your uploads, or paste a public image URL.");
+        throw new Error("Pollinations can only edit images that are already public — connect Google (free key) in Provider Setup to edit your uploads.");
       }
       return;
     }
     // "auto": Google when a key exists; Pollinations edits need public refs.
     if (refs.length && !google && !allRefsPublic(refs)) {
-      throw new Error("Editing uploaded images needs a free Google AI key — connect Google in Provider Setup (aistudio.google.com, it's free). Or paste a public image URL instead.");
+      throw new Error("Editing uploaded images needs a free Google AI key — connect Google in Provider Setup (aistudio.google.com, it's free).");
     }
   }
 
@@ -515,6 +647,7 @@
     }
     var stepper = $("collart-stepper");
     if (stepper) stepper.setAttribute("data-step", String(S.step));
+    renderRuntimeRail();
     icons();
   }
 
@@ -631,7 +764,15 @@
     syncUI();
     return api("/api/studio/fashion/config?provider=" + encodeURIComponent(currentProvider()))
       .then(function (data) {
-        S.config = data;
+        var config = data || {};
+        /* The Collart catalog used to seed demo models, image sheets and
+           motion clips here. The Studio now shows only real uploads and
+           generated media, so drop those mock catalogs at the boundary. */
+        config.presets = [];
+        config.model_presets = [];
+        config.outfit_presets = [];
+        config.preset_filters = { engine: [], type: [], style: [], model: [], identity: [] };
+        S.config = config;
         S.loading = false;
         syncUI();
       })
@@ -734,7 +875,7 @@
   }
 
   /* ------------------------------------------------------------------ */
-  /* Preset library (Preset Models + Preset Images)                      */
+  /* Media library (My Models + uploaded/generated images)               */
   /* ------------------------------------------------------------------ */
   function loadLibrary(force) {
     if (S.libraryLoading) return S.libraryLoading;
@@ -771,14 +912,14 @@
     }).catch(function (err) { toast(friendlyError(err)); });
   }
 
-  /* Every uploaded/generated image lands in Preset Images after 1 minute. */
+  /* Every uploaded/generated image lands in the image library after 1 minute. */
   function schedulePresetSave(kind, item, source) {
     if (!item || !item.url || S.pendingSaves[item.url]) return;
     S.pendingSaves[item.url] = true;
     window.setTimeout(function () {
       saveToLibrary(item.url, item.name, source || item.source || "upload", item.prompt || "", kind)
         .then(function () {
-          toast("Saved to Preset Images — " + (item.name || kind) + ".");
+          toast("Saved to your images — " + (item.name || kind) + ".");
         })
         .catch(function () { delete S.pendingSaves[item.url]; });
     }, AUTOSAVE_MS);
@@ -835,8 +976,6 @@
     renderProductPresets();
     renderDressingBusy();
     renderDressingResults();
-    renderRefTabs();
-    renderVideoGrid();
     renderVideo();
     renderTemplateSelects();
     renderGenSelects();
@@ -987,7 +1126,7 @@
       return !!preset && (preset.identity || []).indexOf(S.modelFilter) !== -1;
     });
     if (!items.length) {
-      grid.innerHTML = '<p class="collart-note">No preset models available.</p>';
+      grid.innerHTML = '<p class="collart-note">No models yet — upload one above or create one in the Create Model tab.</p>';
       return;
     }
     grid.innerHTML = items.map(function (item) {
@@ -1094,7 +1233,7 @@
     });
     var items = custom.concat(catalog);
     if (!items.length) {
-      grid.innerHTML = '<p class="collart-note">No preset images yet — uploads and generated sheets land here automatically after 1 minute.</p>';
+      grid.innerHTML = '<p class="collart-note">No images yet — upload or generate one and it lands here automatically after 1 minute.</p>';
       return;
     }
     grid.innerHTML = items.map(function (item) {
@@ -1147,23 +1286,6 @@
   /* ------------------------------------------------------------------ */
   /* Step 4 · Reference Video                                            */
   /* ------------------------------------------------------------------ */
-  function switchRefTab(tab) {
-    S.refTab = tab === "upload" ? "upload" : "presets";
-    renderRefTabs();
-    if (S.refTab === "upload") renderVideo();
-  }
-
-  function renderRefTabs() {
-    var presetView = $("step1-preset-view");
-    var uploadView = $("step1-upload-view");
-    if (presetView) presetView.classList.toggle("hidden", S.refTab !== "presets");
-    if (uploadView) uploadView.classList.toggle("hidden", S.refTab !== "upload");
-    var tabPreset = $("tab-preset-video");
-    var tabUpload = $("tab-upload-video");
-    if (tabPreset) tabPreset.classList.toggle("is-active", S.refTab === "presets");
-    if (tabUpload) tabUpload.classList.toggle("is-active", S.refTab === "upload");
-  }
-
   function renderVideo() {
     var preview = $("fashion-video-preview");
     if (!preview) return;
@@ -1408,8 +1530,6 @@
     S.model = { url: item.url || "", name: item.name || "" };
     S.modelPresetId = "";
     S.modelPending = null;
-    var input = $("fashion-model-url");
-    if (input) input.value = "";
     renderModel();
     renderModelGrid();
     renderCarried();
@@ -1420,8 +1540,6 @@
   function setModelPreset(item) {
     S.modelPresetId = item.id;
     S.model = { url: item.cover, name: item.title || item.id };
-    var input = $("fashion-model-url");
-    if (input) input.value = "";
     syncUI();
   }
 
@@ -1498,8 +1616,6 @@
     S.reference = { url: item.url || "", name: item.name || "", duration: item.duration || 0 };
     S.refSkipped = false;
     S.referencePending = null;
-    var input = $("fashion-video-url");
-    if (input) input.value = "";
     ensureEngineForPool();
     syncUI();
   }
@@ -1540,15 +1656,6 @@
     }
     ensureEngineForPool();
     syncUI();
-  }
-
-  function isHttp(value) {
-    return /^https?:\/\//i.test(String(value || "").trim());
-  }
-
-  function nameFromUrl(url) {
-    var tail = String(url || "").split("?")[0].split("/").pop();
-    return tail || "Remote file";
   }
 
   /* ------------------------------------------------------------------ */
@@ -1853,8 +1960,14 @@
         reject(new Error("The engine did not return a job."));
         return;
       }
+      // Bounded polling: the backend fails a job after 8 consecutive poll
+      // errors, so the frontend mirrors that instead of spinning forever on
+      // a vanished backend or a deleted job record.
+      var MAX_FAILURES = 8;
+      var failures = 0;
       var timer = window.setInterval(function () {
         api(jobEndpoint(job)).then(function (fresh) {
+          failures = 0;
           fresh._free = !!job._free;
           job = fresh;
           if (onTick) {
@@ -1865,7 +1978,19 @@
             if (job.state === "succeeded") resolve(job);
             else reject(new Error((job.error && job.error.message) || "Generation failed."));
           }
-        }).catch(function () { /* keep polling; transient read error */ });
+        }).catch(function (err) {
+          failures += 1;
+          if (err && err.status === 404) {
+            window.clearInterval(timer);
+            reject(new Error("This job no longer exists on the server."));
+            return;
+          }
+          if (failures >= MAX_FAILURES) {
+            window.clearInterval(timer);
+            reject(new Error("Lost contact with the backend while waiting for this job. Check the connection and reopen History."));
+          }
+          /* transient read error: keep polling within the failure budget */
+        });
       }, POLL_MS);
     });
   }
@@ -2071,19 +2196,6 @@
       renderDock();
       renderStatus();
     });
-  }
-
-  function addProductUrl() {
-    var input = $("fashion-product-url");
-    var url = ((input && input.value) || "").trim();
-    if (!isHttp(url)) { toast("Enter a public http(s) image URL."); return; }
-    var item = { url: url, name: nameFromUrl(url) };
-    S.productUploads.unshift(item);
-    if (S.productSelected.indexOf(item.url) === -1) S.productSelected.push(item.url);
-    schedulePresetSave("product", item, "url");
-    if (input) input.value = "";
-    syncUI();
-    toast("Product image added and selected.");
   }
 
   function generateProductSheet() {
@@ -2489,6 +2601,7 @@
       closeModelMenu();
       resolveConfirm(false);
     });
+    document.addEventListener("studio:agents-updated", renderRuntimeAgent);
 
     root.addEventListener("click", function (event) {
       var jump = event.target.closest("[data-step-jump]");
@@ -2504,8 +2617,6 @@
       }
       var modelTab = event.target.closest("[data-model-tab]");
       if (modelTab) { switchModelTab(modelTab.getAttribute("data-model-tab")); return; }
-      var refTab = event.target.closest("[data-ref-tab]");
-      if (refTab) { switchRefTab(refTab.getAttribute("data-ref-tab")); return; }
       var presetCard = event.target.closest("[data-preset-id]");
       if (presetCard) {
         var preset = presetById(presetCard.getAttribute("data-preset-id"));
@@ -2603,7 +2714,6 @@
         renderCreateRef();
         return;
       }
-      if (event.target.closest("#fashion-product-url-apply")) { addProductUrl(); return; }
       if (event.target.closest("#fashion-product-drop")) {
         var productInput = $("fashion-product-file");
         if (productInput) productInput.click();
@@ -2614,21 +2724,6 @@
         else toast("Open History from the sidebar to see this job.");
         return;
       }
-      if (event.target.closest("#fashion-model-url-apply")) {
-        var modelUrl = ($("fashion-model-url") && $("fashion-model-url").value || "").trim();
-        if (!isHttp(modelUrl)) { toast("Enter a public http(s) image URL."); return; }
-        var modelItem = { url: modelUrl, name: nameFromUrl(modelUrl) };
-        setModel(modelItem);
-        saveToLibrary(modelUrl, modelItem.name, "url", "", "model");
-        return;
-      }
-      if (event.target.closest("#fashion-video-url-apply")) {
-        var videoUrl = ($("fashion-video-url") && $("fashion-video-url").value || "").trim();
-        if (!isHttp(videoUrl)) { toast("Enter a public http(s) video URL."); return; }
-        S.presetId = "";
-        setReference({ url: videoUrl, name: nameFromUrl(videoUrl) });
-        return;
-      }
       if (event.target.closest("#fashion-model-drop")) {
         var modelInput = $("fashion-model-file");
         if (modelInput) modelInput.click();
@@ -2637,10 +2732,18 @@
 
     root.addEventListener("change", function (event) {
       var input = event.target;
-      if (input.id === "fashion-filter-engine") { S.filters.engine = input.value; renderVideoGrid(); return; }
-      if (input.id === "fashion-filter-type") { S.filters.type = input.value; renderVideoGrid(); return; }
-      if (input.id === "fashion-filter-style") { S.filters.style = input.value; renderVideoGrid(); return; }
-      if (input.id === "fashion-filter-model") { S.filters.model = input.value; renderVideoGrid(); return; }
+      if (input.id === "fashion-runtime-agent") {
+        if (window.Studio && window.Studio.setAgent) window.Studio.setAgent(input.value);
+        return;
+      }
+      if (input.id === "fashion-runtime-provider") {
+        setRuntimeProvider(input.value);
+        return;
+      }
+      if (input.id === "fashion-runtime-model") {
+        setRuntimeModel(input.value);
+        return;
+      }
       if (input.id === "fashion-model-filter") { S.modelFilter = input.value; renderModelGrid(); return; }
       if (input.id && input.id.indexOf("fashion-gen-provider-") === 0) {
         var providerStep = input.id.replace("fashion-gen-provider-", "");

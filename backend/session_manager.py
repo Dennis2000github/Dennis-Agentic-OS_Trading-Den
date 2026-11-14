@@ -13,7 +13,7 @@ import threading
 import time
 import unicodedata
 
-from . import agent_registry, config, filewatch, model_launch, sandbox
+from . import agent_registry, config, execution_router, filewatch, model_launch, sandbox
 
 _BUFFER_LIMIT = 200_000  # characters of scrollback replayed to new clients
 _BUSY_WINDOW = 1.5       # seconds after the last byte before we call it idle
@@ -436,17 +436,21 @@ class AgentSession:
             return False, self.error
 
         prof = agent_registry.profile(self.agent_id) or {}
+        # Connection-scoped model ids (``conn:<id>:<native>``) are translated
+        # to the native id the CLI expects on its command line / TUI, while
+        # the full id is kept for session state and env resolution.
+        runtime_model_id = execution_router.native_model_id(model_id)
         # Some CLIs expose their interactive workspace behind a subcommand
         # (for example OpenClaw's local TUI) instead of a bare root command.
         inner = list(prof.get("base_args") or [])
-        if model_id and prof.get("model_flag"):
-            inner += list(prof["model_flag"]) + [model_id]
+        if runtime_model_id and prof.get("model_flag"):
+            inner += list(prof["model_flag"]) + [runtime_model_id]
         # Per-agent launch hook: OpenCode needs a generated config file plus a
         # standalone server for the model to actually apply; CLIs that only
         # take models through their TUI are driven with staged input below.
         self._cancel_model_timers()
         model_launch.cleanup(self._model_launch)
-        self._model_launch = model_launch.plan(self.agent_id, model_id, self.id)
+        self._model_launch = model_launch.plan(self.agent_id, runtime_model_id, self.id)
         if self._model_launch.extra_args:
             inner += list(self._model_launch.extra_args)
         # Resume the conversation only when the model is unchanged. Several CLIs
@@ -475,7 +479,14 @@ class AgentSession:
 
         argv = self._runner.build_argv(binary, inner, self.project_path, self.id,
                                        self.rows, self.cols, agent_id=self.agent_id)
-        base_env = agent_registry.get_augmented_env(self.agent_id, model_id)
+        try:
+            base_env = agent_registry.get_augmented_env(self.agent_id, model_id)
+        except execution_router.RoutingError as exc:
+            # A connection route that no longer resolves must fail loudly,
+            # not silently fall back to the CLI's own auth.
+            self.error = str(exc)
+            self.status = "stopped"
+            return False, self.error
         if self._model_launch.env:
             base_env.update(self._model_launch.env)
         env = self._runner.env_for(base_env)
@@ -495,7 +506,7 @@ class AgentSession:
             "first_output_ms": None,
         }
         self.current_model = model_id or None
-        self._schedule_model_inputs(prof, model_id)
+        self._schedule_model_inputs(prof, runtime_model_id)
         self._start_watcher()
         print(f"[session_manager] {self.id} started in {self.timings['start_ms']} ms "
               f"({self._runner.__class__.__name__})")
@@ -630,9 +641,15 @@ class SessionManager:
                 sess._runner = self.runner
                 self._sessions[sid] = sess
             else:
-                # metadata may have changed on disk
+                # metadata may have changed on disk; model_id and the CLI
+                # session id too (otherwise a start without an explicit
+                # model would resurrect a stale selection).
                 sess.project_path = session_record.get("project_path") or sess.project_path
                 sess.agent_id = session_record.get("agent_id") or sess.agent_id
+                if session_record.get("model_id"):
+                    sess.model_id = session_record["model_id"]
+                if session_record.get("cli_session_id"):
+                    sess.cli_session_id = session_record["cli_session_id"]
             return sess
 
     def ensure_started(self, session_record, model_id=None, rows=None, cols=None):

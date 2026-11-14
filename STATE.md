@@ -1,6 +1,6 @@
 # STATE
 
-_Last updated: 2026-11-12_
+_Last updated: 2026-11-13_
 
 ## Root causes of the reported problems (Phase 1, verified 2026-10-16 before edits)
 
@@ -1751,3 +1751,619 @@ status. It is separate from the **Plugins** tab (API Mega List / Composio).
   `installed_apps()` tags/statuses — 10 tests OK. Playwright (installed Chrome)
   confirms 7 cards render, search/filter, install panel, and the link-skills
   modal (7 agent targets) with no JS errors.
+
+## YouTube Studio Phase 2 — master-spec navigation + editorial wiring (2026-11-12)
+
+Second build against the *Complete YouTube Studio — Master Implementation
+Specification v1.0*. Audit: `docs/YOUTUBE_STUDIO_AUDIT_2026-11-12.md`
+(baseline: 499 Python tests / 1 documented stale failure; all JS suites pass).
+
+Decisions (owner-approved): LLM default = GLM-5.3-Flash via OpenCode
+(switchable to any OpenAI-compatible API); Google OAuth feature-flagged until
+a client id/secret is supplied; stale providers test fixed; sidebar
+restructured to the spec's 7 sections + Settings.
+
+### Backend
+
+| File | Change |
+| --- | --- |
+| `backend/studio_llm.py` | Provider profiles: `opencode` (default; headless `opencode run -m nvidia/z-ai/glm-5.3-flash`) and `openai_compatible` (DeepSeek default, env-overridable). Selection: YouTube workspace settings (set via `configure`) → env → defaults. `status()/configure()` exposed; honest `llm_not_configured`. |
+| `backend/youtube_api.py` | New `GET features` (honest OAuth/publishing/analytics availability; env or `google-oauth.json` client detection) and `POST llm/config`. |
+| `backend/studio_workspaces.py` | YouTube section registry = create/templates/projects/backlog/publishing/analytics/intelligence/settings. |
+| `tests/test_studio_routes.py` | Stale credential-descriptor expectation fixed (`env`/`fields` now expected). |
+
+### Frontend
+
+| File | Change |
+| --- | --- |
+| `index.html` | Sidebar rebuilt to Create/Templates/Projects/Topic Backlog/Publishing/Analytics/YouTube Intelligence/Settings; new Create composer (prompt, channel, template placeholder, format/style/aspect/duration, agent/model/voice/audience chips); backlog panel with Topics+Research subtabs; Projects panel with Projects+Scripts subtabs; intelligence hub (5 cards); settings (connection, LLM config, channel profiles + master-prompt versions, voice widget, provider link); publishing/analytics feature-flag panels. Asset versions bumped `?v=20261112-yt-phase2`. |
+| `js/studioYoutube.js` | Full rewrite (~2.2k lines): one-panel navigation (double-panel quirk fixed), composer → topic creation, full editorial wiring (channels CRUD + prompt versions, research validations + competitors, topics + status pipeline + filters, scripts + versions + AI-generate + fact-check gating), LLM config save, honest feature flags. |
+| `js/studioWorkspaceState.js` | New section registry + legacy deep-link redirects (overview→create, topics/research→backlog, scripts/storyboard/…→projects, calendar→publishing) + subtab helpers. |
+| `css/studio-youtube.css` | Composer, subtabs, topic/research cards, score pills, intelligence hub, settings, channel editor styles. |
+
+### Verification
+
+- `python3 -m unittest discover -s tests -p 'test_*.py'` → 527 tests.
+  New `tests/test_youtube_editorial.py` (28 tests) covers channels (seed,
+  master-prompt immutability, activation), research (verdicts, flags, sources),
+  topics (validation-gated status, duplicates, forward-only transitions),
+  scripts (approved-topic rule, versioning, fact-check gate), dispatcher routes,
+  and the LLM profiles (CLI stub, honest failures, settings persistence).
+  Remaining failure: `test_studio_registry.test_test_provider_honest_about_missing_adapters`
+  — caused by *concurrent* in-flight work (new `backend/studio_diagnostics.py`
+  + `test_provider` rewiring, not from this change set).
+- `node --test tests/*.test.js` → all pass (updated studioWorkspaceState).
+- New `tests/e2e_youtube_phase2.py --serve` → 27/27 (Create landing, composer,
+  7+1 sidebar, one-panel rule, subtabs, settings + GLM status + voice widget,
+  honest publishing/analytics, intelligence hub, no JS errors).
+- `tests/e2e_ads_studio.py --serve` → only failure is the same concurrent
+  registry rework (expects 9 provider rows, now renders 18); all other checks pass.
+- Caught+fixed during this phase: `studio_llm.complete` parameter shadowed the
+  module-level `model()` function (would break GLM generation); stale model
+  leaking across profile switches via settings deep-merge.
+
+### Next (Phase 3)
+
+Template library + channel default template; then Phase 4 AI top-three
+recommendations (content-based first, Muse-ready schema).
+
+## 2026-11-13 — JARVIS build order steps 1-2: dashboard shell + OpenJarvis digest bridge
+
+### Step 1 — Dashboard shell (Neural Command Center surfaces)
+
+- `index.html` `#jarvis-view`: live clock + date (hero top-right), a six-cell
+  **system telemetry strip** (Status · Mode · Wake word · Voice · Engine ·
+  Latency — honest values only: Apollo voice-core state polled every 2s,
+  measured API latency, real TTS engine state, preset name from config),
+  a **command bar** (rotating JARVIS quote, wake-word toggle driving the real
+  `HermesGalaxy.toggleVoiceWake()`, AUTO badge, Briefing shortcut, voice chip),
+  and the bottom grid gained a third column.
+- `js/jarvisDashboard.js`: `startClock()`, `updateWakeControls()`, quote
+  rotation, `hudToast()` reusing `#apollo-hud-toast`.
+- `css/style.css`: `.jarvis-tele-cell`, `.jarvis-bar-btn/badge`,
+  `.jarvis-brief-*` (+ reduced-motion guard).
+
+### Step 2 — OpenJarvis digest bridge
+
+- `backend/digest.py` (new): the single integration point with the sibling
+  OpenJarvis checkout. Proxy with hard timeouts + graceful degradation
+  (`{"available": false, "reason": …}` instead of raising); optional
+  bearer token via `OPENJARVIS_API_KEY`.
+- `scripts/openjarvis_service.py` (new): manages exactly ONE `jarvis serve`
+  (PID/log under `data/openjarvis/`), probes `/api/digest/schedule` (engine
+  agnostic), and **starts Ollama on demand** — engine discovery otherwise
+  falls back to NIM, which 404s without a cloud key (observed live).
+- `app.py`: owner-gated routes `GET /api/digest|history|schedule|service|audio`,
+  `POST /api/digest/generate|schedule|service`; audio streamed via
+  `_digest_audio()`. Also removed the duplicate `dennis_tts` import.
+- Dashboard: **Briefing history** panel (DAILY badge, "tap to reopen" expands,
+  latest speaks through DennisTTS with the JARVIS preset, refresh button,
+  Generate button that flips to "Start briefing service" when OpenJarvis is
+  down and to "Synthesizing…" while the LLM runs). POSTs carry the owner
+  token (bootstrap via `/api/auth/session`, same pattern as tts.js).
+- OpenJarvis setup completed: `uv sync --extra server` (fastapi/uvicorn were
+  missing); qwen3:0.6b confirmed pulled.
+
+### Verification
+
+- `tests/test_digest_routes.py` (new, 16 tests) — bridge offline shapes,
+  owner-token gate, stubbed pass-throughs, audio 404/200, service-action 400.
+  Full suite: `tests.test_digest_routes tests.test_tts_routes tests.test_tts`
+  → 48 tests OK.
+- Live e2e: real generate through the bridge (Ollama qwen3:0.6b) → digest
+  stored and served; offline shapes verified against a stopped service.
+- Browser e2e (Playwright, 17/17): landing view, ticking clock, all telemetry
+  cells (incl. measured latency), briefing panel renders the stored digest,
+  wake toggle flips core state + label + Mode cell and restores.
+- Note: digest *content* is currently weak ("no factual data" ramble) because
+  no OpenJarvis connectors (email/calendar/health/news) are configured yet and
+  the local 0.6b brain barely follows the persona's omit-empty rule. Pipeline
+  itself is verified end-to-end; connector setup is the next content fix.
+
+### Next (build order)
+
+Step 3: voice command "daily briefing" in `HermesGalaxy.executeVoiceCommand()`;
+step 4: weekly schedule entry; step 5: OpenJarvis `/v1/telemetry` proxy.
+
+## 2026-11-13 — YouTube Studio: dashboard audit cleanup + OS design alignment
+
+Full audit: `docs/YOUTUBE_STUDIO_AUDIT_2026-11-13.md`. Master-spec §3.1/§20
+pass: remove duplicated controls; dress the YouTube workspace in the same
+ui-ux-pro-max OLED skin as the OS (`design-system/dennis-agentic-os/MASTER.md`,
+`css/theme-uiuxpro.css` tokens). Ads Studio intentionally unchanged (light
+Collart).
+
+### Removed (duplicates — audited live, not by label)
+
+- YouTube topbar **Build agent dropdown** (`#yt-agent-btn`/`#yt-agent-menu`):
+  duplicated the shared Ads-header/Activity-console selector (same
+  `dennis.studio.agent` state) and was never read by `submitCreate()`.
+  `studio.js renderAgents()` host list cleaned accordingly.
+- **"New Video Project" (topbar)** `#yt-new-project`, **"New Blank Project"
+  (hero)** `#yt-create-video`, **(empty state)** `#yt-overview-create`: four
+  buttons opened the same modal; creation is prompt-first from the composer.
+  `bind()` now wires only the contextual `#yt-projects-create` (Projects page)
+  until Phase 7 transfers approved packages into projects automatically.
+- Shared header in YouTube mode: Build dropdown, Ads status/refresh/settings
+  block, and the Ads voiceover strip (duplicated by Settings → Voice).
+
+### Design alignment (scoped: `#studio-view[data-workspace="youtube"]` + `#yt-modal`)
+
+- `css/studio-youtube.css` rebuilt on `--uupm-*` tokens: OLED surfaces
+  (`#0f172a` / `#0b1120` / `#1b2336`), one green action accent (`#22c55e`,
+  dark label), sky reserved for status/info, Inter, 8/10/14/16 radius scale,
+  180ms motion, visible focus rings. Same selectors/layout — no renderer
+  changes.
+- Header/sidebar/workspace-switch get the dark treatment only while YouTube
+  is active; sidebar nav uses the OS active pattern (green tint + 3px rail).
+- Fixed two live-render defects found in browser inspection: the light
+  `#studio-view` strip below short content (root now flex column + OLED
+  surface in YouTube mode) and the shared TTS voiceover widget rendering
+  light/blue inside dark Settings (scoped dark wells + green button).
+- Asset versions bumped: `css/studio-youtube.css?v=20261113-yt-osdesign`,
+  `js/studio.js|studioYoutube.js?v=20261113-yt-cleanup`.
+
+### Verification
+
+- YouTube + workspace suites: `test_youtube_editorial`,
+  `test_studio_workspaces`, `test_studio_workspace_routes` → **61 OK**.
+- `tests/e2e_youtube_phase2.py --serve` → **all functional checks pass**; the
+  only console entry is the pre-existing `ws://…/ws` 502 (verified identical
+  on the stashed baseline — unrelated to this change set). Also hardened the
+  test's timing: publishing/analytics flag checks and settings checks now
+  poll for rendered content instead of fixed sleeps, and the boot wait waits
+  for `#studio-youtube-main` to parse before probing it (index.html is large;
+  fixed sleeps flaked under load, rotating across checks).
+- Playwright live checks: computed tokens correct across Create/Templates/
+  Projects/Backlog/Publishing/Analytics/Intelligence/Settings + modal; no JS
+  page errors; Ads regression — root stays `#f7f7f8`, Build dropdown /
+  header-right / voiceover visible, `.collart-btn` still `#ff3b68`.
+- Full suite: 609 tests, 1 unrelated pre-existing error
+  (`test_studio_mcp.test_timeout_raises_and_clears_pending`, backend module
+  untouched by this change set).
+
+### Next (spec §22 schedule)
+
+Phase 3 — Template Library + Channel Default Template (replaces the disabled
+composer placeholder, enables channel-default inheritance); then Phase 4 AI
+top-three recommendations (content-based first, Muse-ready ranking schema).
+
+## 2026-11-13 (later) — GLM 5.3 Flash engine, OS connectors, build order steps 3-4
+
+### Engine upgrade (fixes the incoherent digest ramble)
+
+- OpenJarvis now runs **GLM 5.3 Flash via NVIDIA NIM**: key copied from the
+  OpenCode provider auth (`~/.local/share/opencode/auth.json`) into
+  `~/.openjarvis/credentials.toml` as `[nim] NIM_API_KEY` (0600, injected by
+  `inject_credentials()` at server start); `~/.openjarvis/config.toml` →
+  `engine.default = "nim"`, `default_model = "z-ai/glm-5.3-flash"` (verified
+  present in NIM's 83-model catalog; direct API test 200 OK). Ollama
+  `qwen3:0.6b` stays as local fallback. Before/after: "Sir, let's summarize
+  the collected data... I'll end here." → "Afternoon, sir. From the tech
+  headlines: the story commanding the most attention is Jensen Huang
+  resigning..." — proper Jarvis persona, zero hallucination.
+
+### Connectors to the OS (briefings now have real content)
+
+- `scripts/openjarvis_service.py` exports `OBSIDIAN_VAULT_PATH=<repo>/vault`;
+  the Obsidian connector gained an env fallback (headless digest calls build
+  fresh instances) and a naive/aware datetime fix in its `since` filter.
+- `digest_collect.py` gained a MEMORY section (obsidian/apple_notes/granola)
+  with an obsidian formatter; `apple_calendar` added to CALENDAR;
+  `morning_digest.py` gained memory sources + calendar fallback.
+- Digest sections set to `["calendar", "memory", "world"]` (tz Asia/Manila);
+  WORLD = hackernews (no auth). Apple Notes/iMessage/Calendar sqlite reads
+  are TCC-blocked until Full Disk Access is granted to the host process.
+- Verified: digest_collect outputs === MEMORY === (vault notes: Ideas,
+  Welcome, Projects, Skills) + === WORLD === (HN stories).
+
+### Step 3 — voice command
+
+- `galaxy.js`: "daily briefing / brief me" → `handleBriefingCommand()` —
+  fetches `/api/digest`, speaks the text through DennisTTS (JARVIS preset),
+  honest fallbacks for offline/no-digest.
+
+### Step 4 — weekly briefings
+
+- OpenJarvis: `digest_store.py` gained a `kind` column (daily|weekly, via the
+  existing `_migrate` pattern; `get_today/get_latest/history` filter by
+  kind); `morning_digest.py` uses a 168h window + weekly hint when the query
+  says "week"; `digest_routes.py` gained `?kind=` params, `/api/digest/latest`
+  and a `{"kind": "weekly"}` generate body.
+- OS: `backend/digest.py` gained `weekly()`, kind-aware `generate()`, and a
+  weekly auto-scheduler daemon (Monday 08:00 local default, ISO-week dedup in
+  `data/digest/weekly_state.json`, `DENNIS_WEEKLY_BRIEFING=0` to disable),
+  started from `app.run()`; `GET /api/digest/weekly` + status weekly info;
+  dashboard panel shows WEEKLY badge entries (listed first) with a separate
+  Weekly generate button.
+
+### Verification
+
+- 53 tests OK (`tests.test_digest_routes` extended to 20: kind passthrough,
+  weekly endpoint, unknown-kind 400, schedule info shape).
+- Store migration verified on the live digest.db (2 existing rows → daily).
+- Live weekly generate via GLM: "Good afternoon, sir. It's Friday, November
+  thirteenth... From your knowledge base, five notes" — sources_used:
+  obsidian, gcalendar, apple_notes, hackernews. Today's daily NOT clobbered.
+- Browser e2e updated → 20/20 (weekly badge listed first, daily/weekly
+  buttons, voice handler present).
+
+## 2026-11-13 (evening) — HERMES–JARVIS Neural Command Center redesign
+
+### The dashboard now matches the reference design
+
+`#jarvis-view` rebuilt as a full-bleed cinematic HUD (index.html + style.css +
+jarvisDashboard.js rewrite):
+
+- **Deep-space backdrop**: layered nebula radial-gradients + tiling CSS star
+  field with twinkle (no canvas cost, reduced-motion aware).
+- **Top bar**: HERMES–JARVIS identity panel + bracket-corner clock panel
+  (live HH:MM:SS + long date).
+- **Left column — SYSTEM TELEMETRY**: STATUS (live Apollo state + color dot),
+  MODE (Auto/Manual), WAKE WORD (On/Off), VOICE (preset display name),
+  NEURAL THROUGHPUT (agent readiness %), CORE LOAD (real load average/cores
+  via the new `GET /api/system/telemetry`), SIGNAL (voice engine + briefing
+  service composite %), LATENCY (3-sample rolling measured API RTT) — all
+  honest values with tooltips, gradient meter bars.
+- **NEURAL NETWORK panel**: Connected Nodes (agents ready/total), Memory
+  Status (SYNCHRONIZED · N vault notes).
+- **Center — the neural core**: canvas renderer with dashed outer ring, 72-tick
+  ring, 8-triangle array (counter-rotating), two tilted orbit ellipses with
+  traveling nodes, projector platform + light beam, pulsing nucleus that
+  follows the real mic/TTS audio level, state-reactive speed/glow
+  (standby/listening/awake/speaking/muted). ">>> SYSTEM STANDBY <<<" readout +
+  "TAP NEURAL CORE TO CHANGE STATE" (tap → apollo.wake()).
+- **Right — BRIEFING HISTORY**: WEEKLY badge listed first, DAILY history,
+  "N saved" counter, refresh + collapse (✕) buttons, Generate daily / Weekly.
+- **Bottom**: 96-bar waveform visualizer (organic idle motion, follows real
+  audio level when listening/speaking) + command bar (rotating quote, wake
+  toggle, AUTO badge, Briefing shortcut, voice selector).
+- Removed: hero/stat cards/quick-command chips/recent-memory row (their data
+  lives in the telemetry + network panels now).
+
+### Engineering notes
+
+- **Tailwind trap**: the project ships a pre-compiled Tailwind build — new
+  arbitrary-value utilities (xl:grid-cols-[…]) do not exist. The layout is
+  owned by custom CSS (.jarvis-topbar/.jarvis-main/.jarvis-aside/…), which
+  also fixed the stacked-column bug caught in the first screenshot review.
+- **Perf fix**: `elevenlabs_status()` hit api.elevenlabs.io on every
+  /api/tts/status poll (~2s per dashboard refresh). Now cached 60s → steady
+  state ~7ms; voice label falls back to a prettified preset id when the saved
+  config lacks a name; data/tts/config.json preset name restored to
+  "JARVIS — BRITISH MALE".
+
+### Verification
+
+- 54 unit tests OK (new: /api/system/telemetry shape).
+- Browser e2e 26/26 (stale-server lesson: always confirm which process holds
+  the port before trusting results) + final visual review against the
+  reference image; Kokoro restarted so SIGNAL = 100% and the sidebar widget
+  speaks through the real voice engine.
+
+## 2026-11-13 — Jarvis fullscreen default mode + Mode toggle
+
+- The OS now opens in a **fullscreen Jarvis command center**: `body.jarvis-fullscreen`
+  hides the OS top header (`#os-header`), the left navigation rail (`#os-sidebar`)
+  and the status footer (`#os-footer`), removes the `<main>` padding/gap
+  (`#os-main`), and collapses the Jarvis telemetry/briefing `.jarvis-aside`
+  panels so only the neural core, waveform and command bar remain.
+- New **Mode** button (`#jarvis-mode-toggle`, Jarvis topbar) toggles between
+  `FULLSCREEN` and `ORIGINAL` (state shown in `#jarvis-mode-state`). The original
+  view restores the header, sidebar, footer and the 300px/1fr/340px triptych.
+  `aria-pressed` mirrors the state; the tooltip describes the next action.
+- `js/app.js`: `setJarvisMode('fullscreen' | 'original')` + `isJarvisFullscreen()`
+  (exposed as `window.setJarvisMode`). `DOMContentLoaded` calls
+  `switchMainView('jarvis')` then `setJarvisMode('fullscreen')`. `switchMainView`
+  automatically returns to the original layout whenever a non-Jarvis view is
+  shown, so sidebar navigation is never trapped behind the fullscreen chrome.
+- CSS lives in `css/style.css` (asset versions bumped to
+  `style.css?v=20261113-jarvis-mode`, `app.js?v=20261113-jarvis-mode`).
+- Verification: Playwright at 1600x1000 — fullscreen on load (header/sidebar/
+  footer and both asides hidden), toggle restores every sidebar (grid
+  300px/660px/340px), navigating to Workspace re-shows the chrome; screenshots
+  reviewed in both modes. `tests/e2e_recheck_playwright.py` 7/7.
+
+## 2026-11-13 — Ads Studio cleanup: shared runtime rail + fixed shell
+
+- **Removed mock media**: the frontend now blanks the Collart preset catalogs
+  (`presets`, `model_presets`, `outfit_presets`, `preset_filters`) after
+  `/api/studio/fashion/config`, so only real uploads and generated media render.
+  The backend catalog and its tests stay untouched.
+- **Removed URL-paste widgets** in Steps 1/2/4 (`fashion-model-url`,
+  `fashion-product-url`, `fashion-video-url`) and their handlers. Step 4 is now
+  upload-only; the Preset Video tab/view is gone.
+- **One runtime rail** on the right of the five-step workflow:
+  `#fashion-runtime` holds Agent / Provider / Model for every step and swaps
+  values per active step (Step 4 uses the Step 5 video model). The old visible
+  per-step Provider/Model pairs and Step 5 Quick-Configuration Model field were
+  removed; hidden `fashion-gen-provider-*` / `fashion-gen-model-*` /
+  `fashion-model-select` hosts remain for job payload + test compatibility.
+- **Agent control** lives in the rail; the Studio header Build dropdown and
+  duplicate `ads-agent-*` host were removed. `window.Studio` now exposes
+  `agents()`, `agentId()` and `setAgent()`, and emits `studio:agents-updated`
+  so the rail stays in sync with the Activity console.
+- **Fixed shell**: `#os-main.os-studio-active` disables outer scrolling;
+  `#studio-view` is a flex column, `.collart-content` owns the scroll, and the
+  sidebar, runtime rail (sticky) and dock stay in place. The dock now puts the
+  review drawer on the left and Previous + Next together in `.collart-dockcta`
+  on the right; narrow layouts keep both CTAs visible.
+- Verification: `node --check` on all touched JS; `tests/test_studio_fashion.py`
+  + `tests/test_studio_routes.py` 89 tests OK; Ads Studio browser E2E passes
+  (only the pre-existing `/ws` 502 console noise remains); screenshots at
+  1600×1000 and 780×1100 confirm the rail, empty states and fixed chrome.
+
+## 2026-11-14 — Unified AI connection architecture (Provider vs Gateway/Proxy) + free/paid routing
+
+Audit, spec and report live in `docs/AI_CONNECTION_ARCHITECTURE_AUDIT.md`
+(Phase 1, read-only) and `docs/AI_CONNECTION_ARCHITECTURE.md`
+(implementation report). Summary of what now exists:
+
+- **Connection layer** (`backend/connections.py`): `provider` and `gateway`
+  connection records in `data/connections.json` (0600). Presets for
+  OpenAI/Anthropic/Google/Groq/Cerebras/NVIDIA/DeepSeek plus gateways
+  OpenRouter, LiteLLM (local), 9Router (`localhost:20128`,
+  Anthropic-compatible), custom OpenAI-/Anthropic-compatible endpoints.
+  Health comes only from real endpoint probes (`/models`), never from saved
+  keys; stale successes degrade to `configured`. The existing per-agent
+  FreeLLMAPI settings are surfaced as derived gateway connections
+  (`freellmapi:<agent>`) and stay the source of truth.
+- **Unified model registry** (`backend/model_catalog.py`): namespaced ids
+  `conn:<connection_id>:<native_id>`; protocol discovery (OpenAI
+  `/models`, Anthropic `/v1/models`); metadata never invented (capabilities
+  /pricing stay `unknown` unless the endpoint publishes them); failed
+  refresh marks records `stale` instead of deleting them; manual model
+  registration and gateway→upstream aliases.
+- **Compatibility registry** (`backend/compatibility.py`): agent×protocol
+  matrix — claude-code on Anthropic-compatible endpoints and codex on
+  OpenAI-compatible endpoints are `compatible` (the verified FreeLLMAPI
+  mechanisms); deepseek-harness is `compatible` in-process on
+  OpenAI-protocol connections; opencode/aider `not_tested` (documented
+  mechanism, unvalidated); antigravity/cursor/openclaw/gemini-cli/goose/
+  hermes-cli `incompatible` for API connections (no documented mechanism).
+  CLI-native models keep passing through to each agent's own list.
+- **Routing** (`backend/routing.py`): Free First (default) / Paid First /
+  Manual with per-agent and per-task overrides in `data/routing.json`.
+  `unknown` pricing is never assumed free. Paid fallback requires explicit
+  authorization (`POST /api/routing/authorize-paid`, 24h ledger) or the
+  global allow switch; `POST /api/routing/fallback` only *proposes* plans.
+- **Execution router** (`backend/execution_router.py`): resolves exactly
+  one binding per (agent, model) — connection env templates (e.g.
+  claude-code: `ANTHROPIC_BASE_URL/AUTH_TOKEN/MODEL`) via
+  `agent_registry.get_augmented_env`, then FreeLLMAPI (unchanged), then
+  CLI-native passthrough. Sessions translate `conn:` ids to native ids for
+  argv/OpenCode config/TUI typing; `RoutingError` fails loudly. DeepSeek
+  in-process chat routes through any compatible connection via a
+  thread-local `request_override` (`record_as` keeps the connection id on
+  conversations).
+- **Workspace UI** (initial design, later superseded by the flattened
+  Agent + Model list — see the 2026-11-15 flattened-UI section): Connection
+  Source dropdown (CLI | Provider | Gateway, one route active at a time)
+  before the provider dropdown; the provider dropdown becomes the
+  Connection dropdown when a source is active (dynamic from the registry,
+  compatibility-annotated); the model menu shows connection models above
+  the agent's own CLI models; the selection persists per agent
+  (`dennis.workspace.source`) and per window.
+- **AI Connections manager** (`js/connections.js` + `#connections-view`):
+  provider/gateway panes, Test/Models(discover, add/remove, aliases)/Edit/
+  Remove, add-connection modal with presets, routing preference control.
+- **Audit-driven fixes** (documented, low-risk): `POST /api/agents/install`
+  NameError (`active_id` undefined → every valid install 500'd) and
+  `POST /api/agents/launch` literal-`\n` launcher script (Terminal opened a
+  comment-only file and reported success). `get_or_create` also refreshes
+  stale `model_id`/`cli_session_id` now.
+- **Tests**: new `tests/test_connections.py` (13), `test_model_catalog.py`
+  (7), `test_compatibility.py` (11), `test_routing.py` (12),
+  `test_execution_router.py` (13), `test_connection_routes.py` (9 HTTP),
+  `tests/e2e_connections_smoke.py` (15 real-Chrome CDP checks: source
+  dropdown, connection guidance, manager view, presets modal, zero console
+  errors). Full suite 678 tests OK (610 before); JS suites 5/5. Live
+  provider calls and Docker execution remain blocked by missing
+  credentials/daemon in this environment (fake HTTP upstreams used).
+  `tests/e2e_workspace.py` failures are pre-existing drift (`header-nav-tab`
+  does not exist in HEAD; superseded by the connections smoke test).
+
+## 2026-11-14 (fix) — AI Connections sidebar binding + clearer save errors
+
+- `js/app.js initSidebar()` routes sidebar clicks by matching each button's
+  label; the new "AI Connections" button had no branch, so it highlighted
+  without opening the view (the workspace Source menu's "Manage
+  connections…" jump worked because it calls `switchMainView` directly).
+  Added the `label.includes('ai connections')` branch.
+- `js/connections.js saveModal()` now distinguishes a stale backend (404 on
+  the new routes → "Restart app.py, then reload the page") from validation
+  errors instead of a generic "Could not save".
+- `tests/e2e_connections_smoke.py` extended with a sidebar-click check and a
+  full save round-trip (modal → Save → card renders → remove clears it):
+  20/20 checks pass against a real Chrome + scratch server. Full suite still
+  678 tests OK.
+
+## 2026-11-14 (fix 2) — connection ids containing colons broke the FreeLLMAPI route
+
+- **Symptom**: picking the FreeLLMAPI model via the new Gateway source
+  failed with "Connection 'freellmapi' no longer exists". Root cause: the
+  derived connection id `freellmapi:claude-code` contains a colon, and
+  `model_catalog.parse_internal_id` split `conn:<id>:<native>` on the
+  first colon, mangling the id into a non-existent connection `freellmapi`.
+- **Fix**: `parse_internal_id` now matches known connection ids
+  (longest-prefix first, including derived FreeLLMAPI ids) before falling
+  back to the first-colon split; `js/workspace.js modelName()` uses the
+  same strategy for label fallbacks.
+- **Verified on real data**: `/api/agents/claude-code/models` lists
+  `z-ai/glm-5.3-flash` (FreeLLMAPI merge intact, NVIDIA NIM endpoint);
+  `conn:freellmapi:claude-code:z-ai/glm-5.3-flash` now evaluates
+  `compatible`; env injection resolves `ANTHROPIC_BASE_URL` /
+  `ANTHROPIC_MODEL` / `ANTHROPIC_AUTH_TOKEN` exactly like the legacy
+  FreeLLMAPI path; all 7 existing claude-code sessions store the plain
+  model id, so no session data needed repair.
+- **Tests**: `test_model_catalog.py` + `test_execution_router.py` gained
+  colon-in-connection-id regressions (full parse → evaluate → env path).
+  Suite now 680 tests OK.
+
+## 2026-11-14 (fix 3) — Claude Code + FreeLLMAPI actually works now; NVIDIA can never serve Claude Code
+
+Empirically established by driving the real CLIs and endpoints (no more
+assuming):
+
+- **Claude Code's wire protocol is Anthropic-only.** A local listener proved
+  it always POSTs `{ANTHROPIC_BASE_URL}/v1/messages` (never /chat/completions),
+  so the base URL must be the protocol ROOT (no `/v1` suffix).
+- **NVIDIA NIM does not implement `/v1/messages`** for any of its 83 models
+  (all return 404 "model not found"); the OpenAI protocol works fine on the
+  same key. The FreeLLMAPI claude-code entry that pointed at NVIDIA was
+  therefore *never usable* — the vendored catalog's claude-code recipes are
+  wrong for NVIDIA. This - not the OS wiring - produced "There's an issue
+  with the selected model (z-ai/glm-5.3-flash)".
+- **Setup now in place** (verified with a real `claude -p` call, reply "OK",
+  exit 0): FreeLLMAPI claude-code → `https://openrouter.ai/api` (root!) →
+  model `inclusionai/ling-3.2-flash:free` (free tier, 1M ctx, verified on
+  the Anthropic protocol) → key from the user's OpenCode OpenRouter auth.
+  `z-ai/glm-5.3-flash` IS available on OpenRouter (paid, ~$0.04/M tokens)
+  if the user prefers it - one settings edit away.
+- **OS changes that make gateway models first-class for Claude Code:**
+  `freellmapi.apply_agent_env` (and the connection env template) now inject
+  `ANTHROPIC_CUSTOM_MODEL_OPTION` (skips Claude's local model validation)
+  and `CLAUDE_CODE_MAX_CONTEXT_TOKENS` from the optional new
+  `context_tokens` FreeLLMAPI field / the model catalog's context_window -
+  both documented Claude Code mechanisms. Both vars joined the Docker
+  secret allowlist. Verified: with them set, the "doesn't recognize the
+  model" stderr warning is gone and compaction uses the real window.
+- **Tests**: `test_freellm_routes.py` context_tokens round-trip + env
+  injection; `test_execution_router.py` context-window env case. Suite 682
+  tests OK. `tests/e2e_freellm_user_flow.py` (new, real Chrome + scratch
+  server): drives the exact user journey - Claude Code → Source: Gateway →
+  FreeLLMAPI connection → connection model → session model switch - 13/13
+  checks, reading the configured model dynamically and using a unique port
+  per run so runs can't race a dying server.
+
+## 2026-11-15 — Restore: unified connection workspace UI after accidental flattening
+
+- **What happened**: Claude-in-OS sessions modified the workspace UI.
+  Session A (00:31) added FreeLLMAPI catalog-model support
+  (`freellmapi.catalog_models` + app.py integration: catalog models listed
+  under the Custom provider filter, switching to one saves it) - kept,
+  verified complementary. Session B (01:03) flattened the workspace to
+  "Agent + Model only" per an in-session request and deleted the Connection
+  Source / Connection dropdowns (~29KB of UI code, incl. one 26KB block);
+  session C (01:15) committed everything (0833f85).
+- **Restore**: both files restored verbatim from Claude Code's file-history
+  pre-edit snapshots (verified pristine: colon-fix present, no flattened-UI
+  code), workspace.js cache version bumped to `20261115-restore1`.
+  Committed as 3f57a90.
+- **Verified**: 682 Python tests OK, JS 5/5, e2e_connections_smoke 20/20
+  (Source dropdown + manager + save round-trip), e2e_freellm_user_flow
+  13/13 (Claude Code via Source: Gateway → FreeLLMAPI → connection model →
+  session switch). No dangling references to the flattened UI.
+
+## 2026-11-15 (fix 2) — Flattened Agent + Model UI completed; free FreeLLMAPI restored
+
+- **What the user actually wanted**: the workspace toolbar with only
+  **Agent** and **Model**. The earlier "Restore" entry undid the flattening
+  because commit 0833f85 was a half-finished refactor (its Claude session
+  hit a 402 credit error mid-edit): `recallSource`, `providerById`,
+  `resolveProviderId` and `CUSTOM_PROVIDER_ID` were referenced but
+  undefined, and `unifiedConnectionModels()` was dead code. So the
+  flattened UI was rebuilt completely from the working 3f57a90 base
+  instead of restoring 0833f85 verbatim.
+- **Toolbar**: `index.html` now has Agent → Model → Status only; the
+  Source/Provider dropdowns and their menu markup are gone. A **Manage
+  connections…** entry at the bottom of the Model menu opens the AI
+  Connections view.
+- **Merged Model menu** (`js/workspace.js`): one searchable list grouped as
+  `Via FreeLLMAPI`, `Via Provider · <name>`, `Via Gateway · <name>`, then
+  `Agent's own models (CLI login)`. Rows show display name; native ids and
+  endpoint/compatibility text live in the row tooltip. Chips: honest
+  pricing (`free`/`paid`/`local`; `unknown` never shown as free), `ctx
+  <window>`, `tools`/`vision` when supported, saved/default badges.
+  Unavailable rows are disabled with a reason. Picking a model carries its
+  route (`conn:<connection>:<native>`); no source state is remembered or
+  preselected.
+- **Filtering rules**: derived `freellmapi:*` connections are skipped in the
+  Provider/Gateway sections (they would duplicate section 1). FreeLLMAPI
+  catalog models are listed only when `endpoint_match` is true — the
+  catalog carries 80 models from other providers (ModelScope, Groq,
+  Cohere, …) that cannot work on the saved OpenRouter endpoint, so they
+  are hidden rather than offered and failing.
+- **Free FreeLLMAPI setup restored** (verified with a real `claude -p`
+  call: exit 0, stdout `OK`, no human-readable unrecognized-model warning):
+  claude-code → `https://openrouter.ai/api` (root) →
+  `inclusionai/ling-3.2-flash:free` (zero cost, 1M ctx) with
+  `context_tokens: 1048576`; the key is reused from the user's OpenRouter
+  auth. `z-ai/glm-5.3-flash` was the stray paid model left in
+  `data/freellmapi.json` and was replaced by the free one.
+- **Tests**: full Python suite OK (759 tests in the current working tree,
+  682 on this feature's base; the rest are unrelated Ads/Cosmos tests that
+  another session is adding), JS **5/5**;
+  `e2e_connections_smoke.py` 19/19 (Agent+Model only, no Source/Provider,
+  Manage connections, manager save/remove),
+  `e2e_freellm_user_flow.py` 13/13 (flattened list → Via FreeLLMAPI saved
+  model → isolated temp-session switch),
+  `e2e_unified_models.py` 16/16 (mock Anthropic gateway: discovery,
+  gateway section, chips, native-id tooltips, backend switch). All e2e
+  runs create an isolated temp session/connection first, so no real
+  session model is switched during tests.
+- **Live server note**: the `app.py` process on :8080 predates these
+  changes; restart it and reload the page to see the flattened UI.
+
+## 2026-11-15 (COSMOS) — Five-agent intelligence dashboards + Ads Create/Product Backlog
+
+- **What shipped**: the COSMOS intelligence layer. Five agents (ANDROMEDA
+  discovery, POLARIS strategy, PLEIADES creative, QUASAR research, HELIOS
+  performance) each get an independent dashboard at `#cosmos/<agent>` with
+  the same two permanent divisions: **Ads Intelligence left, YouTube
+  Intelligence right** (stacked below 1180px). Every agent has its own
+  identity, role, responsibilities, domain capability, composer, execution
+  history, results and activity; divisions never share data or history.
+- **Configuration**: 5 editable Ads templates (Women's Apparel, Beauty &
+  Skincare, Electronics & Gadgets, Home & Living, Health & Lifestyle) and
+  5 editable YouTube templates (Educational Video, Documentary / Explainer,
+  Faceless YouTube, Entertainment / Storytelling, Product Review), plus an
+  explicit active template per domain (and active channel for YouTube).
+  Every execution stores an **effective configuration snapshot**; template
+  edits never rewrite history (proved by tests).
+- **Honesty guardrails**: discovery outputs are labelled AI hypotheses and
+  qualified against the active config (relevance ≥ 60 + keyword/pillar
+  alignment); fewer than 5 qualified results are reported as
+  `insufficient_results` with the filter reasons, never padded. Affiliate
+  status is forced `unvalidated` by discovery; validation is a separate,
+  explicit owner operation. Nothing auto-publishes.
+- **Routing**: Ads drafts land in a new **Ads Product Backlog** (forward-only
+  statuses, archived terminal, dedupe, provenance back to the execution and
+  recommendation). YouTube drafts reuse the existing **Topic Backlog**
+  (`idea` status, provenance in notes). "Refine" runs the same agent and
+  links the original card to the refined one.
+- **Ads Studio additions**: sidebar now has **Create** and **Product
+  Backlog** next to the untouched five-step Generate workflow. Create
+  composes a deterministic structured brief (prompt + disclosures), requires
+  an owner-validated affiliate link to include one, and hands off to a draft
+  Ads project + prefilled Generate prompt — never a render.
+- **Backend**: new `backend/cosmos_common.py`, `cosmos_registry.py`,
+  `cosmos_config.py`, `cosmos_store.py`, `cosmos_engine.py`,
+  `cosmos_backlog.py`, `cosmos_api.py`, `ads_backlog.py`, `studio_create.py`;
+  dispatch wired in `app.py` for `/api/cosmos/*` and
+  `/api/studio/ads/create/*`; Ads workspace `legacy_tabs` extended.
+- **Frontend**: new `js/cosmosState.js` (pure state), `js/cosmosDashboard.js`
+  (DOM/HTTP), `js/studioCreate.js` (Create + Product Backlog), `css/cosmos.css`;
+  additive edits in `index.html` (sidebar item, `#cosmos-view`, modal/toast,
+  Ads panels), `js/app.js` (view routing, `#cosmos` deep links, hash
+  cleanup), `js/studio.js` (`setTab` + `Studio.prefillPrompt`),
+  `js/studioWorkspaceState.js`.
+- **Fixed during implementation**: engine marked the execution failed on
+  invalid model JSON; per-item normalization errors are filtered instead of
+  aborting the run; refine is no longer blocked by its own dedupe key;
+  manual Create briefs now accept `price` as a number or an
+  `{amount, currency}` object (live smoke test caught the object form
+  silently becoming 0).
+- **Locked behaviour**: existing YouTube Topic Backlog, five-step Generate
+  workflow and provider/model routing (`studio_llm`) are unchanged; COSMOS
+  adds no duplicate model selector and no provider calls of its own beyond
+  the shared routing.
+- **Tests**: 760 Python tests OK (`python3 -m unittest discover -s tests`),
+  including 99 new COSMOS/Ads tests
+  (`test_cosmos_registry|config|store|engine|backlog|api|workflows`,
+  `test_ads_backlog`, `test_studio_create`); JS state tests all green
+  (`node tests/cosmosState.test.js` 12/12, plus studio/panel/kanban/
+  agentDashboards/studioWorkspaceState suites); live server smoke on
+  `/api/cosmos/overview` and `/api/studio/ads/create/*` (compose, backlog
+  add → status → delete, brief delete) with the real registry, defaults and
+  the existing `The Business Money Blueprint` channel.

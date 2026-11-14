@@ -214,9 +214,10 @@ def phase_step4(r):
     time.sleep(0.4)
     r.check("Step 4 section visible",
             r.ev("!document.getElementById('step-4-content').classList.contains('hidden')"))
-    r.check("Preset Video tab shown by default",
-            r.ev("!document.getElementById('step1-preset-view').classList.contains('hidden')"
-                 " && document.getElementById('tab-preset-video').classList.contains('is-active')"))
+    r.check("Upload-only reference video view visible",
+            r.ev("!document.getElementById('step1-upload-view').classList.contains('hidden')"
+                 " && !document.getElementById('step1-preset-view')"
+                 " && !document.getElementById('tab-preset-video')"))
     r.check("Storyboard prompt box present",
             r.ev("!!document.getElementById('fashion-storyboard')"))
     r.check("Skip control present",
@@ -324,10 +325,14 @@ def phase_registry(r):
     print("  -- provider registry (Setup)")
     r.ev("window.location.hash = '#studio'")
     r.ev("if (window.Studio && Studio.setTab) Studio.setTab('setup')")
-    ok = r.wait_for("!!document.querySelector('.studio-registry-row')", timeout=20)
+    ok = r.wait_for("!!document.querySelector('#studio-registry .studio-registry-row')", timeout=20)
     r.check("Registry renders provider rows", ok)
-    rows = r.ev("document.querySelectorAll('.studio-registry-row').length")
+    rows = r.ev("document.querySelectorAll('#studio-registry .studio-registry-row').length")
     r.check("Registry lists all 9 providers", rows == 9, repr(rows))
+    diag = r.ev("document.querySelectorAll('#studio-diagnostics .studio-registry-row').length")
+    r.check("Provider diagnostics panel renders one row per provider", diag == 9, repr(diag))
+    check_all = r.ev("!!document.getElementById('studio-diagnostics-check-all')")
+    r.check("Diagnostics exposes a Check-all action", check_all)
     connected = r.ev("Array.from(document.querySelectorAll('.studio-registry-row')).filter("
                      "function (row) { return row.classList.contains('connected'); }).length")
     r.check("At least Auto + Pollinations always connected", connected >= 2, repr(connected))

@@ -229,10 +229,22 @@ def delete_credentials(provider_id):
     return {"deleted": provider_id}
 
 
+def registry_providers():
+    """Provider id -> registry entry, for consumers like the diagnostics service."""
+    return {entry["id"]: entry for entry in registry()["providers"]}
+
+
 def test_provider(provider_id):
-    """Validate a provider connection without running a generation."""
+    """Validate a provider connection without running a generation.
+
+    The result is honest by contract: ``ok`` is only True when something was
+    actually verified (credentials stored, or a real authenticated round-trip
+    for providers that have a client). Providers without a verification client
+    never claim a verified connection.
+    """
     if provider_id in ("auto", "pollinations"):
-        return {"ok": True, "message": "Always available — no credentials needed."}
+        return {"ok": True, "message": "Always available — no credentials needed.",
+                "verified": "configuration"}
     if provider_id == "google":
         return free.test_google_key()
     if provider_id == "higgsfield":
@@ -240,6 +252,17 @@ def test_provider(provider_id):
         return providers.REGISTRY.get("higgsfield").test()
     if not _connected(provider_id):
         raise ValueError("Save the credentials first, then test.")
+    if provider_id in ("fal", "runway", "luma"):
+        from . import studio_diagnostics as diagnostics
+        result = diagnostics.check(provider_id)
+        return {
+            "ok": result["status"] in ("CONNECTED", "PARTIALLY_OPERATIONAL", "OPERATIONAL"),
+            "message": result["message"],
+            "status": result["status"],
+            "verified": "authentication" if result["verified"].get("authentication") else None,
+        }
     return {"ok": True,
-            "message": "Credentials stored. The engine adapter for this provider "
-                       "is not wired into generation yet."}
+            "verified": None,
+            "message": "Credentials stored. Authentication is not verified for this "
+                       "provider yet and the engine adapter is not wired into "
+                       "generation."}

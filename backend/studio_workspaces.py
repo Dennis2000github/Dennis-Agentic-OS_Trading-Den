@@ -63,20 +63,14 @@ PROJECT_STAGES = (
 )
 
 YOUTUBE_SECTIONS = (
-    {"id": "overview", "label": "Overview", "stage": 2, "available": True},
+    {"id": "create", "label": "Create", "stage": 2, "available": True},
+    {"id": "templates", "label": "Templates", "stage": 3, "available": False},
     {"id": "projects", "label": "Projects", "stage": 2, "available": True},
-    {"id": "channel-manager", "label": "Channel Manager", "stage": 3, "available": True},
-    {"id": "research", "label": "Niche Research", "stage": 3, "available": True},
-    {"id": "topics", "label": "Topic Studio", "stage": 3, "available": True},
-    {"id": "scripts", "label": "Script Studio", "stage": 3, "available": True},
-    {"id": "storyboard", "label": "Storyboard Studio", "stage": 4, "available": False},
-    {"id": "assets", "label": "Asset Studio", "stage": 4, "available": False},
-    {"id": "voice", "label": "Voice Studio", "stage": 4, "available": False},
-    {"id": "animation", "label": "Animation Studio", "stage": 4, "available": False},
-    {"id": "thumbnails", "label": "Thumbnail Studio", "stage": 4, "available": False},
-    {"id": "publishing", "label": "Publishing Manager", "stage": 5, "available": False},
-    {"id": "analytics", "label": "Analytics", "stage": 5, "available": False},
-    {"id": "calendar", "label": "Publishing Calendar", "stage": 5, "available": False},
+    {"id": "backlog", "label": "Topic Backlog", "stage": 2, "available": True},
+    {"id": "publishing", "label": "Publishing", "stage": 10, "available": False},
+    {"id": "analytics", "label": "Analytics", "stage": 10, "available": False},
+    {"id": "intelligence", "label": "YouTube Intelligence", "stage": 9, "available": True},
+    {"id": "settings", "label": "Settings", "stage": 2, "available": True},
 )
 
 WORKSPACES = {
@@ -85,7 +79,17 @@ WORKSPACES = {
         "label": "Ads Studio",
         "subtitle": "Advertising and marketing creative production",
         "sections": [],
-        "legacy_tabs": ["fashion", "assets", "library", "playlists", "preset", "history", "setup"],
+        "legacy_tabs": [
+            "fashion",
+            "create",
+            "backlog",
+            "assets",
+            "library",
+            "playlists",
+            "preset",
+            "history",
+            "setup",
+        ],
     },
     "youtube": {
         "id": "youtube",

@@ -116,6 +116,39 @@ to Higgsfield:
 Real generation requires valid Higgsfield credentials and available credits.
 The test suite uses mocks and a pinned catalog; it never spends credits.
 
+### AI Connections (providers, gateways, free/paid routing)
+
+The **AI Connections** sidebar view is the single manager for how the OS
+reaches models:
+
+- **Two connection routes, one active at a time.** Official *Provider*
+  APIs (OpenAI, Anthropic, Google Gemini, Groq, Cerebras, NVIDIA, DeepSeek
+  presets + custom) or *Gateway / Proxy* routes (OpenRouter, LiteLLM,
+  9Router, FreeLLMAPI-configured endpoints, custom OpenAI-/Anthropic-
+  compatible endpoints). Gateways are never assumed free and never assumed
+  to share one protocol — every connection carries its own protocol and
+  pricing classification.
+- **Health from real tests.** Connection status always comes from an actual
+  endpoint probe, never from the presence of a saved key. API keys stay in
+  `data/connections.json` (mode 0600) and are never returned to the
+  browser.
+- **Unified model registry.** Models discovered through connections get
+  namespaced ids (`conn:<connection>:<native>`) so they can collide with
+  nothing; capability and pricing metadata come from upstream only, and a
+  failed refresh marks models *stale* instead of deleting them.
+- **Compatibility-validated execution.** The Workspace gains a Connection
+  Source dropdown (CLI default → the agent's own login, Provider, or
+  Gateway); every Agent + Source + Connection + Model combination is
+  validated against a capability matrix before it can run.
+- **Free First / Paid First / Manual** routing with per-agent and per-task
+  overrides. Free First never spends paid credits without explicit
+  approval (a 24-hour, auditable grant).
+
+See [`docs/AI_CONNECTION_ARCHITECTURE.md`](docs/AI_CONNECTION_ARCHITECTURE.md)
+for the implementation report and
+[`docs/AI_CONNECTION_ARCHITECTURE_AUDIT.md`](docs/AI_CONNECTION_ARCHITECTURE_AUDIT.md)
+for the audit it was built on.
+
 ### DeepSeek Harness (official native Web UI)
 
 Selecting **DeepSeek Harness** in Workspace launches the official
@@ -310,6 +343,43 @@ by the registered CLI **sub-agents**, and uses the **Vault as its second brain**
   the sidebar or via the Apollo voice core). Tasks are draggable between the
   `Backlog / Assigned / Running / Review / Done` columns, can be assigned to a
   sub-agent manually or left **Autonomous**, and stream their CLI output live.
+
+### Briefings (OpenJarvis bridge)
+
+The **daily briefing** is powered by the sibling **OpenJarvis** checkout
+(`../OpenJarvis`, Stanford, Apache-2.0 — see `docs/OPENJARVIS_VOICE_SETUP.md`).
+Its `morning_digest` agent (collect → LLM → TTS → store) runs as a headless
+service; the OS owns the mic, wake word and voice and consumes the results:
+
+- Bridge: `backend/digest.py` proxies the OpenJarvis REST API with hard
+  timeouts and graceful degradation (offline → `{"available": false}` so the
+  dashboard renders "Briefing service offline", never a broken view).
+- Service manager: `scripts/openjarvis_service.py`
+  (`start|stop|restart|status`) keeps exactly ONE `jarvis serve` process
+  (PID/log under `data/openjarvis/`), same pattern as the Kokoro service, and
+  exports `OBSIDIAN_VAULT_PATH` so the vault feeds the briefing MEMORY
+  section. Ollama is started on demand (the local fallback brain).
+- Engine: **GLM 5.3 Flash via NVIDIA NIM** (key reused from the OpenCode
+  provider auth in `~/.openjarvis/credentials.toml`), with local Ollama
+  `qwen3:0.6b` as fallback.
+- Endpoints (owner-token gated like `/api/tts/*`): `GET /api/digest`,
+  `GET /api/digest/weekly`, `GET|POST /api/digest/schedule`,
+  `GET /api/digest/history`, `GET /api/digest/audio`,
+  `GET /api/digest/service` and `POST /api/digest/generate` (body
+  `{"kind": "daily"|"weekly"}`) plus `POST /api/digest/service`.
+- Dashboard: the JARVIS home view has a **Briefing history** panel (DAILY and
+  WEEKLY badges, tap to reopen past briefings, speak the latest in the JARVIS
+  voice, separate daily/weekly generate buttons) plus a system telemetry
+  strip and command bar (wake-word toggle, briefing shortcut, live clock).
+- **Fullscreen by default**: the OS opens into a fullscreen JARVIS command
+  center (no OS header/sidebar/footer and no side panels); the **Mode** button
+  in the JARVIS topbar toggles back to the original triptych view with every
+  sidebar visible. Leaving JARVIS restores the OS chrome automatically.
+- Voice command: say **"Hey Apollo, daily briefing"** (or "brief me") and the
+  latest briefing is spoken through the centralized TTS router (JARVIS
+  preset), keeping one voice identity across the OS.
+- Weekly briefings: an OS-side scheduler auto-generates a weekly digest
+  (default Monday 08:00 local; `DENNIS_WEEKLY_BRIEFING=0` to disable).
 
 ### Plugins (API Mega List + Composio Dashboard)
 

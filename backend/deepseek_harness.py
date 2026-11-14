@@ -26,6 +26,7 @@ import tempfile
 import threading
 import time
 import uuid
+from contextlib import contextmanager
 from urllib.parse import urlsplit
 
 from . import config
@@ -134,16 +135,60 @@ def _now():
 # ---------------------------------------------------------------------------
 # Credentials
 # ---------------------------------------------------------------------------
+# Per-request endpoint override, used by the unified execution router to
+# route the in-process chat client through a registered connection (any
+# OpenAI-compatible endpoint). Thread-local so concurrent chats in the
+# threaded HTTP server stay independent. Without an override the client
+# behaves exactly as before.
+_OVERRIDE = threading.local()
+
+
+def _override():
+    value = getattr(_OVERRIDE, "value", None)
+    return value if isinstance(value, dict) else None
+
+
+def request_override(base_url=None, api_key=None, model=None, record_as=None):
+    """Context manager: serve this request through an alternate endpoint.
+
+    Used by the unified execution router so the in-process chat client can
+    talk to any registered OpenAI-compatible connection. The override wins
+    over env and stored credentials for the calls made inside the block.
+    ``record_as`` optionally declares a second accepted model id (the
+    connection-scoped id that gets persisted on the conversation).
+    """
+    @contextmanager
+    def _ctx():
+        previous = getattr(_OVERRIDE, "value", None)
+        _OVERRIDE.value = {"base_url": base_url, "api_key": api_key,
+                           "model": model, "record_as": record_as}
+        try:
+            yield
+        finally:
+            _OVERRIDE.value = previous
+
+    return _ctx()
+
+
 def base_url():
+    override = _override()
+    if override and override.get("base_url"):
+        return str(override["base_url"]).rstrip("/")
     return (os.environ.get("DEEPSEEK_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
 
 
 def default_model():
+    override = _override()
+    if override and override.get("model"):
+        return str(override["model"]).strip() or DEFAULT_MODEL
     return (os.environ.get("DEEPSEEK_MODEL") or DEFAULT_MODEL).strip() or DEFAULT_MODEL
 
 
 def api_key():
     """Return ``(key, source)``; environment wins over the stored file."""
+    override = _override()
+    if override and override.get("api_key"):
+        return str(override["api_key"]).strip(), "connection"
     env = (os.environ.get("DEEPSEEK_API_KEY") or "").strip()
     if env:
         return env, "env"
@@ -260,6 +305,14 @@ def models():
 
 
 def has_model(model_id):
+    override = _override()
+    if override:
+        # The execution router may declare validity for its native wire id
+        # and for the connection-scoped id it records on the conversation.
+        if override.get("model") and model_id == override.get("model"):
+            return True
+        if override.get("record_as") and model_id == override.get("record_as"):
+            return True
     return any(m["id"] == model_id for m in models())
 
 
@@ -622,7 +675,11 @@ class Exchange:
                     yield {"type": "delta", "text": text}
 
             message = self._persist_assistant(interrupted=False)
-            _set_model(self.owner, self.conversation_id, self.model_id)
+            # When routed through a connection, keep the connection-scoped
+            # id on the conversation while the wire call used the native id.
+            override = _override()
+            record_id = (override or {}).get("record_as") or self.model_id
+            _set_model(self.owner, self.conversation_id, record_id)
             conv = get_conversation(self.owner, self.conversation_id)
             yield {
                 "type": "done",

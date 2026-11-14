@@ -44,24 +44,28 @@
     })();
   </script>
   <!-- Custom Cyber Theme CSS -->
-  <link rel="stylesheet" href="css/style.css?v=20261111-windows">
+  <link rel="stylesheet" href="css/style.css?v=20261113-jarvis-mode">
   <!-- Installed Plugins rail -->
   <link rel="stylesheet" href="css/installed-plugins.css?v=20261112-ip1">
   <!-- FreeLLMAPI catalog dashboard -->
   <link rel="stylesheet" href="css/freellmapi.css?v=20261030-freellm1">
+  <link rel="stylesheet" href="css/connections.css?v=20261114-connections">
   <!-- Studio cinematic workspace skin -->
   <link rel="stylesheet" href="css/studio-v2.css?v=20261028-studio-kit1">
   <!-- YouTube Studio workspace skin -->
-  <link rel="stylesheet" href="css/studio-youtube.css?v=20261109-yt-stage2">
+  <link rel="stylesheet" href="css/studio-youtube.css?v=20261113-yt-osdesign">
+  <!-- Ads Studio workspace skin (OS design alignment, see docs/ADS_STUDIO_UI_AUDIT.md) -->
+  <link rel="stylesheet" href="css/studio-ads.css?v=20261113-runtime-rail">
   <!-- UI UX Pro Max design system skin (design-system/dennis-agentic-os/MASTER.md) -->
   <link rel="stylesheet" href="css/theme-uiuxpro.css?v=20261112-uupm1">
+  <link rel="stylesheet" href="css/cosmos.css?v=20261115-cosmos1">
 </head>
 <body class="bg-[#060913] text-slate-100 h-screen overflow-hidden flex flex-col font-sans select-none">
 
   <!-- ========================================================================= -->
   <!-- 1. TOP HEADER NAVIGATION BAR                                              -->
   <!-- ========================================================================= -->
-  <header class="h-14 border-b border-[#1b253d] bg-[#070b16]/95 backdrop-blur-md px-4 flex items-center justify-between z-30 shrink-0">
+  <header id="os-header" class="h-14 border-b border-[#1b253d] bg-[#070b16]/95 backdrop-blur-md px-4 flex items-center justify-between z-30 shrink-0">
     <!-- Brand Logo & Identity -->
     <div class="flex items-center gap-3 shrink-0">
       <div class="w-8 h-8 relative flex items-center justify-center">
@@ -109,7 +113,7 @@
   <div class="flex-1 flex overflow-hidden">
 
     <!-- LEFT SIDEBAR -->
-    <aside class="w-56 border-r border-[#1b253d] bg-[#070b16] flex flex-col gap-3 p-3 shrink-0 overflow-y-auto">
+    <aside id="os-sidebar" class="w-56 border-r border-[#1b253d] bg-[#070b16] flex flex-col gap-3 p-3 shrink-0 overflow-y-auto">
       <!-- Top Navigation Group -->
       <div class="space-y-1.5">
         <button id="sidebar-nav-jarvis" class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 font-medium text-xs transition">
@@ -125,6 +129,11 @@
         <button id="sidebar-nav-studio" class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 font-medium text-xs transition">
           <span class="studio-mark" aria-hidden="true"></span>
           <span>Studio</span>
+        </button>
+
+        <button id="sidebar-nav-cosmos" class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 font-medium text-xs transition">
+          <i data-lucide="orbit" class="w-4 h-4"></i>
+          <span>COSMOS</span>
         </button>
 
         <button id="sidebar-nav-trading" class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 font-medium text-xs transition">
@@ -168,6 +177,11 @@
           <span>FreeLLMAPI</span>
         </button>
 
+        <button id="sidebar-nav-connections" class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 font-medium text-xs transition">
+          <i data-lucide="route" class="w-4 h-4"></i>
+          <span>AI Connections</span>
+        </button>
+
         <button class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 font-medium text-xs transition">
           <i data-lucide="settings" class="w-4 h-4"></i>
           <span>Settings</span>
@@ -191,59 +205,10 @@
         </div>
       </div>
 
-      <!-- Hermes Apollo Voice Core (Jarvis Voice Wake Command) -->
-      <div id="hermes-apollo-widget" class="galaxy-card p-3 bg-gradient-to-b from-[#0c1429]/60 to-transparent relative overflow-hidden flex flex-col items-center text-center transition-all duration-300">
-        <!-- Canvas Spinning Galaxy Vortex / Arc Reactor -->
-        <div class="galaxy-canvas-frame flex items-center justify-center relative cursor-pointer" id="apollo-canvas-wrap" title="Wake">
-          <canvas id="galaxy-canvas" class="w-[88px] h-[88px] block"></canvas>
-        </div>
-
-        <!-- Minimal controls -->
-        <div class="w-full flex items-center justify-center gap-2 mt-1.5">
-          <button id="apollo-mic-toggle" class="p-1.5 rounded-lg bg-blue-950/80 hover:bg-cyan-950/90 border border-cyan-800/50 hover:border-cyan-400/60 text-cyan-300 transition shadow-sm" title="Toggle voice wake">
-            <i data-lucide="mic" id="apollo-mic-icon" class="w-3.5 h-3.5 text-cyan-400"></i>
-          </button>
-          <button id="apollo-test-wake" class="p-1.5 rounded-lg bg-[#11182c] hover:bg-blue-900/60 border border-blue-900/60 hover:border-cyan-500/50 text-slate-300 hover:text-white transition" title="Wake">
-            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-cyan-400"></i>
-          </button>
-          <button id="apollo-voice-settings" class="p-1.5 rounded-lg bg-[#11182c] hover:bg-blue-900/60 border border-blue-900/60 hover:border-cyan-500/50 text-slate-300 hover:text-white transition" title="Voice provider & settings">
-            <i data-lucide="settings-2" class="w-3.5 h-3.5 text-cyan-400"></i>
-          </button>
-        </div>
-
-        <!-- Centralized TTS status (Kokoro default) -->
-        <div class="w-full flex items-center justify-center gap-1.5 mt-1 px-1">
-          <span id="apollo-voice-status-dot" class="w-1.5 h-1.5 rounded-full shrink-0 bg-slate-500"></span>
-          <span id="apollo-voice-status-text" class="text-[9px] text-slate-500 truncate">TTS router starting...</span>
-        </div>
-
-        <!-- Voice provider panel (hidden by default; preserves widget layout) -->
-        <div id="apollo-voice-panel" class="hidden absolute top-0 left-0 right-0 z-30 m-1 rounded-xl border border-cyan-900/60 bg-[#0a1020]/95 backdrop-blur p-3 text-left shadow-2xl">
-          <div class="flex items-center justify-between mb-2">
-            <span class="text-[10px] font-bold tracking-wider text-cyan-300 uppercase">Apollo Voice</span>
-            <button id="apollo-voice-close" class="text-slate-500 hover:text-white text-xs leading-none" title="Close">✕</button>
-          </div>
-          <label class="block text-[9px] uppercase tracking-wide text-slate-500 mb-0.5">Voice provider</label>
-          <select id="apollo-voice-provider" class="w-full mb-2 rounded-md bg-[#111a30] border border-slate-800 text-[11px] text-slate-200 px-2 py-1.5 focus:border-cyan-600 outline-none"></select>
-          <label class="block text-[9px] uppercase tracking-wide text-slate-500 mb-0.5">Voice preset</label>
-          <select id="apollo-voice-preset" class="w-full mb-2 rounded-md bg-[#111a30] border border-slate-800 text-[11px] text-slate-200 px-2 py-1.5 focus:border-cyan-600 outline-none"></select>
-          <label class="block text-[9px] uppercase tracking-wide text-slate-500 mb-0.5">Speech speed <span id="apollo-voice-speed-value" class="text-cyan-400 normal-case">1.03x</span></label>
-          <input id="apollo-voice-speed" type="range" min="0.5" max="1.5" step="0.01" value="1.03" class="w-full mb-2 accent-cyan-500">
-          <div class="grid grid-cols-2 gap-1.5 mb-2">
-            <button id="apollo-voice-preview" class="rounded-md bg-blue-950/80 border border-cyan-900/60 text-[10px] text-cyan-300 px-2 py-1.5 hover:border-cyan-500/60" title="Hear the current preset voice">Preview voice</button>
-            <button id="apollo-voice-test" class="rounded-md bg-blue-950/80 border border-cyan-900/60 text-[10px] text-cyan-300 px-2 py-1.5 hover:border-cyan-500/60" title="Speak a test line via Kokoro">Voice test</button>
-          </div>
-          <button id="apollo-voice-service" class="w-full mb-2 rounded-md bg-[#111a30] border border-slate-800 text-[10px] text-slate-300 px-2 py-1.5 hover:border-cyan-600" data-mode="start">Start TTS service</button>
-          <label class="flex items-center gap-2 text-[10px] text-slate-400">
-            <input id="apollo-voice-fallback" type="checkbox" class="accent-cyan-500" checked>
-            Browser voice fallback
-          </label>
-        </div>
-      </div>
     </aside>
 
     <!-- MAIN DASHBOARD CONTENT AREA -->
-    <main class="flex-1 flex flex-col p-3.5 gap-3.5 overflow-y-auto">
+    <main id="os-main" class="flex-1 flex flex-col p-3.5 gap-3.5 overflow-y-auto">
 
       <!-- ========================================================================= -->
       <!-- TIER 1: TOP HERO BANNER (Time, Greeting & Neural Brain Cosmos)             -->
@@ -326,7 +291,7 @@
           <!-- Sits directly beside the last window tab (not pushed to the far
                right); the spacer keeps it glued to the tabs as they scroll. -->
           <div class="relative shrink-0">
-            <button id="ws-new-window" class="ws-new-window-btn" title="Open another agent window with its own provider and model">
+            <button id="ws-new-window" class="ws-new-window-btn" title="Open another agent window with its own agent and model">
               <i data-lucide="layout-panel-left" class="w-3.5 h-3.5"></i>
               <span>New window</span>
               <i data-lucide="plus" class="w-3 h-3"></i>
@@ -336,7 +301,7 @@
           <div class="ws-windows-spacer" aria-hidden="true"></div>
         </div>
 
-        <!-- Toolbar: Agent -> Provider -> Model -> Status (fixed order, no tabs, no technical text) -->
+        <!-- Toolbar: Agent -> Model -> Status (fixed order, no tabs, no technical text) -->
         <div id="ws-toolbar" class="px-3 py-2 border-b border-[#1b2744] bg-[#080d1b] flex items-center gap-2 flex-wrap shrink-0">
           <!-- Agent dropdown -->
           <div class="relative">
@@ -351,35 +316,20 @@
             </div>
           </div>
 
-          <!-- Provider dropdown (derived from the selected agent's CLI) -->
+          <!-- Model dropdown: one merged list — the agent's own CLI models
+               plus every model discovered on agent-compatible connections
+               (providers and gateways), grouped by source category. The
+               route behind each model is resolved automatically from the
+               routing policy, so only Agent and Model are selected here. -->
           <div class="relative">
-            <button id="ws-provider-btn" class="ws-dropdown ws-dropdown-provider" title="Provider for this agent" disabled>
-              <i data-lucide="plug" class="w-3.5 h-3.5 text-amber-400"></i>
-              <span id="ws-provider-label">Provider: —</span>
-              <i data-lucide="chevron-down" class="w-3 h-3 text-slate-500"></i>
-            </button>
-            <div id="ws-provider-menu" class="ws-menu hidden absolute left-0 top-full mt-1 z-50 w-72">
-              <div class="ws-menu-title flex items-center justify-between">
-                <span>Providers from this agent</span>
-                <button id="ws-provider-refresh" class="ws-icon-btn" title="Reload providers and models">
-                  <i data-lucide="refresh-cw" class="w-3 h-3"></i>
-                </button>
-              </div>
-              <div id="ws-provider-options" class="max-h-56 overflow-y-auto"></div>
-              <div id="ws-provider-setup" class="hidden px-2.5 pb-2 pt-1 mt-1 border-t border-[#1b2537] space-y-1"></div>
-            </div>
-          </div>
-
-          <!-- Model dropdown (CLI-native list) -->
-          <div class="relative">
-            <button id="ws-model-btn" class="ws-dropdown ws-dropdown-model" title="Model for this CLI" disabled>
+            <button id="ws-model-btn" class="ws-dropdown ws-dropdown-model" title="Model for this agent" disabled>
               <i data-lucide="cpu" class="w-3.5 h-3.5 text-purple-400"></i>
               <span id="ws-model-label">Model: —</span>
               <i data-lucide="chevron-down" class="w-3 h-3 text-slate-500"></i>
             </button>
             <div id="ws-model-menu" class="ws-menu hidden absolute left-0 top-full mt-1 z-50 w-80">
               <div class="ws-menu-title flex items-center justify-between">
-                <span>Models from this CLI</span>
+                <span>Models for this agent</span>
                 <button id="ws-model-refresh" class="ws-icon-btn" title="Refresh model list">
                   <i data-lucide="refresh-cw" class="w-3 h-3"></i>
                 </button>
@@ -389,6 +339,12 @@
                 <input id="ws-model-search" type="text" aria-label="Search workspace models" placeholder="Search models…" class="w-full bg-[#0b1226] border border-[#22304f] rounded-lg px-2 py-1 text-[11px] text-slate-200 placeholder-slate-600 outline-none focus:border-cyan-500/60">
               </div>
               <div id="ws-model-options" class="max-h-60 overflow-y-auto"></div>
+              <div class="px-2.5 pb-2 pt-1 mt-1 border-t border-[#1b2537]">
+                <button id="ws-model-manage" class="ws-menu-item w-full text-left" type="button" title="Open the AI Connections manager">
+                  <i data-lucide="settings-2" class="w-3.5 h-3.5 text-slate-500"></i>
+                  <span class="flex-1">Manage connections…</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -910,76 +866,105 @@
       </section>
 
       <!-- ========================================================================= -->
-      <!-- JARVIS HOME VIEW (default dashboard: voice core + status + quick cmds)     -->
+      <!-- HERMES–JARVIS NEURAL COMMAND CENTER (default dashboard)                    -->
+      <!-- Left: system telemetry · Center: neural core · Right: briefings           -->
       <!-- ========================================================================= -->
-      <section id="jarvis-view" class="hidden flex-1 flex flex-col gap-3.5 min-h-0 pb-6">
+      <section id="jarvis-view" class="hidden relative flex-1 min-h-0 overflow-hidden">
+        <!-- Deep-space backdrop -->
+        <div class="jarvis-space" aria-hidden="true"></div>
+        <div class="jarvis-stars" aria-hidden="true"></div>
 
-        <!-- Hero: JARVIS core -->
-        <div class="relative overflow-hidden glass-panel rounded-2xl border border-cyan-900/50 bg-gradient-to-r from-[#050d1a] via-[#081228] to-[#050a18] p-6 flex flex-col lg:flex-row items-center gap-6 shrink-0">
-          <div class="absolute -left-24 -top-24 w-96 h-96 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none"></div>
-          <div class="absolute -right-24 -bottom-24 w-96 h-96 rounded-full bg-blue-600/10 blur-3xl pointer-events-none"></div>
-          <div class="relative shrink-0 flex items-center justify-center">
-            <canvas id="jarvis-core-canvas" class="w-[168px] h-[168px] block cursor-pointer" title="Tap the core"></canvas>
-          </div>
-          <div class="relative flex-1 min-w-0 text-center lg:text-left">
-            <div class="flex items-center justify-center lg:justify-start gap-2 flex-wrap">
-              <h1 class="text-2xl font-bold tracking-wide text-white">JARVIS</h1>
-              <span class="text-[9px] font-mono uppercase tracking-widest text-cyan-300/90 border border-cyan-700/60 bg-cyan-950/40 px-2 py-0.5 rounded-full">V2 &middot; Voice Core</span>
-              <span id="jarvis-core-state" class="text-[10px] font-mono text-slate-400 border border-slate-700/70 px-2 py-0.5 rounded-full">standby</span>
-            </div>
-            <p id="jarvis-greeting" class="mt-2 text-sm text-slate-300">Good evening, Dennis. All systems are online.</p>
-            <p class="mt-1 text-[11px] text-slate-500">Say <span class="text-cyan-300 font-mono">&ldquo;Hey Apollo&rdquo;</span> &mdash; or tap the core &mdash; to wake the voice assistant. It stays live across every view.</p>
-            <div class="mt-4 flex flex-wrap items-center justify-center lg:justify-start gap-2">
-              <button id="jarvis-qc-workspace" class="jarvis-chip"><i data-lucide="home" class="w-3.5 h-3.5"></i><span>Open Workspace</span></button>
-              <button id="jarvis-qc-galaxy" class="jarvis-chip"><i data-lucide="orbit" class="w-3.5 h-3.5"></i><span>Memory Galaxy</span></button>
-              <button id="jarvis-qc-vault" class="jarvis-chip"><i data-lucide="book-open" class="w-3.5 h-3.5"></i><span>Vault</span></button>
-              <button id="jarvis-qc-studio" class="jarvis-chip"><i data-lucide="clapperboard" class="w-3.5 h-3.5"></i><span>Studio</span></button>
-              <button id="jarvis-qc-agents" class="jarvis-chip"><i data-lucide="bot" class="w-3.5 h-3.5"></i><span>Agent Registry</span></button>
-            </div>
-          </div>
-        </div>
+        <div class="relative z-10 h-full flex flex-col gap-2 p-3 min-h-0">
 
-        <!-- Status grid -->
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5 shrink-0">
-          <div class="jarvis-stat glass-panel rounded-2xl border border-cyan-900/40 bg-[#070d1a]/80 p-3.5">
-            <div class="flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-cyan-300/80"><i data-lucide="activity" class="w-3.5 h-3.5"></i><span>Voice Engine</span></div>
-            <p id="jarvis-stat-voice" class="mt-2 text-sm font-semibold text-white">Checking&hellip;</p>
-            <p id="jarvis-stat-voice-sub" class="text-[10px] text-slate-500 mt-0.5">Kokoro &middot; JARVIS preset</p>
-          </div>
-          <div class="jarvis-stat glass-panel rounded-2xl border border-blue-900/40 bg-[#070b1c]/80 p-3.5">
-            <div class="flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-blue-300/80"><i data-lucide="bot" class="w-3.5 h-3.5"></i><span>Agents Ready</span></div>
-            <p id="jarvis-stat-agents" class="mt-2 text-sm font-semibold text-white">&mdash;</p>
-            <p id="jarvis-stat-agents-sub" class="text-[10px] text-slate-500 mt-0.5">Host CLIs discovered</p>
-          </div>
-          <div class="jarvis-stat glass-panel rounded-2xl border border-purple-900/40 bg-[#0b0718]/80 p-3.5">
-            <div class="flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-purple-300/80"><i data-lucide="book-open" class="w-3.5 h-3.5"></i><span>Memory Notes</span></div>
-            <p id="jarvis-stat-notes" class="mt-2 text-sm font-semibold text-white">&mdash;</p>
-            <p id="jarvis-stat-notes-sub" class="text-[10px] text-slate-500 mt-0.5">Vault second brain</p>
-          </div>
-          <div class="jarvis-stat glass-panel rounded-2xl border border-emerald-900/40 bg-[#06130e]/80 p-3.5">
-            <div class="flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-emerald-300/80"><i data-lucide="terminal" class="w-3.5 h-3.5"></i><span>Live Sessions</span></div>
-            <p id="jarvis-stat-sessions" class="mt-2 text-sm font-semibold text-white">&mdash;</p>
-            <p id="jarvis-stat-sessions-sub" class="text-[10px] text-slate-500 mt-0.5">Project sessions running</p>
-          </div>
-        </div>
+          <!-- Top bar: identity panel + mode toggle + clock -->
+          <header class="jarvis-topbar">
+            <div class="hud-panel hud-brackets px-4 py-2">
+              <h1 class="jarvis-title">HERMES &ndash; JARVIS</h1>
+              <p class="jarvis-subtitle-line">NEURAL INTERFACE &middot; <span class="text-emerald-400">ONLINE</span><span class="status-dot-pulse inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 ml-1 align-middle"></span></p>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+              <button id="jarvis-mode-toggle" class="jarvis-mode-btn" type="button" aria-pressed="true" title="Switch to the original view (show sidebars)">
+                <i data-lucide="maximize-2" class="w-3.5 h-3.5"></i>
+                <span>Mode</span>
+                <b id="jarvis-mode-state" class="jarvis-mode-state">FULLSCREEN</b>
+              </button>
+              <div class="hud-panel hud-brackets px-4 py-1.5 text-right">
+                <p id="jarvis-clock" class="jarvis-clock">--:--:--</p>
+                <p id="jarvis-date" class="jarvis-date">&mdash;</p>
+              </div>
+            </div>
+          </header>
 
-        <!-- Memory + shortcuts row -->
-        <div class="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-3.5">
-          <!-- Recent memory -->
-          <div class="glass-panel rounded-2xl border border-purple-900/40 bg-[#0a0716]/80 flex flex-col min-h-0 overflow-hidden">
-            <div class="px-3 py-2 border-b border-purple-950/60 flex items-center justify-between gap-2 shrink-0">
-              <span class="text-[10px] font-mono uppercase tracking-widest text-purple-300/80 flex items-center gap-1.5"><i data-lucide="history" class="w-3.5 h-3.5"></i><span>Recent memory</span></span>
-              <button id="jarvis-open-galaxy" class="text-[10px] text-cyan-300 hover:text-cyan-200 transition">Open Memory Galaxy &rarr;</button>
+          <!-- Main triptych: telemetry | core | briefings -->
+          <div class="jarvis-main">
+
+            <!-- LEFT: telemetry + neural network -->
+            <aside class="jarvis-aside">
+              <!-- System telemetry -->
+              <div class="hud-panel flex-1 min-h-0 flex flex-col">
+                <div class="hud-panel-title"><i data-lucide="audio-waveform" class="w-3.5 h-3.5"></i><span>System Telemetry</span></div>
+                <div class="flex-1 min-h-0 overflow-y-auto px-3 pb-3">
+                  <div class="hud-row"><span class="hud-label">Status</span><b id="jarvis-tele-status" class="hud-value text-cyan-300"><span class="hud-dot bg-cyan-400"></span>Standby</b></div>
+                  <div class="hud-row"><span class="hud-label">Mode</span><b id="jarvis-tele-mode" class="hud-value text-cyan-300">&raquo;&nbsp;Auto</b></div>
+                  <div class="hud-row"><span class="hud-label">Wake word</span><b id="jarvis-tele-wake" class="hud-value text-emerald-400">On</b></div>
+                  <div class="hud-row"><span class="hud-label">Voice</span><b id="jarvis-tele-voice" class="hud-value hud-voice-label" title="Active voice preset">JARVIS</b></div>
+                  <div class="hud-row hud-row-bar"><span class="hud-label">Neural throughput</span><b id="jarvis-tele-throughput" class="hud-value text-cyan-300" title="Agent readiness across the registry">&mdash;</b></div>
+                  <div class="hud-bar"><i id="jarvis-tele-throughput-bar" class="hud-bar-fill" style="width:0%"></i></div>
+                  <div class="hud-row hud-row-bar"><span class="hud-label">Core load</span><b id="jarvis-tele-load" class="hud-value text-cyan-300" title="Backend process load (load average / cores)">&mdash;</b></div>
+                  <div class="hud-bar"><i id="jarvis-tele-load-bar" class="hud-bar-fill" style="width:0%"></i></div>
+                  <div class="hud-row hud-row-bar"><span class="hud-label">Signal</span><b id="jarvis-tele-signal" class="hud-value text-cyan-300" title="Voice engine + briefing service availability">&mdash;</b></div>
+                  <div class="hud-bar"><i id="jarvis-tele-signal-bar" class="hud-bar-fill" style="width:0%"></i></div>
+                  <div class="hud-row"><span class="hud-label">Latency</span><b id="jarvis-tele-latency" class="hud-value text-cyan-200" title="Measured OS API round-trip">&mdash;</b></div>
+                </div>
+              </div>
+              <!-- Neural network -->
+              <div class="hud-panel shrink-0">
+                <div class="hud-panel-title"><i data-lucide="network" class="w-3.5 h-3.5"></i><span>Neural Network</span></div>
+                <div class="px-3 pb-3">
+                  <div class="hud-row"><span class="hud-label">Connected nodes</span><b id="jarvis-net-nodes" class="hud-value text-emerald-400" title="Sub-agents ready / registered">&mdash;</b></div>
+                  <div class="hud-row"><span class="hud-label">Memory status</span><b id="jarvis-net-memory" class="hud-value text-emerald-400" title="Vault second-brain graph">&mdash;</b></div>
+                </div>
+              </div>
+            </aside>
+
+            <!-- CENTER: the neural core -->
+            <div class="jarvis-center">
+              <canvas id="jarvis-core-canvas" class="jarvis-core-canvas block cursor-pointer" title="Tap the core to wake Apollo"></canvas>
+              <div class="text-center relative z-10 pb-1 shrink-0 pointer-events-none">
+                <p id="jarvis-core-state" class="jarvis-core-state">SYSTEM STANDBY</p>
+                <p class="jarvis-core-hint">TAP NEURAL CORE TO CHANGE STATE</p>
+              </div>
             </div>
-            <div id="jarvis-recent-notes" class="flex-1 overflow-y-auto p-2.5 space-y-1.5 text-xs"></div>
+
+            <!-- RIGHT: briefing history -->
+            <aside id="jarvis-brief-col" class="jarvis-aside">
+              <div id="jarvis-brief-panel" class="hud-panel flex-1 min-h-0 flex flex-col">
+                <div class="hud-panel-title justify-between shrink-0">
+                  <span class="flex items-center gap-2"><i data-lucide="newspaper" class="w-3.5 h-3.5"></i><span>Briefing history</span></span>
+                  <span class="flex items-center gap-1.5">
+                    <button id="jarvis-brief-refresh" class="hud-icon-btn" title="Refresh briefings"><i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i></button>
+                    <button id="jarvis-brief-close" class="hud-icon-btn" title="Collapse panel"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+                  </span>
+                </div>
+                <p class="hud-subtitle shrink-0">Past briefings &middot; tap to reopen &middot; <b id="jarvis-brief-count">0 saved</b></p>
+                <div id="jarvis-brief-list" class="flex-1 min-h-0 overflow-y-auto px-2.5 pb-2 space-y-2 text-xs"></div>
+                <div class="p-2.5 border-t border-cyan-500/20 shrink-0 flex gap-2">
+                  <button id="jarvis-brief-generate" class="jarvis-brief-generate flex-1"><i data-lucide="plus" class="w-3.5 h-3.5"></i><span>Generate daily</span></button>
+                  <button id="jarvis-brief-weekly" class="jarvis-brief-generate flex-1" title="Generate the weekly briefing (past seven days)"><i data-lucide="calendar-range" class="w-3.5 h-3.5"></i><span>Weekly</span></button>
+                </div>
+              </div>
+            </aside>
           </div>
-          <!-- System -->
-          <div class="glass-panel rounded-2xl border border-cyan-900/40 bg-[#070d1a]/80 flex flex-col min-h-0 overflow-hidden">
-            <div class="px-3 py-2 border-b border-cyan-950/60 text-[10px] font-mono uppercase tracking-widest text-cyan-300/80 flex items-center gap-1.5 shrink-0">
-              <i data-lucide="cpu" class="w-3.5 h-3.5"></i><span>System</span>
-            </div>
-            <div id="jarvis-system" class="flex-1 overflow-y-auto p-2.5 space-y-1.5 text-xs text-slate-300">
-              <p class="text-slate-500 text-[11px]">Reading system status&hellip;</p>
+
+          <!-- Bottom: waveform + command bar -->
+          <div class="jarvis-bottom">
+            <canvas id="jarvis-wave-canvas" class="jarvis-wave" aria-hidden="true"></canvas>
+            <div class="hud-panel mt-1 px-3 py-1.5 flex flex-wrap items-center gap-2">
+              <p id="jarvis-bar-quote" class="flex-1 min-w-[12rem] text-xs italic text-cyan-200/90 text-center sm:text-left">&ldquo;At your service, sir.&rdquo;</p>
+              <button id="jarvis-bar-wake" class="jarvis-bar-btn" title="Toggle voice wake (Hey Apollo &middot; Hermes &middot; Jarvis)"><i data-lucide="mic" class="w-3.5 h-3.5"></i><span>Wake word ON</span></button>
+              <span class="jarvis-bar-badge" title="Wake words: Hey Apollo &middot; Apollo &middot; Hermes &middot; Jarvis &middot; wake up">AUTO</span>
+              <button id="jarvis-bar-briefing" class="jarvis-bar-btn" title="Generate today's briefing"><i data-lucide="newspaper" class="w-3.5 h-3.5"></i><span>Briefing</span></button>
+              <span id="jarvis-bar-voice" class="jarvis-bar-btn" title="Voice preset &mdash; change it in Workspace &rarr; Voice Provider Registry"><i data-lucide="user" class="w-3.5 h-3.5"></i><span>JARVIS voice</span><i data-lucide="chevron-down" class="w-3 h-3 opacity-60"></i></span>
             </div>
           </div>
         </div>
@@ -1575,22 +1560,7 @@
             <span class="collart-brand-logo">D</span>
             <span class="collart-brand-name">Dennis Studio</span>
           </div>
-<div class="studio-buildagent" title="Build agent — runs Studio tools and workflows (its own provider & model). Generation below uses the Provider + Model dropdowns.">
-              <button id="ads-agent-btn" class="studio-provider-btn" data-agent-menu-btn>
-                <i data-lucide="bot" class="w-3.5 h-3.5 text-cyan-300"></i>
-                <span class="studio-buildagent-label">Build</span>
-                <span id="ads-agent-label" class="truncate">—</span>
-                <i data-lucide="chevron-down" class="w-3 h-3 text-slate-500"></i>
-              </button>
-              <div id="ads-agent-menu" class="ws-menu studio-provider-menu hidden">
-                <div class="ws-menu-title flex items-center justify-between">
-                  <span>Build agents</span>
-                  <span class="studio-mono">own provider · model</span>
-                </div>
-                <div id="ads-agent-options"></div>
-              </div>
-            </div>
-          <div class="studio-workspace-switch" id="studio-workspace-switch" role="tablist" aria-label="Studio workspace">
+<div class="studio-workspace-switch" id="studio-workspace-switch" role="tablist" aria-label="Studio workspace">
             <button type="button" class="studio-workspace-btn is-active" data-studio-workspace="ads" role="tab" aria-selected="true">
               <i data-lucide="megaphone" class="w-3.5 h-3.5"></i><span>Ads Studio</span>
             </button>
@@ -1607,19 +1577,17 @@
           </div>
         </header>
 
-        <!-- Centralized voiceover strip (same TTS registry as Apollo/YouTube) -->
-        <div id="ads-voiceover" data-voiceover-studio="ads" class="mb-2"></div>
-
         <!-- Collart-style Studio shell: sidebar + views + dock -->
         <div class="collart-shell">
           <aside class="collart-sidebar" id="studio-ads-sidebar">
             <div class="collart-side-top">
               <nav class="collart-side-nav">
+                <button type="button" class="collart-side-item" data-studio-tab="create" data-nav-key="create"><i data-lucide="pen-line" class="w-4 h-4"></i><span>Create</span></button>
                 <button type="button" class="collart-side-item is-active" data-studio-tab="fashion" data-nav-key="generate"><i data-lucide="sparkles" class="w-4 h-4"></i><span>Generate</span></button>
+                <button type="button" class="collart-side-item" data-studio-tab="backlog" data-nav-key="ads-backlog"><i data-lucide="list-checks" class="w-4 h-4"></i><span>Product Backlog</span></button>
                 <button type="button" class="collart-side-item" data-studio-tab="assets" data-nav-key="assets"><i data-lucide="folder" class="w-4 h-4"></i><span>Assets</span></button>
                 <button type="button" class="collart-side-item" data-studio-subtab="library" data-nav-key="library"><i data-lucide="library" class="w-4 h-4"></i><span>Library</span></button>
                 <button type="button" class="collart-side-item" data-studio-subtab="playlists" data-nav-key="playlists"><i data-lucide="list-music" class="w-4 h-4"></i><span>Playlists</span></button>
-                <button type="button" class="collart-side-item" data-studio-tab="preset" data-nav-key="preset-video"><i data-lucide="film" class="w-4 h-4"></i><span>Preset Video</span></button>
                 <button type="button" class="collart-side-item" data-studio-subtab="history" data-nav-key="history"><i data-lucide="history" class="w-4 h-4"></i><span>History</span></button>
               </nav>
             </div>
@@ -1631,7 +1599,7 @@
               <div class="collart-contact">
                 <div class="collart-contact-icon"><i data-lucide="message-square" class="w-4 h-4"></i></div>
                 <h4>Contact Us</h4>
-                <p>Jobs run on your own provider keys. Nothing is sent to Collart.</p>
+                <p>Jobs run on your own provider keys and the built-in free engines.</p>
               </div>
               <div class="collart-social">
                 <i data-lucide="github" class="w-4 h-4"></i>
@@ -1642,7 +1610,7 @@
             </div>
           </aside>
 
-          <!-- YouTube Studio sidebar (Stage 2 shell) -->
+          <!-- YouTube Studio sidebar (master spec: 7 sections + Settings) -->
           <aside class="collart-sidebar yt-sidebar is-hidden" id="studio-youtube-sidebar">
             <div class="collart-side-top">
               <div class="yt-side-brand">
@@ -1650,31 +1618,25 @@
                 <span class="yt-side-copy"><b>YouTube Studio</b><em>Educational video</em></span>
               </div>
               <nav class="collart-side-nav" id="yt-side-nav" aria-label="YouTube Studio sections">
-                <button type="button" class="collart-side-item is-active" data-yt-section="overview"><i data-lucide="layout-dashboard" class="w-4 h-4"></i><span>Overview</span></button>
+                <button type="button" class="collart-side-item is-active" data-yt-section="create"><i data-lucide="sparkles" class="w-4 h-4"></i><span>Create</span></button>
+                <button type="button" class="collart-side-item" data-yt-section="templates"><i data-lucide="layout-template" class="w-4 h-4"></i><span>Templates</span><em class="yt-soon">Phase 3</em></button>
                 <button type="button" class="collart-side-item" data-yt-section="projects"><i data-lucide="list-video" class="w-4 h-4"></i><span>Projects</span></button>
-                <div class="collart-side-label">Editorial</div>
-                <button type="button" class="collart-side-item" data-yt-section="channel-manager"><i data-lucide="user-round-cog" class="w-4 h-4"></i><span>Channel Manager</span><em class="yt-soon">Stage 3</em></button>
-                <button type="button" class="collart-side-item" data-yt-section="research"><i data-lucide="search" class="w-4 h-4"></i><span>Niche Research</span><em class="yt-soon">Stage 3</em></button>
-                <button type="button" class="collart-side-item" data-yt-section="topics"><i data-lucide="lightbulb" class="w-4 h-4"></i><span>Topic Studio</span><em class="yt-soon">Stage 3</em></button>
-                <button type="button" class="collart-side-item" data-yt-section="scripts"><i data-lucide="file-text" class="w-4 h-4"></i><span>Script Studio</span><em class="yt-soon">Stage 3</em></button>
-                <div class="collart-side-label">Production</div>
-                <button type="button" class="collart-side-item" data-yt-section="storyboard"><i data-lucide="panels-top-left" class="w-4 h-4"></i><span>Storyboard Studio</span><em class="yt-soon">Stage 4</em></button>
-                <button type="button" class="collart-side-item" data-yt-section="assets"><i data-lucide="image" class="w-4 h-4"></i><span>Asset Studio</span><em class="yt-soon">Stage 4</em></button>
-                <button type="button" class="collart-side-item" data-yt-section="voice"><i data-lucide="mic" class="w-4 h-4"></i><span>Voice Studio</span><em class="yt-soon">Stage 4</em></button>
-                <button type="button" class="collart-side-item" data-yt-section="animation"><i data-lucide="clapperboard" class="w-4 h-4"></i><span>Animation Studio</span><em class="yt-soon">Stage 4</em></button>
-                <button type="button" class="collart-side-item" data-yt-section="thumbnails"><i data-lucide="image-plus" class="w-4 h-4"></i><span>Thumbnail Studio</span><em class="yt-soon">Stage 4</em></button>
+                <button type="button" class="collart-side-item" data-yt-section="backlog"><i data-lucide="lightbulb" class="w-4 h-4"></i><span>Topic Backlog</span></button>
                 <div class="collart-side-label">Distribution</div>
-                <button type="button" class="collart-side-item" data-yt-section="publishing"><i data-lucide="upload" class="w-4 h-4"></i><span>Publishing Manager</span><em class="yt-soon">Stage 5</em></button>
-                <button type="button" class="collart-side-item" data-yt-section="analytics"><i data-lucide="bar-chart-3" class="w-4 h-4"></i><span>Analytics</span><em class="yt-soon">Stage 5</em></button>
-                <button type="button" class="collart-side-item" data-yt-section="calendar"><i data-lucide="calendar-days" class="w-4 h-4"></i><span>Publishing Calendar</span><em class="yt-soon">Stage 5</em></button>
+                <button type="button" class="collart-side-item" data-yt-section="publishing"><i data-lucide="upload" class="w-4 h-4"></i><span>Publishing</span><em class="yt-soon">Phase 10</em></button>
+                <button type="button" class="collart-side-item" data-yt-section="analytics"><i data-lucide="bar-chart-3" class="w-4 h-4"></i><span>Analytics</span><em class="yt-soon">Phase 10</em></button>
+                <div class="collart-side-label">Intelligence</div>
+                <button type="button" class="collart-side-item" data-yt-section="intelligence"><i data-lucide="orbit" class="w-4 h-4"></i><span>YouTube Intelligence</span></button>
+                <div class="collart-side-label">Configure</div>
+                <button type="button" class="collart-side-item" data-yt-section="settings"><i data-lucide="settings-2" class="w-4 h-4"></i><span>Settings</span></button>
               </nav>
             </div>
             <div class="collart-side-bottom">
               <div class="yt-side-note">
-                <b>Stage 2 build</b>
-                <span>Workspace shell and isolated projects are live. Editor, production and publishing modules follow in Stages 3–5.</span>
+                <b>Phase 2 build</b>
+                <span>Create, projects, topic backlog, settings and the intelligence hub are live. Templates arrive in Phase 3; publishing and analytics in Phase 10 once Google OAuth is configured.</span>
               </div>
-              <div class="collart-footnote"><span>YouTube Studio</span><span>|</span><span id="yt-build-chip" class="studio-catalog-chip">Stage 2</span></div>
+              <div class="collart-footnote"><span>YouTube Studio</span><span>|</span><span id="yt-build-chip" class="studio-catalog-chip">Phase 2</span></div>
             </div>
           </aside>
 
@@ -2177,6 +2139,17 @@
         <!-- Setup -->
         <div id="studio-panel-setup" class="studio-panel studio-panel-setup hidden">
           <div class="studio-setup-grid">
+            <!-- Provider diagnostics: staged, non-billable verification. -->
+            <section class="studio-setup-card glass-panel">
+              <div class="studio-setup-head">
+                <div class="studio-setup-title"><i data-lucide="activity" class="w-4 h-4 text-emerald-300"></i>Provider diagnostics</div>
+                <button id="studio-diagnostics-check-all" class="studio-btn studio-btn-ghost"><i data-lucide="stethoscope" class="w-3.5 h-3.5"></i>Check all</button>
+              </div>
+              <p class="studio-setup-copy">Verifies each provider stage by stage — configuration, authentication, API reachability, model catalog and upload issuance — using non-billable requests only. A green “Connected” here always means a real authenticated round-trip, not just saved credentials. Generation itself is never triggered by a check.</p>
+              <div id="studio-diagnostics" class="studio-diagnostics"><p class="studio-setup-status">Run “Check all” to verify each provider.</p></div>
+              <p id="studio-diagnostics-message" class="studio-setup-message"></p>
+            </section>
+
             <section class="studio-setup-card glass-panel">
               <div class="studio-setup-title"><i data-lucide="plug-zap" class="w-4 h-4 text-cyan-300"></i>Provider registry</div>
               <p class="studio-setup-copy">Every generation provider in one place. Save credentials to connect a provider — connected providers appear in the per-step <b>Provider</b> dropdown with a <b>classified Model</b> dropdown beside it (image vs video, grouped by mode). Secrets are stored server-side with owner-only permissions and never returned to this page. Free engines (Auto, Pollinations) need no credentials.</p>
@@ -2213,6 +2186,8 @@
 
         <!-- ============ Fashion Video dashboard (Collart-style) ============ -->
         <div id="studio-panel-fashion" class="studio-panel studio-panel-fashion hidden">
+          <div class="collart-fashion-layout">
+            <div class="collart-fashion-main">
           <div id="fashion-setup-hint" class="collart-banner hidden">
             <i data-lucide="key-round" class="w-4 h-4"></i>
             <span id="fashion-setup-hint-text">Provider credentials are required before uploading. Add them in Provider Setup.</span>
@@ -2225,41 +2200,24 @@
           <!-- STEP 1: MODEL -->
           <section id="step-1-content" class="collart-step hidden">
             <h1 class="collart-h1">Step 1: Model</h1>
-            <p class="collart-note">Pick a preset model, upload your own photo, or generate one with an image model. Free image tools — Google Flow, ChatGPT, Gemini, Claude or Grok — work too: create the character sheet there, then upload or paste the result here.</p>
+            <p class="collart-note">Upload your own photo or generate one with an image model. Free image tools — Google Flow, ChatGPT, Gemini, Claude or Grok — work too: create the character sheet there, then upload the result here.</p>
 
             <div class="collart-subtabs" role="tablist" aria-label="Model source">
-              <button id="tab-model-preset" type="button" class="is-active" data-model-tab="preset">Preset Model</button>
+              <button id="tab-model-preset" type="button" class="is-active" data-model-tab="preset">My Models</button>
               <button id="tab-model-create" type="button" data-model-tab="create">Create Model</button>
             </div>
 
-            <!-- Preset model picker: browse the presets, upload your own into them -->
+            <!-- My Models: only real uploads and generated character sheets -->
             <div id="step2-preset-view" class="collart-stepbody">
-              <div class="collart-filters">
-                <div class="collart-select collart-select-narrow">
-                  <select id="fashion-model-filter" aria-label="Filter preset models"><option value="">Region</option></select>
-                  <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
-                </div>
-              </div>
-
               <div class="collart-card collart-uploadcard">
-                <label class="collart-label">Add your own model to the presets</label>
+                <label class="collart-label">Upload a model</label>
                 <div class="collart-row">
                   <div id="fashion-model-drop" class="collart-dropzone collart-dropzone-model" tabindex="0" role="button" aria-label="Upload a model photo">
                     <input id="fashion-model-file" type="file" accept="image/*" hidden>
                     <div id="fashion-model-preview" class="collart-dropzone-inner is-empty"></div>
                   </div>
-                  <div class="collart-card collart-urlcard">
-                    <label class="collart-label">Or paste an image URL</label>
-                    <div class="collart-linkrow">
-                      <div class="collart-input-icon">
-                        <i data-lucide="link" class="w-4 h-4"></i>
-                        <input id="fashion-model-url" type="url" spellcheck="false" placeholder="https://…">
-                      </div>
-                      <button id="fashion-model-url-apply" type="button" class="collart-btn-soft">Confirm</button>
-                    </div>
-                    <p class="collart-hint">Front-facing, full body, unobstructed face gives the cleanest result.</p>
-                  </div>
                 </div>
+                <p class="collart-hint">Front-facing, full body, unobstructed face gives the cleanest result.</p>
               </div>
 
               <div id="model-grid" class="collart-grid"></div>
@@ -2269,7 +2227,6 @@
             <div id="step2-create-view" class="collart-stepbody hidden">
               <p class="collart-note">Create a model with an image model — write a prompt, or attach a reference image and let the prompt turn it into a character sheet. Prompt 1 is preloaded below.</p>
               <div class="collart-card">
-<div class="collart-genpair"><div class="collart-genslot"><label class="collart-label" for="fashion-gen-provider-1">Provider</label><div class="collart-select collart-select-narrow"><select id="fashion-gen-provider-1" aria-label="Generation provider"></select><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></div></div><div class="collart-genslot collart-genslot-wide"><label class="collart-label" for="fashion-gen-model-1">Image model <em>classified</em></label><div class="collart-select collart-genmodel"><select id="fashion-gen-model-1" aria-label="Generation model"></select><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></div></div></div>
                 <div class="collart-prompthead">
                   <label class="collart-label" for="fashion-create-prompt">Prompt</label>
                   <button id="fashion-prompt1-seed" type="button" class="collart-btn-soft collart-btn-mini" title="Load Prompt 1">
@@ -2292,7 +2249,7 @@
                     <i data-lucide="sparkles" class="w-4 h-4"></i><span>Generate Model</span>
                   </button>
                 </div>
-                <p class="collart-hint">A size written in the prompt (for example 9:16) is applied when the image model supports it. Generated models are saved to Preset Images after 1 minute — or save them now with the ⋯ menu on the image.</p>
+                <p class="collart-hint">A size written in the prompt (for example 9:16) is applied when the image model supports it. Generated models are saved to My Models after 1 minute — or save them now with the ⋯ menu on the image.</p>
               </div>
               <div id="fashion-create-result" class="collart-grid hidden"></div>
             </div>
@@ -2301,7 +2258,7 @@
           <!-- STEP 2: PRODUCT / PROPS (optional) -->
           <section id="step-2-content" class="collart-step hidden">
             <h1 class="collart-h1">Step 2: Product/Props <em class="collart-optional">optional</em></h1>
-            <p class="collart-note">Upload product/props images — or upload raw product photos and prompt the model to build a product/prop sheet. Click any uploaded, generated or preset image to select it for the next steps. Skip this step if your model photos already show the product.</p>
+            <p class="collart-note">Upload product/props images — or upload raw product photos and prompt the model to build a product/prop sheet. Click any uploaded or generated image to select it for the next steps. Skip this step if your model photos already show the product.</p>
 
             <div class="collart-productsplit">
               <!-- Left: upload box -->
@@ -2316,19 +2273,11 @@
                     <span class="collart-btn">Upload Images</span>
                   </div>
                 </div>
-                <div class="collart-linkrow">
-                  <div class="collart-input-icon">
-                    <i data-lucide="link" class="w-4 h-4"></i>
-                    <input id="fashion-product-url" type="url" spellcheck="false" placeholder="Paste a product image URL">
-                  </div>
-                  <button id="fashion-product-url-apply" type="button" class="collart-btn-soft">Confirm</button>
-                </div>
                 <div id="fashion-product-uploads" class="collart-thumbgrid"></div>
               </div>
 
               <!-- Right: prompt chatbox -->
               <div class="collart-card collart-chatbox">
-<div class="collart-genpair"><div class="collart-genslot"><label class="collart-label" for="fashion-gen-provider-2">Provider</label><div class="collart-select collart-select-narrow"><select id="fashion-gen-provider-2" aria-label="Generation provider"></select><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></div></div><div class="collart-genslot collart-genslot-wide"><label class="collart-label" for="fashion-gen-model-2">Image model <em>classified</em></label><div class="collart-select collart-genmodel"><select id="fashion-gen-model-2" aria-label="Generation model"></select><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></div></div></div>
                 <div class="collart-prompthead">
                   <label class="collart-label" for="fashion-product-prompt">Product sheet prompt</label>
                   <button id="fashion-prompt2-seed" type="button" class="collart-btn-soft collart-btn-mini" title="Load Prompt 2">
@@ -2347,7 +2296,7 @@
 
             <div class="collart-card collart-presetcard">
               <div class="collart-filters">
-                <span class="collart-filter-count">Preset Images — uploaded and generated images are stored here after 1 minute. Click any image to select it.</span>
+                <span class="collart-filter-count">Your images — uploads and generated images are stored here after 1 minute. Click any image to select it.</span>
               </div>
               <div id="product-preset-grid" class="collart-grid collart-grid-strip"></div>
             </div>
@@ -2359,7 +2308,6 @@
             <p class="collart-note">Dress the Step 1 model in the Step 2 product/props. Prompt 3: "step 1 model dress/wear like step 2." Skip this step to keep the original model look.</p>
 
             <div class="collart-card">
-<div class="collart-genpair"><div class="collart-genslot"><label class="collart-label" for="fashion-gen-provider-3">Provider</label><div class="collart-select collart-select-narrow"><select id="fashion-gen-provider-3" aria-label="Generation provider"></select><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></div></div><div class="collart-genslot collart-genslot-wide"><label class="collart-label" for="fashion-gen-model-3">Image model <em>classified</em></label><div class="collart-select collart-genmodel"><select id="fashion-gen-model-3" aria-label="Generation model"></select><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></div></div></div>
               <div class="collart-prompthead">
                 <label class="collart-label" for="fashion-dressing-prompt">Dressing prompt</label>
                 <button id="fashion-prompt3-seed" type="button" class="collart-btn-soft collart-btn-mini" title="Load Prompt 3">
@@ -2388,46 +2336,10 @@
             <h1 class="collart-h1">Step 4: Reference Video <em class="collart-optional">optional</em></h1>
             <p class="collart-note">Use a reference video for motion transfer, or skip it and describe the storyboard with the prompt box. If you skip it, Step 5 generates straight from your prompt (text-to-video / image-to-video).</p>
 
-            <div class="collart-subtabs" role="tablist" aria-label="Reference video source">
-              <button id="tab-preset-video" type="button" class="is-active" data-ref-tab="presets">Preset Video</button>
-              <button id="tab-upload-video" type="button" data-ref-tab="upload">Upload Video</button>
-            </div>
-
-            <div id="step1-preset-view" class="collart-stepbody">
-              <div class="collart-filters">
-                <div class="collart-select">
-                  <select id="fashion-filter-engine" aria-label="Filter by engine"><option value="">Engine</option></select>
-                  <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
-                </div>
-                <div class="collart-select">
-                  <select id="fashion-filter-type" aria-label="Filter by type"><option value="">Type</option></select>
-                  <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
-                </div>
-                <div class="collart-select">
-                  <select id="fashion-filter-style" aria-label="Filter by style"><option value="">Style</option></select>
-                  <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
-                </div>
-                <div class="collart-select">
-                  <select id="fashion-filter-model" aria-label="Filter by model"><option value="">Model</option></select>
-                  <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
-                </div>
-                <span id="fashion-preset-count" class="collart-filter-count"></span>
-              </div>
-              <div id="video-grid" class="collart-grid"></div>
-            </div>
-
-            <div id="step1-upload-view" class="collart-stepbody hidden">
+            <div id="step1-upload-view" class="collart-stepbody">
               <p class="collart-note">If the clip is longer than 15 seconds, tell the model which part to reuse via the prompt in Step 5.</p>
               <div class="collart-card collart-uploadcard">
-                <label class="collart-label">Reference video link</label>
-                <div class="collart-linkrow">
-                  <div class="collart-input-icon">
-                    <i data-lucide="link" class="w-4 h-4"></i>
-                    <input id="fashion-video-url" type="url" spellcheck="false" placeholder="Paste a public video URL">
-                  </div>
-                  <button id="fashion-video-url-apply" type="button" class="collart-btn-soft">Confirm</button>
-                </div>
-                <div class="collart-divider"><span>or</span></div>
+                <label class="collart-label">Upload a reference video</label>
                 <p class="collart-note-center">For the best result, avoid reference videos containing speech or voiceovers.</p>
                 <div id="fashion-video-drop" class="collart-dropzone" tabindex="0" role="button" aria-label="Upload a reference video">
                   <input id="fashion-video-file" type="file" accept="video/mp4,video/quicktime,video/webm" hidden>
@@ -2465,12 +2377,6 @@
 
             <div class="collart-grid2">
               <div class="collart-card">
-                <div class="collart-genpair"><div class="collart-genslot"><label class="collart-label" for="fashion-gen-provider-5">Provider</label><div class="collart-select collart-select-narrow"><select id="fashion-gen-provider-5" aria-label="Generation provider"></select><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></div></div><div class="collart-genslot collart-genslot-wide"><label class="collart-label" for="fashion-gen-model-5">Video model <em>classified</em></label><div class="collart-select collart-genmodel"><select id="fashion-gen-model-5" aria-label="Generation model"></select><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></div></div></div>
-              </div>
-            </div>
-
-            <div class="collart-grid2">
-              <div class="collart-card">
                 <label class="collart-label" for="fashion-env-template">Model Placement & Environment <em>dropdown → prompt text</em></label>
                 <div class="collart-darkselect">
                   <select id="fashion-env-template"><option value="">None — keep the current environment</option></select>
@@ -2499,13 +2405,6 @@
               <div class="collart-settingcol">
                 <label class="collart-label">Quick Configuration Bar</label>
                 <div class="collart-darkbar">
-                  <div class="collart-darkfield">
-                    <label>Model</label>
-                    <div class="collart-darkselect">
-                      <select id="fashion-model-select"></select>
-                      <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
-                    </div>
-                  </div>
                   <div class="collart-darkfield">
                     <label>Resolution</label>
                     <div class="collart-darkselect">
@@ -2560,6 +2459,54 @@
               </div>
             </div>
           </section>
+            </div><!-- /collart-fashion-main -->
+
+            <!-- One shared runtime rail for every workflow step. The Agent,
+                 Provider and Model live here once; step changes switch the
+                 values to that step's generation settings. -->
+            <aside id="fashion-runtime" class="collart-runtime" aria-label="Agent, provider and model">
+              <div class="collart-runtime-head">
+                <span>Runtime</span>
+                <em id="fashion-runtime-step">Step 1 · image</em>
+              </div>
+
+              <div class="collart-runtime-field">
+                <label class="collart-label" for="fashion-runtime-agent">Agent</label>
+                <div class="collart-select collart-runtime-select">
+                  <select id="fashion-runtime-agent" aria-label="Build agent"></select>
+                  <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                </div>
+                <p class="collart-hint">Runs Studio tools and workflows.</p>
+              </div>
+
+              <div class="collart-runtime-field">
+                <label class="collart-label" for="fashion-runtime-provider">Provider</label>
+                <div class="collart-select collart-runtime-select">
+                  <select id="fashion-runtime-provider" aria-label="Generation provider"></select>
+                  <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                </div>
+              </div>
+
+              <div class="collart-runtime-field">
+                <label class="collart-label" for="fashion-runtime-model">Model</label>
+                <div class="collart-select collart-runtime-select">
+                  <select id="fashion-runtime-model" aria-label="Generation model"></select>
+                  <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                </div>
+                <p id="fashion-runtime-kind" class="collart-hint">Image model for Steps 1–3.</p>
+              </div>
+            </aside>
+          </div><!-- /collart-fashion-layout -->
+
+          <!-- Hidden state hosts keep the per-step provider/model values in
+               sync for the job payloads without duplicating visible controls. -->
+          <div id="fashion-gen-legacy" class="hidden" aria-hidden="true">
+            <div class="collart-genpair"><div class="collart-genslot"><label class="collart-label" for="fashion-gen-provider-1">Provider</label><div class="collart-select collart-select-narrow"><select id="fashion-gen-provider-1" aria-label="Generation provider"></select><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></div></div><div class="collart-genslot collart-genslot-wide"><label class="collart-label" for="fashion-gen-model-1">Image model</label><div class="collart-select collart-genmodel"><select id="fashion-gen-model-1" aria-label="Generation model"></select><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></div></div></div>
+            <div class="collart-genpair"><div class="collart-genslot"><label class="collart-label" for="fashion-gen-provider-2">Provider</label><div class="collart-select collart-select-narrow"><select id="fashion-gen-provider-2" aria-label="Generation provider"></select><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></div></div><div class="collart-genslot collart-genslot-wide"><label class="collart-label" for="fashion-gen-model-2">Image model</label><div class="collart-select collart-genmodel"><select id="fashion-gen-model-2" aria-label="Generation model"></select><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></div></div></div>
+            <div class="collart-genpair"><div class="collart-genslot"><label class="collart-label" for="fashion-gen-provider-3">Provider</label><div class="collart-select collart-select-narrow"><select id="fashion-gen-provider-3" aria-label="Generation provider"></select><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></div></div><div class="collart-genslot collart-genslot-wide"><label class="collart-label" for="fashion-gen-model-3">Image model</label><div class="collart-select collart-genmodel"><select id="fashion-gen-model-3" aria-label="Generation model"></select><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></div></div></div>
+            <div class="collart-genpair"><div class="collart-genslot"><label class="collart-label" for="fashion-gen-provider-5">Provider</label><div class="collart-select collart-select-narrow"><select id="fashion-gen-provider-5" aria-label="Generation provider"></select><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></div></div><div class="collart-genslot collart-genslot-wide"><label class="collart-label" for="fashion-gen-model-5">Video model</label><div class="collart-select collart-genmodel"><select id="fashion-gen-model-5" aria-label="Generation model"></select><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></div></div></div>
+            <select id="fashion-model-select" aria-label="Video model"></select>
+          </div>
 
           <!-- Floating per-image action menu (⋯ on preset / generated model cards) -->
           <div id="fashion-kebab-menu" class="collart-kebabmenu hidden" role="menu"></div>
@@ -2617,13 +2564,142 @@
           <div id="preset-page-grid" class="collart-grid"></div>
         </div>
 
+        <!-- ============ Ads Create: structured brief -> Generate handoff ============ -->
+        <div id="studio-panel-create" class="studio-panel studio-panel-create hidden">
+          <h1 class="collart-h1">Ads Create</h1>
+          <p class="collart-note">Compose a reviewable creative brief from the active Ads template. Nothing renders or publishes until you continue in Generate.</p>
+
+          <div class="adc-grid">
+            <section class="adc-card">
+              <h2>1 · Product</h2>
+              <label class="adc-field"><span>Product from the Product Backlog</span>
+                <select id="adc-product"><option value="">Enter a product manually</option></select>
+              </label>
+              <p class="adc-or">or enter it manually</p>
+              <div class="adc-row">
+                <label class="adc-field"><span>Product name</span><input id="adc-name" maxlength="200" placeholder="Floral midi dress"></label>
+                <label class="adc-field"><span>Merchant</span><input id="adc-merchant" maxlength="160" placeholder="Shopee"></label>
+              </div>
+              <div class="adc-row">
+                <label class="adc-field"><span>Price</span><input id="adc-price" type="number" min="0" step="0.01" placeholder="899"></label>
+                <label class="adc-field"><span>Currency</span><input id="adc-currency" maxlength="8" value="PHP"></label>
+              </div>
+              <div class="adc-row">
+                <label class="adc-field"><span>Category</span><input id="adc-category" maxlength="160" placeholder="Dresses"></label>
+                <label class="adc-field"><span>Target audience</span><input id="adc-audience" maxlength="600" placeholder="Women 18-35"></label>
+              </div>
+              <label class="adc-field"><span>Product description</span><textarea id="adc-description" rows="2" maxlength="4000" placeholder="Breathable floral midi dress with a fitted bodice."></textarea></label>
+              <label class="adc-field"><span>Product URL</span><input id="adc-url" maxlength="1000" placeholder="https://…"></label>
+            </section>
+
+            <section class="adc-card">
+              <h2>2 · Creative direction</h2>
+              <label class="adc-field"><span>Instruction</span><textarea id="adc-instruction" rows="4" maxlength="4000" placeholder="Create a 15-second try-on video for TikTok with a hook in the first 2 seconds."></textarea></label>
+              <div class="adc-row">
+                <label class="adc-field"><span>Duration (seconds)</span><input id="adc-duration" type="number" min="5" max="180" value="15"></label>
+                <label class="adc-field"><span>Target platforms</span><input id="adc-platforms" maxlength="300" placeholder="TikTok, Instagram Reels"></label>
+              </div>
+              <label class="adc-field"><span>Creative style override (optional)</span><input id="adc-style" maxlength="500" placeholder="Warm natural daylight; mirror try-on."></label>
+              <label class="adc-check"><input type="checkbox" id="adc-sponsored"> Sponsored content (adds a disclosure)</label>
+
+              <div class="adc-affiliate">
+                <h3>Affiliate destination</h3>
+                <p>Only record a link you have already validated. Unvalidated links are excluded from the brief.</p>
+                <label class="adc-check"><input type="checkbox" id="adc-aff-validated"> This affiliate link is validated</label>
+                <div class="adc-row">
+                  <label class="adc-field"><span>Program</span><input id="adc-aff-program" maxlength="200" placeholder="Shopee Affiliate"></label>
+                  <label class="adc-field"><span>Tracking URL</span><input id="adc-aff-url" maxlength="1000" placeholder="https://…"></label>
+                </div>
+              </div>
+
+              <div class="adc-actions">
+                <button id="adc-compose" type="button" class="collart-btn">Compose brief</button>
+                <span class="adc-hint">The brief composes locally from the active template.</span>
+              </div>
+              <p id="adc-error" class="adc-error hidden"></p>
+            </section>
+          </div>
+
+          <section id="adc-preview" class="adc-card adc-preview hidden">
+            <div class="adc-preview-head">
+              <h2>3 · Review the handoff</h2>
+              <span id="adc-preview-badge" class="adc-badge">Draft</span>
+            </div>
+            <div id="adc-preview-meta" class="adc-meta"></div>
+            <div id="adc-preview-disclosures" class="adc-disclosures"></div>
+            <pre id="adc-preview-prompt" class="adc-prompt"></pre>
+            <div class="adc-actions">
+              <button id="adc-handoff" type="button" class="collart-btn" data-cta>Send to Generate</button>
+              <button id="adc-copy" type="button" class="collart-btn-soft">Copy prompt</button>
+              <button id="adc-discard" type="button" class="collart-btn-soft">Discard</button>
+              <span class="adc-hint">Creates a draft Ads project and loads the prompt into Generate. No render is started.</span>
+            </div>
+            <p id="adc-preview-note" class="adc-hint"></p>
+          </section>
+
+          <section class="adc-card">
+            <div class="adc-preview-head">
+              <h2>Recent briefs</h2>
+              <span id="adc-brief-count" class="adc-badge">0</span>
+            </div>
+            <div id="adc-briefs" class="adc-briefs"></div>
+          </section>
+        </div>
+
+        <!-- ============ Ads Product Backlog ============ -->
+        <div id="studio-panel-backlog" class="studio-panel studio-panel-backlog hidden">
+          <h1 class="collart-h1">Ads Product Backlog</h1>
+          <p class="collart-note">Products discovered or entered by the owner. Drafts land here first; status moves forward only, and publishing is never automatic.</p>
+
+          <div class="adc-grid">
+            <section class="adc-card">
+              <h2>Add a product</h2>
+              <label class="adc-field"><span>Product name</span><input id="adb-name" maxlength="200" placeholder="Floral midi dress"></label>
+              <div class="adc-row">
+                <label class="adc-field"><span>Merchant</span><input id="adb-merchant" maxlength="160" placeholder="Shopee"></label>
+                <label class="adc-field"><span>Category</span><input id="adb-category" maxlength="160" placeholder="Dresses"></label>
+              </div>
+              <div class="adc-row">
+                <label class="adc-field"><span>Price</span><input id="adb-price" type="number" min="0" step="0.01" placeholder="899"></label>
+                <label class="adc-field"><span>Currency</span><input id="adb-currency" maxlength="8" value="PHP"></label>
+              </div>
+              <label class="adc-field"><span>Product URL</span><input id="adb-url" maxlength="1000" placeholder="https://…"></label>
+              <label class="adc-field"><span>Target audience</span><input id="adb-audience" maxlength="600" placeholder="Women 18-35"></label>
+              <div class="adc-actions">
+                <button id="adb-add" type="button" class="collart-btn">Add product</button>
+              </div>
+              <p id="adb-error" class="adc-error hidden"></p>
+            </section>
+
+            <section class="adc-card">
+              <div class="adc-preview-head">
+                <h2>Products</h2>
+                <span id="adb-total" class="adc-badge">0</span>
+              </div>
+              <div class="adc-row">
+                <label class="adc-field"><span>Search</span><input id="adb-search" placeholder="Name, merchant, category…"></label>
+                <label class="adc-field"><span>Status</span>
+                  <select id="adb-status-filter">
+                    <option value="">All active</option>
+                    <option value="drafted">Drafted</option>
+                    <option value="discovered">Discovered</option>
+                    <option value="reviewing">Reviewing</option>
+                    <option value="approved">Approved</option>
+                    <option value="ready_for_creation">Ready for creation</option>
+                    <option value="in_production">In production</option>
+                    <option value="published">Published</option>
+                    <option value="archived">Archived</option>
+                  </select>
+                </label>
+              </div>
+              <div id="adb-list" class="adc-briefs"></div>
+            </section>
+          </div>
+        </div>
+
       </div><!-- /collart-content -->
 
       <footer class="collart-dock" id="collart-dock">
-        <button id="prev-btn" type="button" class="collart-dockbtn" data-dock="prev" disabled>
-          <i data-lucide="arrow-left" class="w-4 h-4"></i><span>Previous</span>
-        </button>
-
         <button id="collart-drawer" type="button" class="collart-drawer" data-dock="review" title="Review the first incomplete step">
           <span id="dock-thumbnails" class="collart-dockthumbs"></span>
           <span class="collart-dockcopy"><b>Selected assets</b><em>Tap to review</em></span>
@@ -2631,6 +2707,9 @@
         </button>
 
         <div class="collart-dockcta">
+          <button id="prev-btn" type="button" class="collart-dockbtn" data-dock="prev" disabled>
+            <i data-lucide="arrow-left" class="w-4 h-4"></i><span>Previous</span>
+          </button>
           <button id="next-btn" type="button" class="collart-dockbtn primary" data-dock="next">
             <span>Next</span><i data-lucide="arrow-right" class="w-4 h-4"></i>
           </button>
@@ -2650,24 +2729,10 @@
                 <p>Research. Script. Visualize. Animate. Publish.</p>
               </div>
               <div class="yt-topbar-actions">
-                <div class="studio-buildagent" title="Build agent — runs Studio tools and workflows (its own provider & model). Generation below uses the Provider + Model dropdowns.">
-              <button id="yt-agent-btn" class="studio-provider-btn" data-agent-menu-btn>
-                <i data-lucide="bot" class="w-3.5 h-3.5 text-cyan-300"></i>
-                <span class="studio-buildagent-label">Build</span>
-                <span id="yt-agent-label" class="truncate">—</span>
-                <i data-lucide="chevron-down" class="w-3 h-3 text-slate-500"></i>
-              </button>
-              <div id="yt-agent-menu" class="ws-menu studio-provider-menu hidden">
-                <div class="ws-menu-title flex items-center justify-between">
-                  <span>Build agents</span>
-                  <span class="studio-mono">own provider · model</span>
-                </div>
-                <div id="yt-agent-options"></div>
-              </div>
-            </div>
-                <button id="yt-new-project" type="button" class="collart-btn">
-                  <i data-lucide="plus" class="w-4 h-4"></i><span>New Video Project</span>
-                </button>
+                <!-- Build-agent selection lives in the shared Studio header and the
+                     Activity console (one shared state) — not duplicated here.
+                     Project creation is prompt-first: the composer below is the
+                     entry point; Projects manages what production produces. -->
                 <button id="yt-refresh" type="button" class="collart-iconbtn" title="Refresh YouTube Studio">
                   <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
                 </button>
@@ -2679,122 +2744,101 @@
                 <i data-lucide="alert-triangle" class="w-4 h-4"></i><span id="yt-error-text"></span>
               </div>
 
-              <!-- ============================ OVERVIEW ============================ -->
-              <section class="yt-panel" data-yt-panel="overview">
+              <!-- ============================ CREATE ============================ -->
+              <section class="yt-panel" data-yt-panel="create">
                 <div class="yt-hero">
                   <div class="yt-hero-copy">
                     <span class="yt-hero-kicker">YOUTUBE STUDIO</span>
-                    <h2>Research. Script. Visualize. Animate. Publish.</h2>
-                    <p>An independent workspace for educational long-form and short-form videos. Ads campaigns never appear here, and YouTube publishing never appears in Ads Studio.</p>
-                  </div>
-                  <div class="yt-hero-actions">
-                    <button id="yt-create-video" type="button" class="collart-btn">
-                      <i data-lucide="plus" class="w-4 h-4"></i><span>Create New Video</span>
-                    </button>
-                    <button id="yt-new-research" type="button" class="collart-btn-soft" disabled title="Niche Research arrives in Stage 3">
-                      <i data-lucide="search" class="w-4 h-4"></i><span>New Research Project</span>
-                    </button>
+                    <h2>What should we make next?</h2>
+                    <p>Describe the video you want. It becomes a topic in your Topic Backlog with the channel default applied — packaging and production follow from there.</p>
                   </div>
                 </div>
 
-                <div class="yt-action-grid">
-                  <article class="yt-action-card">
-                    <span class="yt-action-icon"><i data-lucide="youtube" class="w-4 h-4"></i></span>
-                    <div><span class="yt-action-label">Active channel</span>
-                      <b id="yt-active-channel">No channel configured</b>
-                      <em id="yt-active-channel-note">Create a channel profile in Channel Manager (Stage 3).</em>
-                    </div>
-                  </article>
-                  <article class="yt-action-card">
-                    <span class="yt-action-icon"><i data-lucide="list-checks" class="w-4 h-4"></i></span>
-                    <div><span class="yt-action-label">Production Queue</span>
-                      <b><span id="yt-queue-production">0</span> in production</b>
-                      <em>Stages update as projects move through the pipeline.</em>
-                    </div>
-                  </article>
-                  <article class="yt-action-card">
-                    <span class="yt-action-icon"><i data-lucide="calendar-days" class="w-4 h-4"></i></span>
-                    <div><span class="yt-action-label">Publishing Calendar</span>
-                      <b><span id="yt-queue-scheduled">0</span> scheduled</b>
-                      <em>Default strategy: Monday, Wednesday, Friday.</em>
-                    </div>
-                  </article>
-                  <article class="yt-action-card">
-                    <span class="yt-action-icon"><i data-lucide="search" class="w-4 h-4"></i></span>
-                    <div><span class="yt-action-label">Research Queue</span>
-                      <b><span id="yt-queue-research">0</span> waiting</b>
-                      <em>Niche Research and Topic Studio arrive in Stage 3.</em>
-                    </div>
-                  </article>
-                </div>
+                <section class="yt-card yt-composer">
+                  <div class="yt-card-head">
+                    <div><h3>Video prompt</h3><p>One clear idea works best — the question your audience actually asks.</p></div>
+                  </div>
+                  <textarea id="yt-create-prompt" rows="4" maxlength="2000" placeholder="e.g. 5 tax deductions self-employed owners miss every filing season"></textarea>
+                  <div class="yt-composer-grid">
+                    <label class="yt-field"><span>Channel</span>
+                      <select id="yt-create-channel" aria-label="Channel"></select>
+                    </label>
+                    <label class="yt-field"><span>Template</span>
+                      <select id="yt-create-template" aria-label="Template" disabled>
+                        <option value="">Channel default — Templates arrive in Phase 3</option>
+                      </select>
+                    </label>
+                    <label class="yt-field"><span>Format</span>
+                      <select id="yt-create-format" aria-label="Video format">
+                        <option value="longform" selected>Long-form animated video</option>
+                        <option value="shorts">Shorts</option>
+                      </select>
+                    </label>
+                    <label class="yt-field"><span>Style</span>
+                      <select id="yt-create-style" aria-label="Video style">
+                        <option value="animated-explainer" selected>Animated Explainer</option>
+                        <option value="stickman">Stickman Stories</option>
+                        <option value="financial-infographics">Financial Infographics</option>
+                        <option value="character-storytelling">Character Storytelling</option>
+                      </select>
+                    </label>
+                    <label class="yt-field"><span>Aspect ratio</span>
+                      <select id="yt-create-aspect" aria-label="Aspect ratio">
+                        <option value="16:9" selected>16:9</option>
+                        <option value="9:16">9:16</option>
+                      </select>
+                    </label>
+                    <label class="yt-field"><span>Target duration</span>
+                      <select id="yt-create-duration" aria-label="Target duration">
+                        <option value="8">8 minutes</option>
+                        <option value="10">10 minutes</option>
+                        <option value="12" selected>12 minutes</option>
+                        <option value="15">15 minutes</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="yt-composer-meta">
+                    <span class="yt-meta-chip"><i data-lucide="bot" class="w-3.5 h-3.5"></i> Agent: OpenCode</span>
+                    <span class="yt-meta-chip"><i data-lucide="cpu" class="w-3.5 h-3.5"></i> Model: <b id="yt-create-model">GLM-5.3-Flash</b></span>
+                    <span class="yt-meta-chip"><i data-lucide="mic" class="w-3.5 h-3.5"></i> Voice: Kokoro</span>
+                    <span class="yt-meta-chip"><i data-lucide="map-pin" class="w-3.5 h-3.5"></i> Audience: United States</span>
+                  </div>
+                  <p id="yt-create-error" class="yt-form-error is-hidden"></p>
+                  <div class="yt-composer-foot">
+                    <p class="yt-hint">Saved as a backlog topic. Template recommendations attach in Phase 4; packaging in Phase 6.</p>
+                    <button id="yt-create-submit" type="button" class="collart-btn yt-create-btn">
+                      <i data-lucide="wand-2" class="w-4 h-4"></i><span>Create</span>
+                    </button>
+                  </div>
+                </section>
 
-                <!-- Voiceover workspace (same centralized TTS registry) -->
-                <div id="yt-voiceover" data-voiceover-studio="youtube"></div>
-
-                <div class="yt-stat-grid">
-                  <article class="yt-stat"><span class="yt-stat-icon"><i data-lucide="video" class="w-4 h-4"></i></span><div><span class="yt-stat-value" id="yt-stat-total">0</span><span class="yt-stat-label">Total Projects</span></div></article>
-                  <article class="yt-stat"><span class="yt-stat-icon"><i data-lucide="file-text" class="w-4 h-4"></i></span><div><span class="yt-stat-value" id="yt-stat-scripts">0</span><span class="yt-stat-label">Scripts in Progress</span></div></article>
-                  <article class="yt-stat"><span class="yt-stat-icon"><i data-lucide="clapperboard" class="w-4 h-4"></i></span><div><span class="yt-stat-value" id="yt-stat-production">0</span><span class="yt-stat-label">Videos in Production</span></div></article>
-                  <article class="yt-stat"><span class="yt-stat-icon"><i data-lucide="badge-check" class="w-4 h-4"></i></span><div><span class="yt-stat-value" id="yt-stat-approval">0</span><span class="yt-stat-label">Awaiting Approval</span></div></article>
-                  <article class="yt-stat"><span class="yt-stat-icon"><i data-lucide="check-circle-2" class="w-4 h-4"></i></span><div><span class="yt-stat-value" id="yt-stat-published">0</span><span class="yt-stat-label">Published Videos</span></div></article>
-                  <article class="yt-stat"><span class="yt-stat-icon"><i data-lucide="calendar-clock" class="w-4 h-4"></i></span><div><span class="yt-stat-value" id="yt-stat-scheduled">0</span><span class="yt-stat-label">Scheduled Videos</span></div></article>
-                </div>
-
-                <div class="yt-grid-2">
-                  <section class="yt-card yt-card-wide">
-                    <div class="yt-card-head">
-                      <div><h3>Recent Projects</h3><p>Latest activity in this workspace only.</p></div>
-                      <button type="button" class="yt-link" data-yt-section="projects">View all</button>
-                    </div>
-                    <div id="yt-recent-projects" class="yt-project-list"></div>
-                    <div id="yt-recent-empty" class="yt-empty">
-                      <div class="yt-empty-icon"><i data-lucide="video" class="w-6 h-6"></i></div>
-                      <h3>No YouTube projects yet</h3>
-                      <p>Create your first video project to start the production pipeline.</p>
-                      <button id="yt-overview-create" type="button" class="collart-btn">Create New Video</button>
-                    </div>
-                  </section>
-
-                  <section class="yt-card">
-                    <div class="yt-card-head">
-                      <div><h3>Upcoming Publishing</h3><p>Real scheduled projects only.</p></div>
-                    </div>
-                    <div id="yt-upcoming-schedule"></div>
-                  </section>
-                </div>
-
-                <div class="yt-grid-2">
-                  <section class="yt-card">
-                    <div class="yt-card-head">
-                      <div><h3>Production Pipeline</h3><p>Projects by current stage.</p></div>
-                    </div>
-                    <div id="yt-pipeline"></div>
-                  </section>
-
-                  <section class="yt-card">
-                    <div class="yt-card-head">
-                      <div><h3>Research Queue</h3><p>Projects still in research.</p></div>
-                    </div>
-                    <div id="yt-research-queue"></div>
-                  </section>
-                </div>
-
-                <div class="yt-grid-3">
-                  <section class="yt-card">
-                    <div class="yt-card-head"><div><h3>Recently Generated Assets</h3></div></div>
-                    <p class="yt-panel-note">No YouTube assets yet. Asset Studio arrives in Stage 4.</p>
-                  </section>
-                  <section class="yt-card">
-                    <div class="yt-card-head"><div><h3>Performance Overview</h3></div></div>
-                    <p class="yt-panel-note">No analytics connected. YouTube Analytics integration arrives in Stage 5; no placeholder numbers are shown.</p>
-                  </section>
-                  <section class="yt-card">
-                    <div class="yt-card-head"><div><h3>Channel Health</h3></div></div>
-                    <p class="yt-panel-note">No channel profile configured. Channel Manager arrives in Stage 3.</p>
-                  </section>
-                </div>
+                <section class="yt-card yt-card-wide">
+                  <div class="yt-card-head">
+                    <div><h3>Recent projects</h3><p>Latest activity in this workspace only.</p></div>
+                    <button type="button" class="yt-link" data-yt-section="projects">View all</button>
+                  </div>
+                  <div id="yt-recent-projects" class="yt-project-list"></div>
+                  <div id="yt-recent-empty" class="yt-empty">
+                    <div class="yt-empty-icon"><i data-lucide="video" class="w-6 h-6"></i></div>
+                    <h3>No YouTube projects yet</h3>
+                    <p>Projects appear here once production starts. Describe your next video in the composer above to begin.</p>
+                  </div>
+                </section>
 
                 <p id="yt-overview-loading" class="yt-loading"></p>
+              </section>
+
+              <!-- =========================== TEMPLATES =========================== -->
+              <section class="yt-panel is-hidden" data-yt-panel="templates">
+                <div class="yt-placeholder">
+                  <span class="yt-badge yt-badge-stage">Phase 3</span>
+                  <h2>Template Library</h2>
+                  <p>The visual template gallery — Animated Explainer, Business Documentary, Financial Infographics, Stickman Stories and more — arrives in Phase 3 together with the channel default template and the AI top-three recommendations per topic.</p>
+                  <div class="yt-placeholder-foot">
+                    <span>Until then every topic uses the channel default configuration.</span>
+                    <span>No placeholder templates are shown.</span>
+                  </div>
+                </div>
               </section>
 
               <!-- ============================ PROJECTS ============================ -->
@@ -2808,29 +2852,273 @@
                     <i data-lucide="plus" class="w-4 h-4"></i><span>New Video Project</span>
                   </button>
                 </div>
-
-                <div class="yt-toolbar">
-                  <label class="yt-search">
-                    <i data-lucide="search" class="w-4 h-4"></i>
-                    <input id="yt-projects-search" type="search" placeholder="Search projects…" aria-label="Search YouTube projects">
-                  </label>
-                  <label class="yt-select">
-                    <select id="yt-projects-status" aria-label="Filter by status">
-                      <option value="">All statuses</option>
-                      <option value="draft">Draft</option>
-                      <option value="in_progress">In Progress</option>
-                      <option value="review">Awaiting Approval</option>
-                      <option value="approved">Approved</option>
-                      <option value="scheduled">Scheduled</option>
-                      <option value="published">Published</option>
-                      <option value="archived">Archived</option>
-                    </select>
-                  </label>
-                  <label class="yt-check"><input type="checkbox" id="yt-projects-archived"><span>Show archived</span></label>
-                  <span id="yt-projects-count" class="yt-count"></span>
+                <div class="yt-subtabs" role="tablist" aria-label="Project views">
+                  <button type="button" class="yt-subtab is-active" data-yt-ptab="projects">Projects</button>
+                  <button type="button" class="yt-subtab" data-yt-ptab="scripts">Scripts</button>
                 </div>
 
-                <div id="yt-projects-list" class="yt-projects"></div>
+                <div data-yt-ptab-panel="projects">
+                  <div class="yt-toolbar">
+                    <label class="yt-search">
+                      <i data-lucide="search" class="w-4 h-4"></i>
+                      <input id="yt-projects-search" type="search" placeholder="Search projects…" aria-label="Search YouTube projects">
+                    </label>
+                    <label class="yt-select">
+                      <select id="yt-projects-status" aria-label="Filter by status">
+                        <option value="">All statuses</option>
+                        <option value="draft">Draft</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="review">Awaiting Approval</option>
+                        <option value="approved">Approved</option>
+                        <option value="scheduled">Scheduled</option>
+                        <option value="published">Published</option>
+                        <option value="archived">Archived</option>
+                      </select>
+                    </label>
+                    <label class="yt-check"><input type="checkbox" id="yt-projects-archived"><span>Show archived</span></label>
+                    <span id="yt-projects-count" class="yt-count"></span>
+                  </div>
+                  <div id="yt-projects-list" class="yt-projects"></div>
+                </div>
+
+                <div class="is-hidden" data-yt-ptab-panel="scripts">
+                  <div class="yt-panel-head yt-panel-head-sub">
+                    <div>
+                      <h3>Scripts</h3>
+                      <p>Versioned long-form scripts with fact-check gating. Approval requires every checklist item verified and at least one recorded source.</p>
+                    </div>
+                    <div class="yt-topbar-actions">
+                      <button id="yt-script-generate" type="button" class="collart-btn-soft"><i data-lucide="sparkles" class="w-4 h-4"></i><span>Generate with AI</span></button>
+                      <button id="yt-script-create" type="button" class="collart-btn"><i data-lucide="plus" class="w-4 h-4"></i><span>New Script</span></button>
+                    </div>
+                  </div>
+                  <div id="yt-scripts-error" class="yt-error-banner is-hidden"><i data-lucide="alert-triangle" class="w-4 h-4"></i><span id="yt-scripts-error-text"></span></div>
+                  <div class="yt-split">
+                    <aside class="yt-side">
+                      <div class="yt-toolbar yt-toolbar-side">
+                        <label class="yt-search">
+                          <i data-lucide="search" class="w-4 h-4"></i>
+                          <input id="yt-scripts-search" type="search" placeholder="Search scripts…" aria-label="Search scripts">
+                        </label>
+                        <label class="yt-select"><select id="yt-scripts-status" aria-label="Filter by status">
+                          <option value="">All</option>
+                          <option value="draft">Draft</option>
+                          <option value="in_review">In Review</option>
+                          <option value="approved">Approved</option>
+                          <option value="needs_revision">Needs Revision</option>
+                        </select></label>
+                      </div>
+                      <div id="yt-script-list" class="yt-script-list"></div>
+                    </aside>
+                    <div class="yt-side-main" id="yt-script-editor"></div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- ========================== TOPIC BACKLOG ======================== -->
+              <section class="yt-panel is-hidden" data-yt-panel="backlog">
+                <div class="yt-panel-head">
+                  <div>
+                    <h2>Topic Backlog</h2>
+                    <p>Idea → Researching → Validated → Approved → Scripted → In Production → Published. Approval requires a validation score of at least 18/25.</p>
+                  </div>
+                  <button id="yt-topic-create" type="button" class="collart-btn"><i data-lucide="plus" class="w-4 h-4"></i><span>New Topic</span></button>
+                </div>
+                <div class="yt-subtabs" role="tablist" aria-label="Backlog views">
+                  <button type="button" class="yt-subtab is-active" data-yt-btab="topics">Topics</button>
+                  <button type="button" class="yt-subtab" data-yt-btab="research">Research & Validation</button>
+                </div>
+
+                <div data-yt-btab-panel="topics">
+                  <div id="yt-topics-error" class="yt-error-banner is-hidden"><i data-lucide="alert-triangle" class="w-4 h-4"></i><span id="yt-topics-error-text"></span></div>
+                  <div id="yt-topic-pipeline" class="yt-pipeline-chips"></div>
+                  <div class="yt-toolbar">
+                    <label class="yt-search">
+                      <i data-lucide="search" class="w-4 h-4"></i>
+                      <input id="yt-topics-search" type="search" placeholder="Search topics…" aria-label="Search topics">
+                    </label>
+                    <label class="yt-select"><select id="yt-topics-status" aria-label="Filter by status">
+                      <option value="">All statuses</option>
+                    </select></label>
+                    <label class="yt-select"><select id="yt-topics-pillar" aria-label="Filter by pillar">
+                      <option value="">All pillars</option>
+                    </select></label>
+                    <label class="yt-select"><select id="yt-topics-priority" aria-label="Filter by priority">
+                      <option value="">All priorities</option>
+                      <option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option>
+                    </select></label>
+                    <label class="yt-check"><span>Min score</span><input id="yt-topics-min-score" type="number" min="0" max="25" class="yt-number" aria-label="Minimum validation score"></label>
+                    <span id="yt-topics-count" class="yt-count"></span>
+                  </div>
+                  <div id="yt-topics-list" class="yt-projects"></div>
+                </div>
+
+                <div class="is-hidden" data-yt-btab-panel="research">
+                  <div class="yt-panel-head yt-panel-head-sub">
+                    <div>
+                      <h3>Research & Validation</h3>
+                      <p>Five-criteria validation (18/25 threshold), sources with provenance, and competitor intelligence. Scores are analyst estimates — never measured platform data.</p>
+                    </div>
+                    <button id="yt-validation-create" type="button" class="collart-btn"><i data-lucide="plus" class="w-4 h-4"></i><span>New Validation</span></button>
+                  </div>
+                  <div id="yt-research-error" class="yt-error-banner is-hidden"><i data-lucide="alert-triangle" class="w-4 h-4"></i><span id="yt-research-error-text"></span></div>
+                  <div class="yt-grid-2">
+                    <section class="yt-card yt-card-wide">
+                      <div class="yt-card-head">
+                        <div><h3>Saved Validations</h3><p id="yt-research-rules"></p></div>
+                      </div>
+                      <div id="yt-research-list" class="yt-research-list"></div>
+                    </section>
+                    <section class="yt-card">
+                      <div class="yt-card-head">
+                        <div><h3>Competitor Intelligence</h3><p>Observations must be marked observed or assumed.</p></div>
+                        <button type="button" class="yt-link" data-yt-action="add-competitor">Add competitor</button>
+                      </div>
+                      <div id="yt-competitor-list" class="yt-competitor-list"></div>
+                    </section>
+                  </div>
+                </div>
+              </section>
+
+              <!-- =========================== PUBLISHING ========================== -->
+              <section class="yt-panel is-hidden" data-yt-panel="publishing">
+                <div class="yt-panel-head">
+                  <div>
+                    <h2>Publishing</h2>
+                    <p>Uploads, thumbnails, playlists and scheduling through the official YouTube Data API.</p>
+                  </div>
+                </div>
+                <div id="yt-publishing-flag"></div>
+              </section>
+
+              <!-- ============================ ANALYTICS ========================== -->
+              <section class="yt-panel is-hidden" data-yt-panel="analytics">
+                <div class="yt-panel-head">
+                  <div>
+                    <h2>Analytics</h2>
+                    <p>Views, CTR, watch time and RPM from the official YouTube Analytics API. Only real API data is ever displayed.</p>
+                  </div>
+                </div>
+                <div id="yt-analytics-flag"></div>
+              </section>
+
+              <!-- ========================== INTELLIGENCE ========================= -->
+              <section class="yt-panel is-hidden" data-yt-panel="intelligence">
+                <div class="yt-panel-head">
+                  <div>
+                    <h2>YouTube Intelligence</h2>
+                    <p>Five independent workflows sharing one channel context. They operate behind the scenes and feed the Studio — never the other way around.</p>
+                  </div>
+                </div>
+                <div class="yt-intel-grid">
+                  <article class="yt-card yt-intel-card">
+                    <span class="yt-intel-icon"><i data-lucide="telescope" class="w-5 h-5"></i></span>
+                    <div class="yt-intel-copy">
+                      <h3>Hermes Oracle</h3>
+                      <p>Research intelligence: trending US business topics, evergreen demand, competitor monitoring and content gaps — every result traceable to a source.</p>
+                      <span class="yt-phase-badge">Phase 9</span>
+                    </div>
+                  </article>
+                  <article class="yt-card yt-intel-card">
+                    <span class="yt-intel-icon"><i data-lucide="audio-waveform" class="w-5 h-5"></i></span>
+                    <div class="yt-intel-copy">
+                      <h3>Hermes Muse</h3>
+                      <p>Audience intelligence: reads real channel performance (CTR, retention, RPM) and turns it into topic and template recommendations. Never fabricates analytics.</p>
+                      <span class="yt-phase-badge">Phase 9 · ranking feedback Phase 11</span>
+                    </div>
+                  </article>
+                  <article class="yt-card yt-intel-card">
+                    <span class="yt-intel-icon"><i data-lucide="search-check" class="w-5 h-5"></i></span>
+                    <div class="yt-intel-copy">
+                      <h3>Search OS</h3>
+                      <p>SEO intelligence: keyword research, search intent, long-tail clusters and title recommendations connected to the Topic Backlog.</p>
+                      <span class="yt-phase-badge">Phase 9</span>
+                    </div>
+                  </article>
+                  <article class="yt-card yt-intel-card">
+                    <span class="yt-intel-icon"><i data-lucide="shield-check" class="w-5 h-5"></i></span>
+                    <div class="yt-intel-copy">
+                      <h3>YouTube Review OS</h3>
+                      <p>Quality assurance across research accuracy, script, storytelling, animation, voice and monetization safety. Critical errors block approval.</p>
+                      <span class="yt-phase-badge">Phase 9</span>
+                    </div>
+                  </article>
+                  <article class="yt-card yt-intel-card">
+                    <span class="yt-intel-icon"><i data-lucide="orbit" class="w-5 h-5"></i></span>
+                    <div class="yt-intel-copy">
+                      <h3>Memory Galaxy</h3>
+                      <p>Shared memory on the existing Obsidian-compatible vault: channel identity, editorial guidelines, topic history, approved packages and performance reports.</p>
+                      <button id="yt-open-memory-galaxy" type="button" class="collart-btn-soft"><i data-lucide="orbit" class="w-4 h-4"></i><span>Open Memory Galaxy</span></button>
+                    </div>
+                  </article>
+                </div>
+              </section>
+
+              <!-- ============================ SETTINGS =========================== -->
+              <section class="yt-panel is-hidden" data-yt-panel="settings">
+                <div class="yt-panel-head">
+                  <div>
+                    <h2>Settings</h2>
+                    <p>Channel connection, channel profiles and generation providers. Everything the Studio needs before creating.</p>
+                  </div>
+                </div>
+
+                <div class="yt-grid-2">
+                  <section class="yt-card">
+                    <div class="yt-card-head">
+                      <div><h3>YouTube connection</h3><p>Official Google OAuth 2.0 · YouTube Data API v3.</p></div>
+                    </div>
+                    <div id="yt-connection-status"></div>
+                  </section>
+
+                </div>
+
+                <section class="yt-card">
+                  <div class="yt-card-head">
+                    <div><h3>Text generation</h3><p>Default: GLM-5.3-Flash through the OpenCode CLI. Switch to any OpenAI-compatible API.</p></div>
+                  </div>
+                  <div id="yt-llm-status" class="yt-llm-status"></div>
+                  <div class="yt-composer-grid yt-llm-form">
+                    <label class="yt-field"><span>Provider profile</span>
+                      <select id="yt-llm-provider" aria-label="LLM provider profile">
+                        <option value="opencode">OpenCode CLI — GLM-5.3-Flash (default)</option>
+                        <option value="openai_compatible">OpenAI-compatible API (DeepSeek)</option>
+                      </select>
+                    </label>
+                    <label class="yt-field"><span>Model (optional)</span>
+                      <input id="yt-llm-model" type="text" maxlength="120" placeholder="Profile default">
+                    </label>
+                  </div>
+                  <div class="yt-composer-foot">
+                    <p class="yt-hint">The selection is stored server-side for this workspace. Keys are never stored in the page.</p>
+                    <button id="yt-llm-save" type="button" class="collart-btn-soft"><i data-lucide="save" class="w-4 h-4"></i><span>Save</span></button>
+                  </div>
+                </section>
+
+                <section class="yt-card">
+                  <div class="yt-card-head">
+                    <div>
+                      <h2 class="yt-settings-title">Channel profiles</h2>
+                      <p>Channel identity, brand and the versioned channel master prompt. The master prompt lives in server-side data, never in the page.</p>
+                    </div>
+                    <button id="yt-channel-create" type="button" class="collart-btn"><i data-lucide="plus" class="w-4 h-4"></i><span>New Channel Profile</span></button>
+                  </div>
+                  <div id="yt-channels-error" class="yt-error-banner is-hidden"><i data-lucide="alert-triangle" class="w-4 h-4"></i><span id="yt-channels-error-text"></span></div>
+                  <div class="yt-split">
+                    <aside class="yt-side">
+                      <div id="yt-channel-list" class="yt-channel-list"></div>
+                    </aside>
+                    <div class="yt-side-main" id="yt-channel-editor"></div>
+                  </div>
+                </section>
+
+                <section class="yt-card">
+                  <div class="yt-card-head">
+                    <div><h3>Image & video providers</h3><p>Thumbnails, scene art and animation clips run on the same provider registry as Ads Studio.</p></div>
+                    <button id="yt-open-ads-setup" type="button" class="collart-btn-soft"><i data-lucide="external-link" class="w-4 h-4"></i><span>Open provider setup</span></button>
+                  </div>
+                  <p class="yt-panel-note">Pollinations (keyless) and Google AI (Gemini image, Veo video) are available today; Higgsfield and credential-only providers are configured in the same registry.</p>
+                </section>
               </section>
 
               <!-- ========================= PLACEHOLDER ========================== -->
@@ -2840,120 +3128,9 @@
                   <h2 id="yt-placeholder-title">Coming soon</h2>
                   <p id="yt-placeholder-note">This section is not available in this build yet.</p>
                   <div class="yt-placeholder-foot">
-                    <span>Stage 2 ships the workspace shell and isolated projects.</span>
-                    <span>Stages 3–5 add editorial, production and publishing modules.</span>
+                    <span>Phase 2 ships Create, projects, the topic backlog, settings and the intelligence hub.</span>
+                    <span>Templates, packaging, production, publishing and analytics follow in Phases 3–10.</span>
                   </div>
-                </div>
-              </section>
-
-              <!-- ======================= CHANNEL MANAGER ======================== -->
-              <section class="yt-panel is-hidden" data-yt-panel="channel-manager">
-                <div class="yt-panel-head">
-                  <div>
-                    <h2>Channel Manager</h2>
-                    <p>Channel profiles, brand identity and the versioned channel master prompt. The master prompt lives in server-side data, never in the page.</p>
-                  </div>
-                  <button id="yt-channel-create" type="button" class="collart-btn"><i data-lucide="plus" class="w-4 h-4"></i><span>New Channel Profile</span></button>
-                </div>
-                <div id="yt-channels-error" class="yt-error-banner is-hidden"><i data-lucide="alert-triangle" class="w-4 h-4"></i><span id="yt-channels-error-text"></span></div>
-                <div class="yt-split">
-                  <aside class="yt-side">
-                    <div id="yt-channel-list" class="yt-channel-list"></div>
-                  </aside>
-                  <div class="yt-side-main" id="yt-channel-editor"></div>
-                </div>
-              </section>
-
-              <!-- ========================= NICHE RESEARCH ======================== -->
-              <section class="yt-panel is-hidden" data-yt-panel="research">
-                <div class="yt-panel-head">
-                  <div>
-                    <h2>Niche Research</h2>
-                    <p>Five-criteria validation (18/25 threshold), sources with provenance, and competitor intelligence. Scores are analyst estimates — never measured platform data.</p>
-                  </div>
-                  <button id="yt-validation-create" type="button" class="collart-btn"><i data-lucide="plus" class="w-4 h-4"></i><span>New Validation</span></button>
-                </div>
-                <div id="yt-research-error" class="yt-error-banner is-hidden"><i data-lucide="alert-triangle" class="w-4 h-4"></i><span id="yt-research-error-text"></span></div>
-                <div class="yt-grid-2">
-                  <section class="yt-card yt-card-wide">
-                    <div class="yt-card-head">
-                      <div><h3>Saved Validations</h3><p id="yt-research-rules"></p></div>
-                    </div>
-                    <div id="yt-research-list" class="yt-research-list"></div>
-                  </section>
-                  <section class="yt-card">
-                    <div class="yt-card-head">
-                      <div><h3>Competitor Intelligence</h3><p>Observations must be marked observed or assumed.</p></div>
-                      <button type="button" class="yt-link" data-yt-action="add-competitor">Add competitor</button>
-                    </div>
-                    <div id="yt-competitor-list" class="yt-competitor-list"></div>
-                  </section>
-                </div>
-              </section>
-
-              <!-- ========================== TOPIC STUDIO ========================= -->
-              <section class="yt-panel is-hidden" data-yt-panel="topics">
-                <div class="yt-panel-head">
-                  <div>
-                    <h2>Topic Studio</h2>
-                    <p>Idea → Researching → Validated → Approved → Scripted → In Production → Published. Approval requires a validation score of at least 18/25.</p>
-                  </div>
-                  <button id="yt-topic-create" type="button" class="collart-btn"><i data-lucide="plus" class="w-4 h-4"></i><span>New Topic</span></button>
-                </div>
-                <div id="yt-topics-error" class="yt-error-banner is-hidden"><i data-lucide="alert-triangle" class="w-4 h-4"></i><span id="yt-topics-error-text"></span></div>
-                <div id="yt-topic-pipeline" class="yt-pipeline-chips"></div>
-                <div class="yt-toolbar">
-                  <label class="yt-search">
-                    <i data-lucide="search" class="w-4 h-4"></i>
-                    <input id="yt-topics-search" type="search" placeholder="Search topics…" aria-label="Search topics">
-                  </label>
-                  <label class="yt-select"><select id="yt-topics-status" aria-label="Filter by status">
-                    <option value="">All statuses</option>
-                  </select></label>
-                  <label class="yt-select"><select id="yt-topics-pillar" aria-label="Filter by pillar">
-                    <option value="">All pillars</option>
-                  </select></label>
-                  <label class="yt-select"><select id="yt-topics-priority" aria-label="Filter by priority">
-                    <option value="">All priorities</option>
-                    <option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option>
-                  </select></label>
-                  <label class="yt-check"><span>Min score</span><input id="yt-topics-min-score" type="number" min="0" max="25" class="yt-number" aria-label="Minimum validation score"></label>
-                  <span id="yt-topics-count" class="yt-count"></span>
-                </div>
-                <div id="yt-topics-list" class="yt-projects"></div>
-              </section>
-
-              <!-- ========================== SCRIPT STUDIO ======================== -->
-              <section class="yt-panel is-hidden" data-yt-panel="scripts">
-                <div class="yt-panel-head">
-                  <div>
-                    <h2>Script Studio</h2>
-                    <p>Versioned long-form scripts with fact-check gating. Approval requires every checklist item verified and at least one recorded source.</p>
-                  </div>
-                  <div class="yt-topbar-actions">
-                    <button id="yt-script-generate" type="button" class="collart-btn-soft"><i data-lucide="sparkles" class="w-4 h-4"></i><span>Generate with AI</span></button>
-                    <button id="yt-script-create" type="button" class="collart-btn"><i data-lucide="plus" class="w-4 h-4"></i><span>New Script</span></button>
-                  </div>
-                </div>
-                <div id="yt-scripts-error" class="yt-error-banner is-hidden"><i data-lucide="alert-triangle" class="w-4 h-4"></i><span id="yt-scripts-error-text"></span></div>
-                <div class="yt-split">
-                  <aside class="yt-side">
-                    <div class="yt-toolbar yt-toolbar-side">
-                      <label class="yt-search">
-                        <i data-lucide="search" class="w-4 h-4"></i>
-                        <input id="yt-scripts-search" type="search" placeholder="Search scripts…" aria-label="Search scripts">
-                      </label>
-                      <label class="yt-select"><select id="yt-scripts-status" aria-label="Filter by status">
-                        <option value="">All</option>
-                        <option value="draft">Draft</option>
-                        <option value="in_review">In Review</option>
-                        <option value="approved">Approved</option>
-                        <option value="needs_revision">Needs Revision</option>
-                      </select></label>
-                    </div>
-                    <div id="yt-script-list" class="yt-script-list"></div>
-                  </aside>
-                  <div class="yt-side-main" id="yt-script-editor"></div>
                 </div>
               </section>
 
@@ -2987,6 +3164,50 @@
           </div>
         </div>
       </section>
+
+
+      <!-- ========================================================================= -->
+      <!-- COSMOS: five independent intelligence agents, two divisions each          -->
+      <!-- ========================================================================= -->
+      <section id="cosmos-view" class="hidden flex-1 min-h-0 overflow-y-auto pb-6">
+        <div class="cosmos-page">
+          <header class="cosmos-header">
+            <div>
+              <span class="cosmos-eyebrow"><i data-lucide="orbit" class="w-3.5 h-3.5"></i> COSMOS Intelligence Layer</span>
+              <h1>Five agents. Two permanent divisions.</h1>
+              <p id="cosmos-subtitle">Five independent agents. Two permanent divisions each: Ads Intelligence on the left, YouTube Intelligence on the right.</p>
+            </div>
+            <div class="cosmos-header-right">
+              <div id="cosmos-runtime" class="cosmos-runtime is-warn">
+                <span class="cosmos-dot"></span>
+                <b>Checking model…</b>
+                <em>Shared Studio routing</em>
+              </div>
+              <button id="cosmos-refresh" type="button" class="cosmos-btn"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh</button>
+            </div>
+          </header>
+
+          <div id="cosmos-alert" class="cosmos-alert hidden" role="status" aria-live="polite"></div>
+          <div id="cosmos-agent-tabs" class="cosmos-agent-tabs" role="tablist" aria-label="COSMOS agents"></div>
+          <div id="cosmos-agent"></div>
+        </div>
+      </section>
+
+      <!-- COSMOS modal: template editing, refine, affiliate validation, reject -->
+      <div id="cosmos-modal" class="cosmos-modal hidden" role="dialog" aria-modal="true" aria-labelledby="cosmos-modal-title">
+        <div class="cosmos-modal-card">
+          <div class="cosmos-modal-head">
+            <h3 id="cosmos-modal-title">COSMOS</h3>
+            <button id="cosmos-modal-close" type="button" aria-label="Close">×</button>
+          </div>
+          <div id="cosmos-modal-body" class="cosmos-modal-body"></div>
+          <div class="cosmos-modal-actions">
+            <button id="cosmos-modal-cancel" type="button" class="cosmos-btn">Cancel</button>
+            <button id="cosmos-modal-submit" type="button" class="cosmos-btn is-primary">Save</button>
+          </div>
+        </div>
+      </div>
+      <div id="cosmos-toast" class="cosmos-toast hidden" role="status" aria-live="polite"></div>
 
 
       <!-- ========================================================================= -->
@@ -3695,13 +3916,148 @@
         <div id="fl-toast" class="fl-toast"></div>
       </section>
 
+      <!-- ================================================================= -->
+      <!--  AI CONNECTIONS MANAGER (providers, gateways, routing policy)     -->
+      <!-- ================================================================= -->
+      <section id="connections-view" class="hidden flex-1 flex flex-col gap-3.5 min-h-0 pb-6">
+
+        <div class="cn-hero glass-panel rounded-2xl border border-emerald-900/40 bg-gradient-to-r from-[#04120c] via-[#07170f] to-[#050d16] p-4 flex flex-wrap items-center justify-between gap-3 shrink-0">
+          <div class="flex items-center gap-3">
+            <div class="cn-logo"><i data-lucide="route" class="w-5 h-5"></i></div>
+            <div>
+              <h2 class="text-sm font-bold text-white flex flex-wrap items-center gap-2">AI Connections
+                <span id="cn-count-badge" class="cn-badge">0</span>
+              </h2>
+              <p class="text-[11px] text-slate-400">
+                Official providers and gateway/proxy routes · one source active at a time ·
+                health from real endpoint tests, never from saved keys
+              </p>
+            </div>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <button id="cn-refresh" type="button" class="sb-btn sb-btn-ghost"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i><span>Refresh</span></button>
+            <button id="cn-add" type="button" class="sb-btn sb-btn-primary"><i data-lucide="plus" class="w-3.5 h-3.5"></i><span>Add connection</span></button>
+          </div>
+        </div>
+
+        <!-- Routing preference (free/paid policy) -->
+        <div class="glass-panel rounded-2xl border border-[#1b2544] bg-[#080d1b]/80 p-4 shrink-0">
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <h3 class="text-[12px] font-semibold text-slate-100 flex items-center gap-2">
+                <i data-lucide="git-fork" class="w-3.5 h-3.5 text-cyan-400"></i>AI access preference
+              </h3>
+              <p class="text-[10.5px] text-slate-500 mt-0.5">Free First never spends paid credits without your explicit approval.</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <div class="cn-seg" id="cn-mode-seg">
+                <button type="button" class="cn-seg-btn" data-cn-mode="free_first" title="Prefer Free / Free Tier / Local connections; ask before paid fallback">Free First</button>
+                <button type="button" class="cn-seg-btn" data-cn-mode="paid_first" title="Prefer official provider connections; free as fallback">Paid First</button>
+                <button type="button" class="cn-seg-btn" data-cn-mode="manual" title="Only use the connection explicitly selected in the Workspace">Manual</button>
+              </div>
+              <label class="cn-check" title="When allowed, routing may use a paid connection as a fallback without asking again (per 24h grant)">
+                <input id="cn-allow-paid" type="checkbox">
+                <span>Allow paid fallback</span>
+              </label>
+            </div>
+          </div>
+          <div id="cn-override-note" class="hidden mt-2 text-[10.5px] text-amber-300/90"></div>
+        </div>
+
+        <div class="cn-layout flex-1 min-h-0">
+          <div class="cn-pane">
+            <div class="cn-pane-head">
+              <i data-lucide="shield-check" class="w-3.5 h-3.5 text-cyan-300"></i>
+              <span>Providers</span>
+              <span class="cn-pane-sub">official provider APIs</span>
+            </div>
+            <div id="cn-providers" class="cn-pane-body"><div class="sb-rail-empty">Loading connections…</div></div>
+          </div>
+          <div class="cn-pane">
+            <div class="cn-pane-head">
+              <i data-lucide="shuffle" class="w-3.5 h-3.5 text-amber-300"></i>
+              <span>Gateways / Proxies</span>
+              <span class="cn-pane-sub">aggregators, free-model endpoints, custom APIs</span>
+            </div>
+            <div id="cn-gateways" class="cn-pane-body"><div class="sb-rail-empty">Loading connections…</div></div>
+          </div>
+        </div>
+
+        <!-- Add / edit connection dialog -->
+        <div id="cn-modal" class="cn-modal hidden" role="dialog" aria-modal="true" aria-labelledby="cn-modal-title">
+          <div class="cn-modal-card">
+            <div class="cn-modal-head">
+              <h3 id="cn-modal-title" class="text-[13px] font-semibold text-white">Add connection</h3>
+              <button id="cn-modal-close" class="ws-icon-btn" title="Close"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
+            </div>
+            <div class="cn-modal-body">
+              <div class="cn-field">
+                <label class="cn-label">Type</label>
+                <div class="cn-seg" id="cn-type-seg">
+                  <button type="button" class="cn-seg-btn" data-cn-type="gateway">Gateway / Proxy</button>
+                  <button type="button" class="cn-seg-btn" data-cn-type="provider">Provider</button>
+                </div>
+              </div>
+              <div class="cn-field">
+                <label class="cn-label" for="cn-preset">Preset</label>
+                <select id="cn-preset" class="cn-select"></select>
+                <p id="cn-preset-note" class="cn-note"></p>
+              </div>
+              <div class="cn-field">
+                <label class="cn-label" for="cn-name">Name</label>
+                <input id="cn-name" class="cn-input" type="text" placeholder="My connection" autocomplete="off">
+              </div>
+              <div class="cn-field">
+                <label class="cn-label" for="cn-base-url">Base URL</label>
+                <input id="cn-base-url" class="cn-input" type="text" placeholder="https://api.example.com/v1" autocomplete="off" spellcheck="false">
+                <p class="cn-note">OpenAI-compatible bases usually end in /v1. Anthropic-compatible bases end at the host root.</p>
+              </div>
+              <div class="cn-field" id="cn-protocol-field">
+                <label class="cn-label" for="cn-protocol">API protocol</label>
+                <select id="cn-protocol" class="cn-select">
+                  <option value="openai">OpenAI-compatible</option>
+                  <option value="anthropic">Anthropic-compatible</option>
+                </select>
+              </div>
+              <div class="cn-field">
+                <label class="cn-label" for="cn-key">API key</label>
+                <input id="cn-key" class="cn-input" type="password" placeholder="Paste key (stored owner-only; never returned)" autocomplete="off">
+                <p class="cn-note">Leave blank to keep the saved key. The <code>key env</code> preset var is used when no key is stored here.</p>
+              </div>
+              <div class="cn-field">
+                <label class="cn-label" for="cn-pricing">Pricing class</label>
+                <select id="cn-pricing" class="cn-select">
+                  <option value="unknown">Unknown</option>
+                  <option value="free">Free</option>
+                  <option value="free_tier">Free Tier</option>
+                  <option value="paid">Paid per usage</option>
+                  <option value="subscription">Subscription</option>
+                  <option value="local">Local / self-hosted</option>
+                </select>
+              </div>
+              <div class="cn-field">
+                <label class="cn-label" for="cn-notes">Notes</label>
+                <input id="cn-notes" class="cn-input" type="text" placeholder="Optional" autocomplete="off">
+              </div>
+              <div id="cn-modal-msg" class="cn-note"></div>
+            </div>
+            <div class="cn-modal-foot">
+              <button id="cn-save" type="button" class="sb-btn sb-btn-primary"><i data-lucide="save" class="w-3.5 h-3.5"></i><span>Save connection</span></button>
+              <button id="cn-cancel" type="button" class="sb-btn sb-btn-ghost">Cancel</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="cn-toast" class="fl-toast"></div>
+      </section>
+
     </main>
   </div>
 
   <!-- ========================================================================= -->
   <!-- 3. FOOTER STATUS BAR                                                      -->
   <!-- ========================================================================= -->
-  <footer class="h-8 border-t border-[#1b253d] bg-[#050811] px-4 flex items-center justify-between text-[10.5px] text-slate-500 shrink-0">
+  <footer id="os-footer" class="h-8 border-t border-[#1b253d] bg-[#050811] px-4 flex items-center justify-between text-[10.5px] text-slate-500 shrink-0">
     <!-- Left Metadata System Summary -->
     <div class="flex items-center gap-2 overflow-hidden truncate">
       <span class="font-bold text-slate-300">HERMES Agentic OS</span>
@@ -4149,21 +4505,25 @@
   <script defer src="js/panelState.js"></script>
   <script defer src="js/agentDashboards.js"></script>
   <!-- DeepSeek Harness uses its official native Web UI; no OS-recreated chat bundle. -->
-  <script defer src="js/app.js?v=20261112-jarvis-home"></script>
+  <script defer src="js/app.js?v=20261114-connections"></script>
+  <script defer src="js/connections.js?v=20261114-connections"></script>
   <script defer src="js/jarvisDashboard.js?v=20261112-jarvis-home"></script>
   <script defer src="js/memoryGalaxy.js?v=20261112-galaxy1"></script>
-  <script defer src="js/workspace.js?v=20261112-customprov"></script>
+  <script defer src="js/workspace.js?v=20261115-unified1"></script>
   <script defer src="js/vault.js?v=20261018-vault"></script>
   <script defer src="js/kanbanState.js?v=20261018-hermes3"></script>
   <script defer src="js/kanban.js?v=20261018-hermes3"></script>
   <script defer src="js/hermes.js?v=20261018-hermes3"></script>
   <script defer src="js/studioState.js?v=20261023-studio6"></script>
   <script defer src="js/studioTemplates.js?v=20261112-registry"></script>
-  <script defer src="js/studio.js?v=20261112-registry"></script>
-  <script defer src="js/studioFashion.js?v=20261112-registry"></script>
-  <script defer src="js/studioWorkspaceState.js?v=20261109-yt-stage2"></script>
-  <script defer src="js/studioYoutube.js?v=20261109-yt-stage2"></script>
-  <script defer src="js/studioWorkspaces.js?v=20261109-yt-stage2"></script>
+  <script defer src="js/studio.js?v=20261113-runtime-rail"></script>
+  <script defer src="js/studioFashion.js?v=20261113-runtime-rail"></script>
+  <script defer src="js/studioWorkspaceState.js?v=20261112-yt-phase2"></script>
+  <script defer src="js/studioYoutube.js?v=20261113-yt-cleanup"></script>
+  <script defer src="js/studioWorkspaces.js?v=20261112-yt-phase2"></script>
+  <script defer src="js/cosmosState.js?v=20261115-cosmos1"></script>
+  <script defer src="js/cosmosDashboard.js?v=20261115-cosmos1"></script>
+  <script defer src="js/studioCreate.js?v=20261115-cosmos1"></script>
   <script defer src="js/skill-builder.js?v=20261112-video-reverse"></script>
   <script defer src="vendor/marked.min.js"></script>
   <script defer src="js/plugins.js?v=20261023-repo1"></script>

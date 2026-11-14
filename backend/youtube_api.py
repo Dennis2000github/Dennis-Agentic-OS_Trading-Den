@@ -8,6 +8,9 @@ directly unit-testable without the server.
 
 from __future__ import annotations
 
+import json
+import os
+
 from . import studio_llm
 from . import youtube_channels as channels
 from . import youtube_common as common
@@ -16,6 +19,47 @@ from . import youtube_scripts as scripts
 from . import youtube_topics as topics
 
 PREFIX = "/api/studio/youtube"
+
+OAUTH_CLIENT_FILE = "google-oauth.json"
+
+
+def _oauth_client_configured():
+    """True when a Google OAuth client id/secret is available server-side.
+
+    Phase 10 owns the real connection flow; until then this only reports
+    whether the owner has supplied credentials, so the UI can stay honest.
+    """
+    env_id = (os.environ.get("GOOGLE_OAUTH_CLIENT_ID") or "").strip()
+    env_secret = (os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET") or "").strip()
+    if env_id and env_secret:
+        return True, "env"
+    path = os.path.join(common.YOUTUBE_DIR, OAUTH_CLIENT_FILE)
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, ValueError):
+        return False, "none"
+    if isinstance(data, dict) and (data.get("client_id") or "").strip() and (data.get("client_secret") or "").strip():
+        return True, "file"
+    return False, "none"
+
+
+def features():
+    """Honest availability flags for not-yet-built integrations."""
+    configured, source = _oauth_client_configured()
+    reason = None if configured else (
+        "Google OAuth is not configured. Publishing arrives in Phase 10; add a "
+        "Google Cloud OAuth client to enable it."
+    )
+    return {
+        "publishing": {"available": configured, "phase": 10, "reason": reason},
+        "analytics": {"available": configured, "phase": 10, "reason": reason},
+        "oauth": {"configured": configured, "source": source},
+        "templates": {"available": True, "phase": 3, "reason": None},
+        "packaging": {"available": True, "phase": 6, "reason": None},
+        "production": {"available": True, "phase": 8, "reason": None},
+        "intelligence": {"available": True, "phase": 9, "reason": None},
+    }
 
 
 def _fail(exc):
@@ -71,6 +115,9 @@ def _get(parts, query):
 
     if head == "llm" and len(parts) == 2 and parts[1] == "status":
         return 200, studio_llm.status()
+
+    if head == "features" and len(parts) == 1:
+        return 200, features()
 
     if head == "channels":
         if len(parts) == 1:
@@ -170,6 +217,9 @@ def _post(parts, body):
     if not parts:
         return 404, {"error": "YouTube Studio endpoint not found.", "code": "not_found"}
     head = parts[0]
+
+    if head == "llm" and len(parts) == 2 and parts[1] == "config":
+        return 200, {"llm": studio_llm.configure(body)}
 
     if head == "channels":
         if len(parts) == 1:

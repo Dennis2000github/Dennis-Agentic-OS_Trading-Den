@@ -167,6 +167,35 @@ class FreeLLMAPIRouteTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(data["settings"]["key_hint"], "…1234")
 
+    def test_context_tokens_store_and_env_injection(self):
+        """The optional context window persists and reaches Claude Code as
+        CLAUDE_CODE_MAX_CONTEXT_TOKENS (silences the unrecognized-model
+        notice and sizes auto-compaction for gateway model ids)."""
+        status, data = self._json("POST", "/api/freellmapi", {
+            "agent_id": "claude-code",
+            "base_url": "https://openrouter.ai/api",
+            "model": "inclusionai/ling-3.2-flash:free",
+            "api_key": "sk-or-test-1234",
+            "context_tokens": 1048576,
+        })
+        self.assertEqual(status, 200)
+        env = freellmapi.apply_agent_env({}, "claude-code",
+                                         "inclusionai/ling-3.2-flash:free")
+        self.assertEqual(env["ANTHROPIC_BASE_URL"], "https://openrouter.ai/api")
+        self.assertEqual(env["ANTHROPIC_MODEL"], "inclusionai/ling-3.2-flash:free")
+        self.assertEqual(env["ANTHROPIC_CUSTOM_MODEL_OPTION"],
+                         "inclusionai/ling-3.2-flash:free")
+        self.assertEqual(env["CLAUDE_CODE_MAX_CONTEXT_TOKENS"], "1048576")
+        # Invalid values are rejected.
+        status, data = self._json("POST", "/api/freellmapi", {
+            "agent_id": "claude-code",
+            "base_url": "https://openrouter.ai/api",
+            "model": "inclusionai/ling-3.2-flash:free",
+            "api_key": "sk-or-test-1234",
+            "context_tokens": "not-a-number",
+        })
+        self.assertEqual(status, 400)
+
     def test_invalid_agent_is_rejected(self):
         status, data = self._json("POST", "/api/freellmapi", {
             "agent_id": "not-an-agent",

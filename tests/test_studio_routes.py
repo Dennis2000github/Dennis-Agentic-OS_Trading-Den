@@ -146,7 +146,7 @@ class StudioRouteTests(unittest.TestCase):
         self.assertFalse(official["capabilities"]["progress"])
         self.assertEqual(
             set(official["credentials"]),
-            {"configured", "source", "hint", "updated_at", "missing", "env_override"},
+            {"configured", "source", "hint", "updated_at", "missing", "env_override", "env", "fields"},
         )
         self.assertNotIn("super-secret", json.dumps(data))
 
@@ -814,6 +814,87 @@ class StudioRouteTests(unittest.TestCase):
         )
         self.assertEqual(status, 400)
         self.assertEqual(data["code"], "unknown_model")
+
+
+class StudioRepairRegressionTests(StudioRouteTests):
+    """Regression tests for defects found in the reliability audit."""
+
+    def test_model_library_post_saves_and_returns_the_model(self):
+        # The old duplicate route returned the list for POST, which made
+        # "save to library" a silent no-op. It must persist and return the
+        # created model record.
+        from backend import studio_model_library
+        patch = mock.patch.object(
+            studio_model_library, "LIBRARY_FILE",
+            os.path.join(self.dir, "model-library.json"),
+        )
+        patch.start()
+        self.addCleanup(patch.stop)
+        status, data, _ = self.json(
+            "POST", "/api/studio/fashion/model-library",
+            {
+                "url": "https://example.com/model.jpg",
+                "name": "Audit Model",
+                "source": "upload",
+                "prompt": "studio lights",
+                "kind": "model",
+            },
+        )
+        self.assertEqual(status, 200)
+        self.assertIn("model", data)
+        self.assertEqual(data["model"]["name"], "Audit Model")
+        listing = studio_model_library.list_library()
+        names = [entry["name"] for entry in listing.get("custom", [])]
+        self.assertIn("Audit Model", names)
+        # GET still returns the list view.
+        status, listing, _ = self.json("GET", "/api/studio/fashion/model-library")
+        self.assertEqual(status, 200)
+        self.assertIn("custom", listing)
+
+    def test_diagnostics_routes_require_the_owner_token(self):
+        status, _, _ = self.request("GET", "/api/studio/diagnostics", token=False)
+        self.assertEqual(status, 401)
+        status, _, _ = self.request(
+            "POST", "/api/studio/diagnostics/check", body={"provider": "minimax"}, token=False)
+        self.assertEqual(status, 401)
+
+    def test_diagnostics_summary_is_static(self):
+        status, data, _ = self.json("GET", "/api/studio/diagnostics")
+        self.assertEqual(status, 200)
+        ids = [d["provider"] for d in data["diagnostics"]]
+        self.assertEqual(ids, ["auto", "pollinations", "google", "higgsfield",
+                               "fal", "runway", "luma", "minimax", "replicate"])
+        self.assertIn("adapter_wired", data["diagnostics"][0])
+
+    def test_diagnostics_check_reports_a_failing_stage(self):
+        status, data, _ = self.json(
+            "POST", "/api/studio/diagnostics/check", body={"provider": "minimax"})
+        self.assertEqual(status, 200)
+        self.assertEqual(data["status"], "NOT_CONFIGURED")
+        self.assertEqual(data["stage"], "configuration")
+
+    def test_diagnostics_check_higgsfield_auth_failure_is_honest(self):
+        status, data, _ = self.json(
+            "POST", "/api/studio/diagnostics/check", body={"provider": "higgsfield"})
+        self.assertEqual(status, 200)
+        # Live credentials in the dev environment are known-bad; whatever the
+        # outcome, the endpoint must answer with the full contract and never
+        # leak credential values.
+        for field in ("provider", "status", "stage", "checked_at", "checks"):
+            self.assertIn(field, data)
+        self.assertNotIn("api_key", json.dumps(data))
+
+    def test_diagnostics_check_requires_a_provider_id(self):
+        status, data, _ = self.json("POST", "/api/studio/diagnostics/check", body={})
+        self.assertEqual(status, 400)
+
+    def test_diagnostics_check_all_checks_every_provider(self):
+        status, data, _ = self.json("POST", "/api/studio/diagnostics/check-all", body={})
+        self.assertEqual(status, 200)
+        ids = [d["provider"] for d in data["diagnostics"]]
+        self.assertEqual(len(ids), 9)
+        # One provider failing must not block the others.
+        self.assertIn("pollinations", ids)
 
 
 if __name__ == "__main__":

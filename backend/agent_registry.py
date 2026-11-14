@@ -11,6 +11,7 @@ import threading
 import time
 
 from . import config
+from . import execution_router
 from . import freellmapi
 
 DEFAULT_AGENTS = [
@@ -322,7 +323,13 @@ def get_augmented_env(agent_id=None, model_id=None):
     ]
     extra_paths = [p for p in extra_paths if p]
     env["PATH"] = ":".join(extra_paths) + ":" + env.get("PATH", "")
-    return freellmapi.apply_agent_env(env, agent_id, model_id) if agent_id else env
+    if not agent_id:
+        return env
+    # Unified execution router: resolves connection-scoped models
+    # (``conn:<id>:<native>``) to concrete endpoint env vars and defers to
+    # the existing FreeLLMAPI injection for its configured models. CLI-native
+    # auth passes through untouched.
+    return execution_router.apply_env(env, agent_id, model_id)
 
 
 def load_agents():

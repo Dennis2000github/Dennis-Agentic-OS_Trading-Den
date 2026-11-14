@@ -50,13 +50,21 @@ def read_json(path, default=None):
         return default
 
 
-def write_json(path, data):
-    """Write JSON atomically so a crash cannot leave a half-written file."""
+def write_json(path, data, mode=None):
+    """Write JSON atomically so a crash cannot leave a half-written file.
+
+    ``mode`` optionally restricts the file permissions (e.g. 0o600 for
+    stores that hold API keys). mkstemp already creates the temp file with
+    owner-only permissions; passing ``mode`` makes that guarantee explicit
+    and also fixes the permissions of an existing file being replaced.
+    """
     ensure_data_dir()
     dirname = os.path.dirname(path)
     os.makedirs(dirname, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=dirname, prefix=".tmp-", suffix=".json")
     try:
+        if mode is not None:
+            os.fchmod(fd, mode)
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2)
         os.replace(tmp, path)

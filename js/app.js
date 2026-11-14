@@ -23,7 +23,18 @@ document.addEventListener('DOMContentLoaded', () => {
   initQuickToolsAndModals();
 
   // 7. JARVIS is the default dashboard: land on it, not the workspace.
-  switchMainView('jarvis');
+  // A pasted #cosmos/<agent> deep link boots straight into COSMOS.
+  const bootCosmos = /^#cosmos\b/i.test(window.location.hash) && !!window.Cosmos;
+  switchMainView(bootCosmos ? 'cosmos' : 'jarvis');
+
+  // 8. Fullscreen command-center mode is the default when the OS opens.
+  setJarvisMode('fullscreen');
+  const jarvisModeBtn = document.getElementById('jarvis-mode-toggle');
+  if (jarvisModeBtn) {
+    jarvisModeBtn.addEventListener('click', () => {
+      setJarvisMode(isJarvisFullscreen() ? 'original' : 'fullscreen');
+    });
+  }
 
   // The Agent Workspace (terminal + Code & Preview panel + project sessions)
   // initializes itself from js/workspace.js.
@@ -80,10 +91,12 @@ function switchMainView(viewName) {
   const vaultView = document.getElementById('vault-view');
   const hermesView = document.getElementById('hermes-view');
   const studioView = document.getElementById('studio-view');
+  const cosmosView = document.getElementById('cosmos-view');
   const skillBuilderView = document.getElementById('skill-builder-view');
   const pluginsView = document.getElementById('plugins-view');
   const installedPluginsView = document.getElementById('installed-plugins-view');
   const freellmView = document.getElementById('freellm-view');
+  const connectionsView = document.getElementById('connections-view');
   const galaxyView = document.getElementById('memory-galaxy-view');
   const jarvisNav = document.getElementById('sidebar-nav-jarvis');
   const workspaceNav = document.getElementById('sidebar-nav-workspace');
@@ -94,13 +107,16 @@ function switchMainView(viewName) {
   const pluginsNav = document.getElementById('sidebar-nav-plugins');
   const installedPluginsNav = document.getElementById('sidebar-nav-installed-plugins');
   const freellmNav = document.getElementById('sidebar-nav-freellm');
+  const connectionsNav = document.getElementById('sidebar-nav-connections');
   const galaxyNav = document.getElementById('sidebar-nav-galaxy');
   const studioNav = document.getElementById('sidebar-nav-studio');
+  const cosmosNav = document.getElementById('sidebar-nav-cosmos');
 
   const navs = [
     { nav: jarvisNav, view: 'jarvis' },
     { nav: workspaceNav, view: 'workspace' },
     { nav: studioNav, view: 'studio' },
+    { nav: cosmosNav, view: 'cosmos' },
     { nav: tradingNav, view: 'trading-den' },
     { nav: vaultNav, view: 'vault' },
     { nav: galaxyNav, view: 'memory-galaxy' },
@@ -108,11 +124,16 @@ function switchMainView(viewName) {
     { nav: skillBuilderNav, view: 'skill-builder' },
     { nav: pluginsNav, view: 'plugins' },
     { nav: installedPluginsNav, view: 'installed-plugins' },
-    { nav: freellmNav, view: 'freellm' }
+    { nav: freellmNav, view: 'freellm' },
+    { nav: connectionsNav, view: 'connections' }
   ];
-  const VIEWS = ['jarvis', 'workspace', 'trading-den', 'vault', 'memory-galaxy', 'hermes', 'studio', 'skill-builder', 'plugins', 'installed-plugins', 'freellm'];
+  const VIEWS = ['jarvis', 'workspace', 'trading-den', 'vault', 'memory-galaxy', 'hermes', 'studio', 'cosmos', 'skill-builder', 'plugins', 'installed-plugins', 'freellm', 'connections'];
   // JARVIS is the default dashboard: unknown names fall back to it.
   const active = VIEWS.includes(viewName) ? viewName : 'jarvis';
+
+  // The fullscreen Jarvis mode hides the OS chrome; leaving Jarvis restores
+  // the header/sidebar/footer so navigation stays reachable.
+  if (active !== 'jarvis' && isJarvisFullscreen()) setJarvisMode('original');
 
   // Highlight the active sidebar item, dim the others.
   navs.forEach(({ nav, view }) => {
@@ -137,10 +158,14 @@ function switchMainView(viewName) {
   if (galaxyView) galaxyView.classList.toggle('hidden', active !== 'memory-galaxy');
   if (hermesView) hermesView.classList.toggle('hidden', active !== 'hermes');
   if (studioView) studioView.classList.toggle('hidden', active !== 'studio');
+  if (cosmosView) cosmosView.classList.toggle('hidden', active !== 'cosmos');
+  const osMain = document.getElementById('os-main');
+  if (osMain) osMain.classList.toggle('os-studio-active', active === 'studio');
   if (skillBuilderView) skillBuilderView.classList.toggle('hidden', active !== 'skill-builder');
   if (pluginsView) pluginsView.classList.toggle('hidden', active !== 'plugins');
   if (installedPluginsView) installedPluginsView.classList.toggle('hidden', active !== 'installed-plugins');
   if (freellmView) freellmView.classList.toggle('hidden', active !== 'freellm');
+  if (connectionsView) connectionsView.classList.toggle('hidden', active !== 'connections');
   // Leaving the Studio clears its deep-link hash (#studio/...) so a reload
   // boots to the home screen instead of reopening the last workspace.
   // A deliberately pasted #studio/... link still works: it is only cleared
@@ -150,6 +175,13 @@ function switchMainView(viewName) {
       window.history.replaceState(null, '', window.location.pathname + window.location.search);
     } catch (err) { /* keep the hash rather than break navigation */ }
   }
+  // The same rule applies to COSMOS agent deep links.
+  if (active !== 'cosmos' && /^#cosmos\b/i.test(window.location.hash)) {
+    try {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    } catch (err) { /* keep the hash rather than break navigation */ }
+  }
+  if (active === 'cosmos' && window.Cosmos) window.Cosmos.refresh();
   if (active === 'jarvis' && window.JarvisDashboard) window.JarvisDashboard.refresh();
   if (active === 'hermes' && window.Hermes) window.Hermes.reload();
   if (active === 'studio' && window.Studio) window.Studio.refresh();
@@ -158,9 +190,38 @@ function switchMainView(viewName) {
   if (active === 'plugins' && window.Composio) window.Composio.refresh();
   if (active === 'installed-plugins' && window.InstalledPlugins) window.InstalledPlugins.refresh();
   if (active === 'freellm' && window.FreeLLMAPI) window.FreeLLMAPI.refresh();
+  if (active === 'connections' && window.AIConnections) window.AIConnections.refresh();
   if (active === 'memory-galaxy' && window.MemoryGalaxy) window.MemoryGalaxy.refresh();
 }
 window.switchMainView = switchMainView;
+
+/* ----------------------------------------------------
+   2b. JARVIS MODE — fullscreen command center vs original view
+   Fullscreen is the default on OS open: the OS header, left sidebar and
+   footer are hidden and the Jarvis telemetry/briefing side panels collapse.
+   The Mode button in the Jarvis topbar returns to the original layout
+   where every sidebar is visible again.
+---------------------------------------------------- */
+const JARVIS_FULLSCREEN_CLASS = 'jarvis-fullscreen';
+
+function isJarvisFullscreen() {
+  return document.body.classList.contains(JARVIS_FULLSCREEN_CLASS);
+}
+
+function setJarvisMode(mode) {
+  const fullscreen = mode !== 'original';
+  document.body.classList.toggle(JARVIS_FULLSCREEN_CLASS, fullscreen);
+  const btn = document.getElementById('jarvis-mode-toggle');
+  if (btn) {
+    btn.setAttribute('aria-pressed', fullscreen ? 'true' : 'false');
+    btn.title = fullscreen
+      ? 'Switch to the original view (show sidebars)'
+      : 'Switch to fullscreen Jarvis (hide sidebars)';
+    const stateEl = document.getElementById('jarvis-mode-state');
+    if (stateEl) stateEl.textContent = fullscreen ? 'FULLSCREEN' : 'ORIGINAL';
+  }
+}
+window.setJarvisMode = setJarvisMode;
 
 function initSidebar() {
   const sidebarItems = document.querySelectorAll('.sidebar-nav-item');
@@ -176,7 +237,9 @@ function initSidebar() {
       item.classList.add('bg-blue-600', 'text-white', 'shadow-lg', 'shadow-blue-500/20');
 
       const label = item.textContent.toLowerCase();
-      if (label.includes('jarvis')) {
+      if (item.id === 'sidebar-nav-cosmos') {
+        switchMainView('cosmos');
+      } else if (label.includes('jarvis')) {
         switchMainView('jarvis');
       } else if (label.includes('memory galaxy')) {
         switchMainView('memory-galaxy');
@@ -192,6 +255,8 @@ function initSidebar() {
         switchMainView('skill-builder');
       } else if (label.includes('installed plugins')) {
         switchMainView('installed-plugins');
+      } else if (label.includes('ai connections')) {
+        switchMainView('connections');
       } else if (label.includes('plugins')) {
         switchMainView('plugins');
       } else if (label.includes('freellm')) {
