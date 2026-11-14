@@ -310,10 +310,48 @@
             </div>
           </div>
 
-          <!-- Model dropdown: one merged list — the agent's own CLI models
-               plus every model from agent-compatible connections (providers
-               and gateways). The route behind each model is resolved
-               automatically from the routing policy. -->
+          <!-- Connection Source dropdown: CLI default (the agent's own
+               login), official Provider connections, or Gateway/Proxy
+               connections. One route is active at a time. -->
+          <div class="relative">
+            <button id="ws-source-btn" class="ws-dropdown ws-dropdown-source" title="Connection source: the agent's own login, official providers, or gateways">
+              <i data-lucide="route" class="w-3.5 h-3.5 text-emerald-400"></i>
+              <span id="ws-source-label">Source: CLI</span>
+              <i data-lucide="chevron-down" class="w-3 h-3 text-slate-500"></i>
+            </button>
+            <div id="ws-source-menu" class="ws-menu hidden absolute left-0 top-full mt-1 z-50 w-72">
+              <div class="ws-menu-title">Connection source</div>
+              <div id="ws-source-options"></div>
+              <div class="px-2.5 pb-2 pt-1 mt-1 border-t border-[#1b2537]">
+                <button id="ws-source-manage" class="ws-menu-item w-full text-left" type="button" title="Open the AI Connections manager">
+                  <i data-lucide="settings-2" class="w-3.5 h-3.5 text-slate-500"></i>
+                  <span class="flex-1">Manage connections…</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Provider dropdown (CLI-derived providers, or the connection
+               list when a Provider/Gateway source is selected) -->
+          <div class="relative">
+            <button id="ws-provider-btn" class="ws-dropdown ws-dropdown-provider" title="Provider for this agent" disabled>
+              <i data-lucide="plug" class="w-3.5 h-3.5 text-amber-400"></i>
+              <span id="ws-provider-label">Provider: —</span>
+              <i data-lucide="chevron-down" class="w-3 h-3 text-slate-500"></i>
+            </button>
+            <div id="ws-provider-menu" class="ws-menu hidden absolute left-0 top-full mt-1 z-50 w-72">
+              <div class="ws-menu-title flex items-center justify-between">
+                <span>Providers from this agent</span>
+                <button id="ws-provider-refresh" class="ws-icon-btn" title="Reload providers and models">
+                  <i data-lucide="refresh-cw" class="w-3 h-3"></i>
+                </button>
+              </div>
+              <div id="ws-provider-options" class="max-h-56 overflow-y-auto"></div>
+              <div id="ws-provider-setup" class="hidden px-2.5 pb-2 pt-1 mt-1 border-t border-[#1b2537] space-y-1"></div>
+            </div>
+          </div>
+
+          <!-- Model dropdown (CLI-native list) -->
           <div class="relative">
             <button id="ws-model-btn" class="ws-dropdown ws-dropdown-model" title="Model for this CLI" disabled>
               <i data-lucide="cpu" class="w-3.5 h-3.5 text-purple-400"></i>
@@ -322,7 +360,7 @@
             </button>
             <div id="ws-model-menu" class="ws-menu hidden absolute left-0 top-full mt-1 z-50 w-80">
               <div class="ws-menu-title flex items-center justify-between">
-                <span>Models for this agent</span>
+                <span>Models from this CLI</span>
                 <button id="ws-model-refresh" class="ws-icon-btn" title="Refresh model list">
                   <i data-lucide="refresh-cw" class="w-3 h-3"></i>
                 </button>
@@ -332,12 +370,6 @@
                 <input id="ws-model-search" type="text" aria-label="Search workspace models" placeholder="Search models…" class="w-full bg-[#0b1226] border border-[#22304f] rounded-lg px-2 py-1 text-[11px] text-slate-200 placeholder-slate-600 outline-none focus:border-cyan-500/60">
               </div>
               <div id="ws-model-options" class="max-h-60 overflow-y-auto"></div>
-              <div class="px-2.5 pb-2 pt-1 mt-1 border-t border-[#1b2537]">
-                <button id="ws-model-manage" class="ws-menu-item w-full text-left" type="button" title="Open the AI Connections manager">
-                  <i data-lucide="settings-2" class="w-3.5 h-3.5 text-slate-500"></i>
-                  <span class="flex-1">Manage connections…</span>
-                </button>
-              </div>
             </div>
           </div>
 
@@ -4323,7 +4355,7 @@
   <script defer src="js/connections.js?v=20261114-connections"></script>
   <script defer src="js/jarvisDashboard.js?v=20261112-jarvis-home"></script>
   <script defer src="js/memoryGalaxy.js?v=20261112-galaxy1"></script>
-  <script defer src="js/workspace.js?v=20261114-connfix2"></script>
+  <script defer src="js/workspace.js?v=20261115-restore1"></script>
   <script defer src="js/vault.js?v=20261018-vault"></script>
   <script defer src="js/kanbanState.js?v=20261018-hermes3"></script>
   <script defer src="js/kanban.js?v=20261018-hermes3"></script>
