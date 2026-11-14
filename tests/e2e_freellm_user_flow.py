@@ -25,6 +25,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.error
 import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -136,6 +137,16 @@ def main():
     browser = Browser(args.chrome)
     temp_session = None
     try:
+        # Create an isolated session FIRST so the workspace auto-opens this
+        # one, never the user's newest real session. A model switch restarts
+        # the CLI, so the test must never touch real work.
+        session = rest.api("/api/project-sessions", method="POST", body={
+            "agent_id": "claude-code",
+            "project": "agent-skill-builder",
+            "title": "freellm-e2e-temp",
+        })
+        temp_session = session["session"]["id"]
+        print("        temp session:", temp_session)
         browser.navigate(base)
 
         # 1. Select the Claude Code agent (live CLI model discovery runs).
@@ -156,35 +167,47 @@ def main():
         check("agent selected", "Claude Code" in str(label), str(label))
         time.sleep(6)  # give the CLI model list time to load
 
-        # 2. Source menu -> Gateway / Proxy.
-        clicked = browser.wait_and_click(
-            "document.getElementById('ws-source-btn').click()",
-            "ws-source-options", "Gateway", timeout=20)
-        check("source: Gateway selected", str(clicked).startswith("clicked"), str(clicked))
-        time.sleep(0.4)
+        # 2. The workspace has exactly the two selectors: Agent + Model.
+        check("no Source dropdown (flattened UI)",
+              not browser.ev("!!document.getElementById('ws-source-btn')"))
+        check("no Provider dropdown (flattened UI)",
+              not browser.ev("!!document.getElementById('ws-provider-btn')"))
 
-        # 3. Connection dropdown -> FreeLLMAPI · claude-code. The connection
-        # list renders after the agent's model discovery resolves, so poll.
-        clicked = browser.wait_and_click(
-            "document.getElementById('ws-provider-btn').click()",
-            "ws-provider-options", "FreeLLMAPI", timeout=30)
-        check("connection: FreeLLMAPI row clickable", str(clicked).startswith("clicked"), str(clicked))
-        time.sleep(0.6)
+        # Make sure the workspace is on the isolated temp session before any
+        # model is picked (accept the restart confirmation if one appears).
+        browser.ev("window.confirm = function(){return true;};")
+        opened = browser.ev(
+            "(function(){var row=document.querySelector('#ws-sessions-list "
+            "[data-session-id=%s]');if(!row) return 'no-row';row.click();"
+            "return 'clicked';})()" % json.dumps(temp_session))
+        check("temp session row opens", opened == "clicked", str(opened))
+        time.sleep(1.0)
+        active_session = browser.ev(
+            "window.Workspace && window.Workspace._state ? "
+            "window.Workspace._state.sessionId : null")
+        check("workspace is on the temp session",
+              active_session == temp_session, str(active_session))
 
-        # 4. Model menu (auto-opened) -> click the CONNECTION model row
-        # (the "Via FreeLLMAPI" section, not the agent's own CLI rows).
+        # 3. Model dropdown: one merged list, grouped by source category.
         # The configured FreeLLMAPI model is read dynamically so the flow
-        # tracks whatever connection the user currently has saved.
+        # tracks whatever endpoint the user currently has saved.
         fl = rest.api("/api/freellmapi?agent_id=claude-code")
         configured_model = ((fl.get("settings") or {}).get("model") or "").strip()
         check("a FreeLLMAPI model is configured", bool(configured_model),
               json.dumps(fl)[:150])
         conn_model_id = "conn:freellmapi:claude-code:" + configured_model
-        model_menu_open = browser.ev(
-            "!document.getElementById('ws-model-menu').classList.contains('hidden')")
-        check("model menu auto-opened after picking the connection", model_menu_open)
-        # The "Via FreeLLMAPI" section renders before the agent's own rows,
-        # so the FIRST row carrying the model id is the connection model.
+        deadline = time.time() + 60
+        menu_text = ""
+        while time.time() < deadline:
+            browser.ev("document.getElementById('ws-model-btn').click()")
+            time.sleep(0.5)
+            menu_text = browser.ev(
+                "(function(){var h=document.getElementById('ws-model-options');"
+                "return h ? h.innerText : '';})()") or ""
+            if "VIA FREELLMAPI" in str(menu_text).upper():
+                break
+        check("model menu lists the Via FreeLLMAPI section",
+              "VIA FREELLMAPI" in str(menu_text).upper(), str(menu_text)[:200])
         deadline = time.time() + 20
         clicked = "not-found:never-appeared"
         while time.time() < deadline:
@@ -195,29 +218,40 @@ def main():
                 "for(var i=0;i<rows.length;i++){"
                 "if(rows[i].innerText.indexOf(%s)!==-1){rows[i].click();"
                 "return 'clicked:'+rows[i].innerText.trim();}}"
-                "return 'not-found:'+h.innerText.slice(0,120);})()" % json.dumps(configured_model))
+                "return 'not-found:'+h.innerText.slice(0,160);})()" % json.dumps(configured_model))
             if str(clicked).startswith("clicked"):
                 break
             time.sleep(0.5)
-        check("connection model row clickable", str(clicked).startswith("clicked"), str(clicked))
+        check("saved FreeLLMAPI model row clickable", str(clicked).startswith("clicked"), str(clicked))
         time.sleep(0.5)
 
-        # 5. The pick must resolve to the model name (no raw conn: id shown).
-        model_label = browser.ev("document.getElementById('ws-model-label').textContent")
-        check("model label resolves the connection model",
-              configured_model.split("/")[-1] in str(model_label), str(model_label))
+        # 4. The pick must resolve to the model name (no raw conn: id shown).
+        deadline = time.time() + 15
+        model_label = ""
+        while time.time() < deadline:
+            model_label = browser.ev("document.getElementById('ws-model-label').textContent") or ""
+            if configured_model in str(model_label):
+                break
+            time.sleep(0.4)
+        check("model label resolves the FreeLLMAPI model",
+              configured_model in str(model_label), str(model_label))
 
-        # 6. The exact backend call the workspace makes on a session.
-        session = rest.api("/api/project-sessions", method="POST", body={
-            "agent_id": "claude-code",
-            "project": "agent-skill-builder",
-            "title": "freellm-e2e-temp",
-        })
-        temp_session = session["session"]["id"]
-        print("        temp session:", temp_session)
-        switch = rest.api("/api/project-sessions/%s/model" % temp_session,
-                          method="POST",
-                          body={"model_id": conn_model_id})
+        # 5. The exact backend call the workspace makes on the temp session.
+        # A running CLI returns 409 with a warning; the workspace asks the
+        # user, then retries with confirm:true. Mirror that here.
+        def switch_model(model_id):
+            try:
+                return rest.api("/api/project-sessions/%s/model" % temp_session,
+                                method="POST", body={"model_id": model_id})
+            except urllib.error.HTTPError as exc:
+                payload = json.loads(exc.read().decode() or "{}")
+                if exc.code == 409 and payload.get("warning"):
+                    return rest.api("/api/project-sessions/%s/model" % temp_session,
+                                    method="POST",
+                                    body={"model_id": model_id, "confirm": True})
+                raise
+
+        switch = switch_model(conn_model_id)
         check("model switch (connection id) succeeds",
               switch.get("success") is True, json.dumps(switch)[:200])
         stored = rest.api("/api/project-sessions/" + temp_session)
@@ -225,8 +259,7 @@ def main():
               stored.get("session", {}).get("model_id") == conn_model_id,
               json.dumps(stored.get("session", {}))[:160])
         # The plain id keeps working too (legacy path).
-        switch2 = rest.api("/api/project-sessions/%s/model" % temp_session,
-                           method="POST", body={"model_id": configured_model})
+        switch2 = switch_model(configured_model)
         check("model switch (plain id) still succeeds",
               switch2.get("success") is True, json.dumps(switch2)[:200])
     except Exception as exc:

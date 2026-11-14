@@ -1,8 +1,10 @@
 # Unified AI Connection Source & Free/Paid Routing — Implementation Report
 
-> Date: 2026-11-14 · Companion to `docs/AI_CONNECTION_ARCHITECTURE_AUDIT.md`
-> (Phase 1 audit). This report covers Phases 2–9: what was implemented,
-> what is tested, what is partial, and what remains.
+> Date: 2026-11-14 · Updated 2026-11-15 for the flattened Agent + Model
+> workspace UI and the restored free FreeLLMAPI setup.
+> Companion to `docs/AI_CONNECTION_ARCHITECTURE_AUDIT.md` (Phase 1 audit).
+> This report covers Phases 2–9: what was implemented, what is tested,
+> what is partial, and what remains.
 
 ---
 
@@ -21,8 +23,8 @@ everything that existed:
 
 ```
 Workspace UI
-  Agent ▸ Connection Source (CLI | Provider | Gateway) ▸ Connection ▸ Model
-        │                     (one route active at a time)
+  Agent ▸ Model   (one merged list; picking a model picks its route)
+        │
         ▼
 app.py  /api/connections*  /api/compatibility*  /api/routing*
         /api/agents/<id>/models  (+ additive connection fields)
@@ -30,7 +32,7 @@ app.py  /api/connections*  /api/compatibility*  /api/routing*
         /api/deepseek/...  (routes in-process chat via connections)
         │
         ▼
-backend/connections.py        Connection Source registry (provider|gateway),
+backend/connections.py        Connection registry (provider|gateway),
                               presets, 0600 store, live health probes
 backend/model_catalog.py      Unified model registry: conn:<id>:<native>
                               ids, discovery, aliases, manual models, staleness
@@ -50,9 +52,10 @@ DeepSeek native Web UI, Hermes orchestrator, Studio.
 
 Key architectural principles implemented:
 
-- **Provider and Gateway are separate internal connection types but
-  alternative choices in the UI.** Exactly one source is active at a time;
-  nothing forces configuration of both.
+- **Provider and Gateway remain separate internal connection types, but the
+  user does not pick a source.** The Model dropdown merges every compatible
+  route into one list, grouped by category; selecting a model selects its
+  route. Exactly one route is active per session.
 - **Model identity is namespaced** (`conn:<connection_id>:<native_id>`) so
   gateway ids can never collide with CLI ids while the runtime always gets
   its native id verbatim.
@@ -78,7 +81,9 @@ Key architectural principles implemented:
 | `tests/test_routing.py` | 12 tests: modes, overrides, paid authorization, fallback plans |
 | `tests/test_execution_router.py` | 13 tests: env injection, FreeLLMAPI unchanged, native ids, DeepSeek override |
 | `tests/test_connection_routes.py` | 9 HTTP tests: gating, CRUD, test/discover, compatibility, routing endpoints |
-| `tests/e2e_connections_smoke.py` | 15 browser checks: source dropdown, connection list, manager view, modal, zero console errors |
+| `tests/e2e_connections_smoke.py` | Real-Chrome checks: Agent + Model toolbar (no Source/Provider), Manage connections, AI Connections manager view, modal, save/remove round-trip, zero console errors |
+| `tests/e2e_freellm_user_flow.py` | Real-Chrome end-to-end: flattened Model list → Via FreeLLMAPI saved model → isolated temp-session switch |
+| `tests/e2e_unified_models.py` | Real-Chrome + mock Anthropic gateway: gateway models appear in the merged dropdown with chips, native ids in tooltips, and a working backend switch |
 | `docs/AI_CONNECTION_ARCHITECTURE_AUDIT.md` | Phase 1 audit deliverable |
 
 ## 3. Files modified
@@ -90,8 +95,8 @@ Key architectural principles implemented:
 | `backend/session_manager.py` | Connection-scoped ids translated to native ids for CLI argv/config/TUI input; `RoutingError` fails loudly instead of falling back; `get_or_create` refreshes stale `model_id`/`cli_session_id` (audit bug #5) |
 | `backend/deepseek_harness.py` | Thread-local `request_override` context (endpoint/key/model per request) + `record_as` persistence; zero behaviour change without an override |
 | `app.py` | New route sections (connections/compatibility/routing); extended `/api/agents/<id>/models` and model-switch validation; DeepSeek chat routing hook; **audit fixes**: `/api/agents/install` NameError, `/api/agents/launch` escaped-`\n` launcher script |
-| `index.html` | Connection Source dropdown in the workspace toolbar; AI Connections sidebar entry + manager view; script/CSS wiring |
-| `js/workspace.js` | Source selector state + rendering, dual-mode provider dropdown (CLI providers ↔ connections), unified model menu (connection models + CLI models), connection-scoped selection persistence per window/agent |
+| `index.html` | Workspace toolbar reduced to Agent + Model (no Source/Provider dropdowns); Manage connections entry in the model menu; AI Connections sidebar entry + manager view; script/CSS wiring |
+| `js/workspace.js` | Flattened unified model renderer: merges FreeLLMAPI, provider/gateway and CLI models into one grouped list; route-labelled selection; connection-scoped ids persist per window |
 | `js/app.js` | `connections` view registration |
 | `README.md` | AI Connections feature summary |
 | `STATE.md` | Architecture state section |
@@ -246,20 +251,35 @@ are untouched** — the router only feeds configuration into them.
 
 ## 12. Workspace UI changes
 
-- New **Connection Source** dropdown (Agent → Source → Connection →
-  Model), exactly per the spec hierarchy. Options: *CLI default* (the
-  zero-config prior behaviour), *Provider*, *Gateway / Proxy* — loaded
-  dynamically from the registry with per-agent compatibility annotations.
-- The Provider dropdown becomes the **Connection** dropdown when a
-  Provider/Gateway source is active (status dots, pricing, model counts,
-  compatibility reasons, disabled rows for incompatible connections,
-  "Manage connections…" jump). In CLI source it is byte-identical to
-  before.
-- The Model menu in connection mode sections **connection models**
-  (pricing/context/capability chips, honest empty states, stale errors)
-  above **the agent's own models**; search filters both.
-- Selections persist per agent (localStorage `dennis.workspace.source`)
-  and per window.
+The workspace toolbar has exactly two selectors: **Agent** and **Model**.
+There is no Source, Connection or Provider dropdown. The Model menu is one
+merged, searchable list grouped by route category, in this order:
+
+1. **Via FreeLLMAPI** — the saved FreeLLMAPI endpoint model plus the
+   catalog models that belong to that endpoint (`endpoint_match: true`).
+   Catalog rows for other providers' endpoints are hidden: they cannot
+   work against the saved endpoint, and listing them would imply they can.
+2. **Via Provider · &lt;name&gt;** — models discovered on compatible API
+   provider connections.
+3. **Via Gateway · &lt;name&gt;** — models discovered on compatible
+   gateway/proxy connections (derived FreeLLMAPI connections are skipped
+   so they never duplicate section 1).
+4. **Agent's own models (CLI login)** — the CLI-native list, unchanged.
+
+Rows show the human display name; the native model id (and endpoint/
+compatibility reason) stays in the row tooltip. Chips show honest facts
+only: pricing (`free` / `paid` / `local`; unknown is never shown as free),
+context window, `tools`/`vision` when the catalog reports support, and a
+saved/default badge. Incompatible or unavailable rows are disabled with a
+reason instead of silently disappearing.
+
+Picking a model carries its route: the model id itself (native or
+`conn:<connection>:<native>`) identifies the connection, and the backend
+resolves the concrete endpoint at launch. Picking a FreeLLMAPI catalog
+model also saves it as the agent's model, so the next launch uses it even
+without a live session. A **Manage connections…** entry at the bottom of
+the Model menu opens the AI Connections manager.
+
 - New **AI Connections** manager view: provider/gateway panes, cards with
   real health dots, Test / Models (discover, add/remove, aliases) / Edit /
   Remove, the add-connection modal with presets, and the routing
@@ -290,7 +310,7 @@ are untouched** — the router only feeds configuration into them.
 
 | Suite | Result | Status |
 |---|---|---|
-| Full Python suite (`unittest discover`) | **678 tests, OK** (was 610 before this work) | Automated, executed |
+| Full Python suite (`unittest discover`) | **759 tests, OK** (682 on the connection base; 77 are unrelated Ads/Cosmos tests currently in the working tree) | Automated, executed |
 | New `test_connections.py` | 13/13 pass | Automated, executed |
 | New `test_model_catalog.py` | 7/7 pass | Automated, executed |
 | New `test_compatibility.py` | 11/11 pass | Automated, executed |
@@ -298,8 +318,11 @@ are untouched** — the router only feeds configuration into them.
 | New `test_execution_router.py` | 13/13 pass | Automated, executed |
 | New `test_connection_routes.py` (real HTTP server) | 9/9 pass | Integration, executed |
 | JS suites (`node --test`) | 5/5 files pass | Automated, executed |
-| `tests/e2e_connections_smoke.py` (real Chrome via CDP) | 15/15 checks pass | Integration (manual-grade), executed |
-| Live endpoint tests against real providers | Not run — no provider credentials in this environment | **Blocked by missing credentials** (fake-upstream HTTP servers used instead) |
+| `tests/e2e_connections_smoke.py` (real Chrome via CDP) | 19/19 checks pass | Integration (manual-grade), executed |
+| `tests/e2e_freellm_user_flow.py` (real Chrome, isolated temp session) | 13/13 checks pass | Integration (manual-grade), executed |
+| `tests/e2e_unified_models.py` (real Chrome + mock Anthropic gateway) | 16/16 checks pass | Integration (manual-grade), executed |
+| Live endpoint tests against real paid providers | Not run — no paid provider credentials in this environment | **Blocked by missing credentials** (fake-upstream HTTP servers used instead) |
+| Real FreeLLMAPI call (`claude -p`, injected env) | exit 0, stdout `OK`, no unrecognized-model warning | Executed against the live free tier |
 | Docker sandbox execution of connection models | Not executed (Docker daemon not running here) | Blocked by environment |
 | `tests/e2e_workspace.py` | Fails on stale assertions (`header-nav-tab` absent from HEAD, registry-card count drift) | **Pre-existing**, verified unrelated: the failing selectors do not exist in the last commit, so the drift predates this work; superseded for this feature by `e2e_connections_smoke.py` |
 
@@ -312,7 +335,8 @@ frontend asset serving.
 
 ## 15. Regression test results
 
-- All 610 pre-existing tests still pass (suite now 678).
+- All pre-existing tests still pass (682 on this feature's base; 759 in
+  the current working tree including unrelated Ads/Cosmos tests).
 - FreeLLMAPI route tests, DeepSeek harness/route tests, session store
   tests, server security tests: all green.
 - `/api/agents/<id>/models` verified returning identical legacy fields

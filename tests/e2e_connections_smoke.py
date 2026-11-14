@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Targeted browser smoke test for the unified connection UI (CDP, Chrome).
 
-Validates the new workspace Connection Source dropdown and the AI
+Validates the flattened workspace (Agent + Model only) and the AI
 Connections manager view against a live server, with zero console errors:
 
-  1. page loads; workspace toolbar shows the source dropdown
-  2. source menu opens with the three routes (CLI / Provider / Gateway)
-  3. selecting Gateway switches the provider menu to connection guidance
-  4. back to CLI source restores the CLI provider flow
+  1. page loads; workspace toolbar shows Agent + Model only
+  2. no Source/Provider dropdowns (flattened UI)
+  3. the merged model menu carries the Manage connections entry
+  4. that entry opens the AI Connections view
   5. AI Connections view renders panes + routing preferences
   6. add-connection modal opens with gateway presets
   7. no uncaught page errors during the whole run
@@ -146,8 +146,13 @@ def main():
 def run(s, base):
     s.navigate(base)
 
-    s.check("workspace toolbar source dropdown present",
-            s.ev("!!document.getElementById('ws-source-btn')"))
+    s.check("workspace toolbar has Agent + Model",
+            s.ev("!!document.getElementById('ws-agent-btn') && "
+                 "!!document.getElementById('ws-model-btn')"))
+    s.check("no Source dropdown (flattened UI)",
+            not s.ev("!!document.getElementById('ws-source-btn')"))
+    s.check("no Provider dropdown (flattened UI)",
+            not s.ev("!!document.getElementById('ws-provider-btn')"))
     s.check("connections manager view present",
             s.ev("!!document.getElementById('connections-view')"))
     s.check("sidebar nav registered",
@@ -157,42 +162,13 @@ def run(s, base):
     s.ev("window.switchMainView('workspace')")
     time.sleep(0.6)
 
-    s.ev("document.getElementById('ws-source-btn').click()")
-    time.sleep(0.4)
-    s.check("source menu opens",
-            s.ev("!document.getElementById('ws-source-menu').classList.contains('hidden')"))
-    options = s.ev(
-        "(function(){var h=document.getElementById('ws-source-options');"
-        "return h ? h.querySelectorAll('.ws-menu-item').length : -1;})()")
-    s.check("source menu lists the three routes", options == 3, "found %s" % options)
-
-    # Select Gateway source -> the provider menu becomes the connections list.
-    s.ev("(function(){var b=document.getElementById('ws-source-options');"
-         "if(!b) return; var rows=b.querySelectorAll('.ws-menu-item');"
-         "if(rows[2]) rows[2].click();})()")
-    time.sleep(0.5)
-    label = s.ev("document.getElementById('ws-source-label').textContent")
-    s.check("gateway source selected", "Gateway" in str(label), str(label))
-    s.ev("document.getElementById('ws-provider-btn').click()")
-    time.sleep(0.5)
-    guidance = s.ev(
-        "(function(){var h=document.getElementById('ws-provider-options');"
-        "return h ? h.textContent : '';})()")
-    s.check("connection list or Add-connections guidance shows",
-            ("No gateway connections" in str(guidance))
-            or ("Manage connections" in str(guidance))
-            or (str(guidance).strip() != ""),
-            str(guidance)[:120])
-
-    # Back to CLI source: the provider menu returns to CLI providers.
-    s.ev("document.getElementById('ws-source-btn').click()")
-    time.sleep(0.3)
-    s.ev("(function(){var b=document.getElementById('ws-source-options');"
-         "if(!b) return; var rows=b.querySelectorAll('.ws-menu-item');"
-         "if(rows[0]) rows[0].click();})()")
-    time.sleep(0.4)
-    label = s.ev("document.getElementById('ws-source-label').textContent")
-    s.check("back to CLI source", "CLI" in str(label), str(label))
+    # The merged model menu carries the manager entry (no Source menu needed).
+    s.check("model menu has Manage connections",
+            s.ev("!!document.getElementById('ws-model-manage')"))
+    s.ev("document.getElementById('ws-model-manage').click()")
+    time.sleep(1.0)
+    s.check("Manage connections opens the connections view",
+            s.ev("!document.getElementById('connections-view').classList.contains('hidden')"))
 
     # AI Connections manager view — via the actual sidebar button (regression:
     # initSidebar() routes clicks by label; 'AI Connections' must open here).

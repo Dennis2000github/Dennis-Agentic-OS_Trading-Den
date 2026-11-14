@@ -179,8 +179,10 @@
     w.modelQuery = state.modelQuery || "";
     w.providerId = state.providerId || null;
     w.providerLocked = !!state.providerLocked;
-    w.sourceId = state.sourceId || "cli";
-    w.connectionId = state.connectionId || null;
+    // Kept for older stored windows, but the flattened UI never sets a
+    // non-CLI source: the picked model id already identifies its route.
+    w.sourceId = "cli";
+    w.connectionId = null;
     var current = state.models && (state.models.current || state.modelId);
     w.modelLabel = current ? (modelName(current) || "") : "";
     if (state.screen) {
@@ -211,8 +213,10 @@
     state.modelQuery = w.modelQuery || "";
     state.providerId = w.providerId || null;
     state.providerLocked = !!w.providerLocked;
-    state.sourceId = w.sourceId || "cli";
-    state.connectionId = w.connectionId || null;
+    // The merged Model dropdown has no source/connection mode: a window's
+    // model id (conn-scoped or native) is the only route state it needs.
+    state.sourceId = "cli";
+    state.connectionId = null;
     state.connectionSources = { provider: [], gateway: [] };
     state.connectionModels = [];
     state.providers = [];
@@ -1524,10 +1528,10 @@
     state.providerSetup = null;
     state.models = { status: "idle", items: [], error: null, current: null, liveSwitch: false, forAgent: null };
     state.panel = PanelState.agentSelected(state.panel || PanelState.defaultPanel());
-    // Restore this agent's remembered connection route (source + connection).
-    var rememberedSource = recallSource(id) || { source: "cli", connectionId: null };
-    state.sourceId = rememberedSource.source || "cli";
-    state.connectionId = rememberedSource.connectionId || null;
+    // One merged model list: no source/connection route is remembered or
+    // preselected here. Picking a model carries its route with it.
+    state.sourceId = "cli";
+    state.connectionId = null;
     state.connectionSources = { provider: [], gateway: [] };
     state.connectionModels = [];
     var win = currentWindow();
@@ -1872,27 +1876,124 @@
     return name;
   }
 
+  /* One merged Model dropdown: the agent's own CLI models plus every model
+   * discovered on compatible connections, grouped by route category
+   * (FreeLLMAPI / Provider / Gateway / CLI login). There is no Source picker:
+   * picking a model selects its route, and the backend resolves that route to
+   * the concrete endpoint at launch. Paid routes are labelled; unknown pricing
+   * is never treated as free, and paid fallback still needs explicit
+   * authorization in the routing policy. */
+  function modelMatches(m, terms) {
+    if (!terms || !terms.length) return true;
+    var hay = [m.name || m.id, m.id, m.native_id || "", m.description || "",
+               m.provider || "", m.connection_name || ""].join(" ").toLowerCase();
+    return terms.every(function (t) { return hay.indexOf(t) !== -1; });
+  }
+
+  function modelSectionTitle(text, tone) {
+    var el = document.createElement("div");
+    el.className = "px-3 pt-2 pb-1 text-[9.5px] font-mono uppercase tracking-wider " +
+      (tone || "text-emerald-400/80");
+    el.textContent = text;
+    return el;
+  }
+
+  function modelChip(text, tone) {
+    return '<span class="text-[9px] font-mono ' + (tone || "text-slate-500") +
+      ' shrink-0">' + esc(text) + "</span>";
+  }
+
+  function connectionModelsFor(connectionId) {
+    var seen = {};
+    return (state.connectionModels || []).filter(function (m) {
+      if (!m || m.connection_id !== connectionId) return false;
+      var key = m.id || m.native_id;
+      if (seen[key]) return false;
+      seen[key] = true;
+      return true;
+    });
+  }
+
+  /* Derived FreeLLMAPI connections duplicate the native FreeLLMAPI section
+   * (saved endpoint + provider catalog), so they are never repeated. */
+  function isDerivedFreeLLM(conn) {
+    return !!(conn && (conn.derived || String(conn.id || "").indexOf("freellmapi:") === 0));
+  }
+
+  function addModelRow(host, model, opts) {
+    opts = opts || {};
+    var id = model.id;
+    if (!id) return null;
+    var isCurrent = (state.models.current || state.modelId) === id;
+    var usable = opts.usable !== false && model.available !== false;
+    var btn = document.createElement("button");
+    btn.className = "ws-menu-item" + (isCurrent ? " ws-menu-item-active" : "") +
+      (usable ? "" : " ws-menu-item-disabled");
+    var chips = [];
+    if (opts.pricing && opts.pricing !== "unknown") {
+      var priceTone = (opts.pricing === "free" || opts.pricing === "free_tier" ||
+                       opts.pricing === "local") ? "text-emerald-400/80" : "text-amber-400/80";
+      chips.push(modelChip(String(opts.pricing).replace(/_/g, " "), priceTone));
+    }
+    if (opts.context) chips.push(modelChip("ctx " + humanCount(opts.context)));
+    var caps = opts.caps || {};
+    if (caps.tools === "supported") chips.push(modelChip("tools"));
+    if (caps.image === "supported") chips.push(modelChip("vision"));
+    (opts.chips || []).forEach(function (c) { chips.push(modelChip(c)); });
+    if (opts.badge) chips.push(modelChip(opts.badge, "text-emerald-400/80"));
+    if (model.is_default && !opts.skipDefault) {
+      chips.push(modelChip("default", "text-cyan-400"));
+    }
+    btn.innerHTML =
+      '<span class="flex-1 text-left truncate">' +
+        esc(opts.label || model.name || model.native_id || id) + "</span>" +
+      chips.join("") +
+      (usable ? "" : '<span class="text-[10px] text-amber-400 shrink-0">' +
+        esc(opts.reason || model.reason || "unavailable") + "</span>");
+    var title = opts.title || "";
+    if (title) btn.title = title;
+    if (usable) btn.addEventListener("click", function () { selectModel(id); closeMenus(); });
+    host.appendChild(btn);
+    return btn;
+  }
+
+  function modelRouteLabel(id) {
+    if (!id) return "";
+    var cm = (state.connectionModels || []).filter(function (x) { return x.id === id; })[0];
+    if (cm) {
+      var conn = connectionById(cm.connection_id);
+      var route = conn ? conn.name : (cm.connection_name || cm.connection_id);
+      return (route ? route + " \u00b7 " : "") + (cm.name || cm.native_id || id);
+    }
+    var m = (state.models.items || []).filter(function (x) { return x.id === id; })[0];
+    if (m) return (m.provider ? m.provider + " \u00b7 " : "") + (m.name || id);
+    return modelName(id) || id;
+  }
+
   function renderModels() {
-    renderProviders();
-    updateProviderLabel();
-    updateProviderAvailability();
     var host = $("ws-model-options");
     var currentEl = $("ws-model-current");
     var searchWrap = $("ws-model-search-wrap");
     var searchInput = $("ws-model-search");
     if (!host) return;
     host.innerHTML = "";
+    var terms = (state.modelQuery || "").toLowerCase().trim().split(/\s+/).filter(Boolean);
+    var hasAny = ((state.models.items || []).length +
+                  (state.connectionModels || []).length) > 0;
     if (searchWrap) {
-      searchWrap.classList.toggle("hidden", !(state.models.status === "loaded" && state.models.items.length > 0));
+      searchWrap.classList.toggle("hidden",
+        !state.agentId || state.models.status === "loading" || !hasAny);
     }
-    if (searchInput && searchInput.value !== state.modelQuery) searchInput.value = state.modelQuery;
+    if (searchInput && searchInput.value !== state.modelQuery) {
+      searchInput.value = state.modelQuery;
+    }
 
     if (!state.agentId) {
       host.innerHTML = '<div class="px-3 py-2 text-[11px] text-slate-500">Select an agent first.</div>';
       if (currentEl) currentEl.textContent = "";
       return;
     }
-    if (state.models.status === "loading") {
+    if (state.models.status === "loading" || state.models.status === "idle") {
       host.innerHTML = '<div class="px-3 py-2 text-[11px] text-slate-500">Loading models\u2026</div>';
       if (currentEl) currentEl.textContent = "";
       return;
@@ -1912,135 +2013,124 @@
     }
     if (currentEl) {
       var current = state.models.current || state.modelId;
-      var currentModel = state.models.items.filter(function (x) { return x.id === current; })[0];
-      var currentLabel = current ? ((currentModel && currentModel.provider ? currentModel.provider + " \u00b7 " : "") + (modelName(current) || current)) : "";
+      var currentLabel = current ? modelRouteLabel(current) : "";
       currentEl.textContent = currentLabel ? ("Current: " + currentLabel) : "";
       currentEl.classList.toggle("hidden", !current);
     }
-    if (state.models.status === "empty") {
-      // In connection mode the connection's models are still pickable even
-      // when the CLI itself reported no models.
-      if (state.sourceId !== "cli" && state.connectionId) {
-        renderConnectionModels(host, []);
-        return;
-      }
-      host.innerHTML = '<div class="px-3 py-2 text-[11px] text-slate-500">This CLI reported no models.</div>';
-      return;
-    }
-    var terms = (state.modelQuery || "").toLowerCase().trim().split(/\s+/).filter(Boolean);
-    var connectionMode = state.sourceId !== "cli" && state.connectionId;
-    if (connectionMode) {
-      // Connection models first, then the agent's own CLI models, both
-      // honouring the search filter. One renderer, one early return.
-      renderConnectionModels(host, terms);
-      return;
-    }
-    var shown = state.models.items.filter(function (m) {
-      if (state.providerId && m.provider !== state.providerId) return false;
-      if (!terms.length) return true;
-      var hay = [m.name || m.id, m.id, m.description || "", m.provider || ""].join(" ").toLowerCase();
-      return terms.every(function (t) { return hay.indexOf(t) !== -1; });
-    });
-    if (!shown.length) {
-      if (state.providerId === CUSTOM_PROVIDER_ID &&
-          !(state.customProvider && state.customProvider.configured)) {
-        host.innerHTML = '<div class="px-3 py-2 text-[11px] text-slate-500">' +
-          "No model yet \u2014 connect the Custom provider in the Provider menu.</div>";
-      } else {
-        host.innerHTML = '<div class="px-3 py-2 text-[11px] text-slate-500">No matching model.</div>';
-      }
-      return;
-    }
-    shown.forEach(function (m) {
-      var isCurrent = (state.models.current || state.modelId) === m.id;
-      var btn = document.createElement("button");
-      btn.className = "ws-menu-item" + (isCurrent ? " ws-menu-item-active" : "") +
-        (m.available ? "" : " ws-menu-item-disabled");
-      btn.innerHTML =
-        '<span class="flex-1 text-left truncate">' + esc(modelDisplay(m)) + "</span>" +
-        (m.is_default ? '<span class="text-[9px] font-mono text-cyan-400 shrink-0">default</span>' : "") +
-        (m.available ? "" : '<span class="text-[10px] text-amber-400 shrink-0">' +
-          esc(m.reason || "unavailable") + "</span>");
-      if (m.description) btn.title = m.description;
-      if (m.available) btn.addEventListener("click", function () { selectModel(m.id); closeMenus(); });
-      host.appendChild(btn);
-    });
-  }
 
-  /* Connection models: unified records discovered through the selected
-   * connection, rendered above the CLI's own models. Rows carry real
-   * compatibility + availability; unknown/failed discovery is honest. */
-  function renderConnectionModels(host, terms) {
-    var conn = connectionById(state.connectionId);
-    var compat = conn ? conn.compatibility : "unknown";
-    var models = (state.connectionModels || []).filter(function (m) {
-      return m.connection_id === state.connectionId;
+    // 1. FreeLLMAPI: the saved endpoint model + every switchable catalog
+    //    model for this agent (both arrive as ordinary model records).
+    var freeModels = [];
+    var cliModels = [];
+    (state.models.items || []).forEach(function (m) {
+      if (!m || !modelMatches(m, terms)) return;
+      if (m.provider === "FreeLLMAPI" || (m.freellm && m.freellm.catalog)) {
+        // A catalog row from a different provider's endpoint cannot work on
+        // the saved FreeLLMAPI endpoint; listing it would imply it can.
+        // Only the saved endpoint's own models are offered.
+        if (m.freellm && m.freellm.catalog && !m.freellm.endpoint_match) return;
+        freeModels.push(m);
+      } else {
+        cliModels.push(m);
+      }
     });
-    if (terms && terms.length) {
-      models = models.filter(function (m) {
-        var hay = [m.name || "", m.native_id || "", m.id || ""].join(" ").toLowerCase();
-        return terms.every(function (t) { return hay.indexOf(t) !== -1; });
+    freeModels.sort(function (a, b) {
+      return (b.is_default ? 1 : 0) - (a.is_default ? 1 : 0);
+    });
+
+    // 2. Explicit Provider / Gateway connections, compatible ones only.
+    var groups = [];
+    (state.connectionSources.provider || [])
+      .concat(state.connectionSources.gateway || [])
+      .forEach(function (conn) {
+        if (!conn || isDerivedFreeLLM(conn)) return;
+        var models = connectionModelsFor(conn.id).filter(function (m) {
+          return modelMatches(m, terms);
+        });
+        if (models.length) groups.push({ conn: conn, models: models });
+      });
+    groups.sort(function (a, b) {
+      var ak = a.conn.type === "provider" ? 0 : 1;
+      var bk = b.conn.type === "provider" ? 0 : 1;
+      if (ak !== bk) return ak - bk;
+      return String(a.conn.name || "").localeCompare(String(b.conn.name || ""));
+    });
+
+    var rendered = 0;
+    if (freeModels.length) {
+      host.appendChild(modelSectionTitle(
+        "Via FreeLLMAPI" + (state.agentId ? " \u00b7 " + state.agentId : "")));
+      freeModels.forEach(function (m) {
+        var cat = m.freellm || null;
+        var title = m.description || "";
+        if (cat && cat.rate_limit) title = (title ? title + "\n" : "") + "Rate limit: " + cat.rate_limit;
+        if (cat && cat.base_url) title = (title ? title + "\n" : "") + cat.base_url;
+        if (cat && !cat.endpoint_match) {
+          title = (title ? title + "\n" : "") +
+            "Switching saves this model with your current FreeLLMAPI endpoint; " +
+            "it is documented for " + (cat.provider_name || "another provider") + ".";
+        }
+        addModelRow(host, m, {
+          label: m.name || m.id,
+          badge: cat ? (cat.catalog ? (cat.provider_name || "catalog") : "saved") : "saved",
+          skipDefault: true,
+          chips: cat && cat.context ? ["ctx " + cat.context] : [],
+          title: title,
+          reason: m.reason,
+          usable: m.available !== false,
+        });
+        rendered++;
       });
     }
-    var heading = document.createElement("div");
-    heading.className = "px-3 pt-1.5 pb-1 text-[9.5px] font-mono uppercase tracking-wider text-emerald-400/80";
-    heading.textContent = "Via " + (conn ? conn.name : "connection") +
-      (models.length ? " \u00b7 " + models.length : "");
-    host.appendChild(heading);
-    if (!models.length) {
-      var empty = document.createElement("div");
-      empty.className = "px-3 py-1 text-[10.5px] text-slate-500";
-      empty.textContent = (state.models.connectionError || "") ||
-        "No models discovered for this connection yet. Use the refresh button, or add model ids in AI Connections.";
-      host.appendChild(empty);
+
+    groups.forEach(function (group) {
+      var c = group.conn;
+      var compatible = c.compatibility !== "incompatible";
+      host.appendChild(modelSectionTitle(
+        (c.type === "provider" ? "Via Provider" : "Via Gateway") + " \u00b7 " +
+          (c.name || c.id) + " \u00b7 " + group.models.length,
+        compatible ? "text-emerald-400/80" : "text-amber-400/80"));
+      group.models.forEach(function (m) {
+        addModelRow(host, m, {
+          label: m.name || m.native_id,
+          pricing: m.pricing,
+          context: m.context_window,
+          caps: m.capabilities,
+          badge: compatible ? null : String(c.compatibility || "unknown").replace(/_/g, " "),
+          reason: m.reason,
+          usable: compatible && m.available !== false,
+          title: [m.native_id || "", c.base_url || "", c.compatibility_reason || ""]
+            .filter(Boolean).join(" \u00b7 "),
+        });
+        rendered++;
+      });
+    });
+
+    // 3. The agent's own CLI login models, always reachable.
+    if (cliModels.length) {
+      host.appendChild(modelSectionTitle("Agent's own models (CLI login)", "text-slate-600"));
+      cliModels.forEach(function (m) {
+        addModelRow(host, m, {
+          label: modelDisplay(m),
+          reason: m.reason,
+          usable: m.available !== false,
+          title: m.description || "",
+        });
+        rendered++;
+      });
     }
-    models.forEach(function (m) {
-      var isCurrent = (state.models.current || state.modelId) === m.id;
-      var usable = compat !== "incompatible" && m.available !== false;
-      var btn = document.createElement("button");
-      btn.className = "ws-menu-item" + (isCurrent ? " ws-menu-item-active" : "") +
-        (usable ? "" : " ws-menu-item-disabled");
-      var caps = m.capabilities || {};
-      var chips = [];
-      if (m.pricing && m.pricing !== "unknown") chips.push(m.pricing.replace("_", " "));
-      if (m.context_window) chips.push("ctx " + humanCount(m.context_window));
-      if (caps.tools === "supported") chips.push("tools");
-      if (caps.image === "supported") chips.push("vision");
-      btn.innerHTML =
-        '<span class="flex-1 text-left truncate">' + esc(m.name || m.native_id) + "</span>" +
-        chips.map(function (c) {
-          return '<span class="text-[9px] font-mono text-slate-500 shrink-0">' + esc(c) + "</span>";
-        }).join("") +
-        (usable ? "" : '<span class="text-[10px] text-amber-400 shrink-0">' +
-          esc(compat === "incompatible" ? "incompatible" : (m.reason || "unavailable")) + "</span>");
-      btn.title = (m.native_id || "") + (conn && conn.base_url ? " · " + conn.base_url : "");
-      if (usable) btn.addEventListener("click", function () { selectModel(m.id); closeMenus(); });
-      host.appendChild(btn);
-    });
-    // The agent's own models stay reachable in connection mode.
-    var cliHeading = document.createElement("div");
-    cliHeading.className = "px-3 pt-2 pb-1 text-[9.5px] font-mono uppercase tracking-wider text-slate-600";
-    cliHeading.textContent = "Agent's own models (CLI login)";
-    host.appendChild(cliHeading);
-    var cliModels = (state.models.items || []).filter(function (m) {
-      if (!terms.length) return true;
-      var hay = [m.name || m.id, m.id, m.description || "", m.provider || ""].join(" ").toLowerCase();
-      return terms.every(function (t) { return hay.indexOf(t) !== -1; });
-    });
-    cliModels.forEach(function (m) {
-      var isCurrent = (state.models.current || state.modelId) === m.id;
-      var btn = document.createElement("button");
-      btn.className = "ws-menu-item" + (isCurrent ? " ws-menu-item-active" : "") +
-        (m.available ? "" : " ws-menu-item-disabled");
-      btn.innerHTML =
-        '<span class="flex-1 text-left truncate">' + esc(modelDisplay(m)) + "</span>" +
-        (m.is_default ? '<span class="text-[9px] font-mono text-cyan-400 shrink-0">default</span>' : "") +
-        (m.available ? "" : '<span class="text-[10px] text-amber-400 shrink-0">' +
-          esc(m.reason || "unavailable") + "</span>");
-      if (m.description) btn.title = m.description;
-      if (m.available) btn.addEventListener("click", function () { selectModel(m.id); closeMenus(); });
-      host.appendChild(btn);
-    });
+
+    if (!rendered) {
+      var msg;
+      if (terms.length) {
+        msg = "No matching model.";
+      } else if (state.customProvider && state.customProvider.configured) {
+        msg = "No models reported yet. Press refresh, or open AI Connections to add one.";
+      } else {
+        msg = "This agent reported no models. Connect a provider or gateway in AI Connections.";
+      }
+      host.innerHTML = '<div class="px-3 py-2 text-[11px] text-slate-500">' + esc(msg) + "</div>";
+    }
   }
 
   function humanCount(n) {
@@ -2060,7 +2150,7 @@
     var el = $("ws-model-label");
     if (!el) return;
     var current = state.models.current || state.modelId;
-    el.textContent = "Model: " + (current ? (modelName(current) || current) : "\u2014");
+    el.textContent = "Model: " + (current ? (modelRouteLabel(current) || current) : "\u2014");
   }
 
   /* Disabled only until an agent is chosen or while the session starts. Busy
@@ -2080,7 +2170,7 @@
     var disabled = !!reason;
     btn.disabled = disabled;
     btn.classList.toggle("ws-dropdown-disabled", disabled);
-    btn.title = disabled ? reason : "Model for this CLI";
+    btn.title = disabled ? reason : "Model for this agent";
     if (disabled && $("ws-model-menu")) $("ws-model-menu").classList.add("hidden");
   }
 
@@ -2402,10 +2492,10 @@
       renderScreen();
       renderPanel();
       setStatus("stopped");
-      note("Window ready. Pick a provider and model, then press Start session.");
+      note("Window ready. Pick a model, then press Start session.");
       loadModels(false).then(function () {
         if (!isActiveWindow(win)) return;
-        toggleMenu("ws-provider-menu");
+        toggleMenu("ws-model-menu");
         var nameInput = $("ws-new-window-name");
         if (nameInput) nameInput.value = "";
       });
@@ -3535,7 +3625,7 @@
 
   // -- menus -------------------------------------------------------------
   function closeMenus() {
-    ["ws-agent-menu", "ws-source-menu", "ws-provider-menu", "ws-model-menu", "ws-new-project-menu",
+    ["ws-agent-menu", "ws-model-menu", "ws-new-project-menu",
      "ws-new-window-menu"].forEach(function (id) {
       var el = $(id);
       if (el) el.classList.add("hidden");
@@ -3577,37 +3667,6 @@
       e.stopPropagation();
       if (!e.currentTarget.disabled) toggleMenu("ws-agent-menu");
     });
-    bind("ws-source-btn", "click", function (e) {
-      e.stopPropagation();
-      var wasHidden = $("ws-source-menu").classList.contains("hidden");
-      toggleMenu("ws-source-menu");
-      if (wasHidden) {
-        renderSourceOptions();
-        var pending = loadModels(false);
-        if (pending && pending.then) pending.then(renderSourceOptions, renderSourceOptions);
-      }
-    });
-    bind("ws-source-manage", "click", function (e) {
-      e.stopPropagation();
-      closeMenus();
-      if (window.switchMainView) window.switchMainView("connections");
-    });
-    bind("ws-provider-btn", "click", function (e) {
-      e.stopPropagation();
-      if (e.currentTarget.disabled) return;
-      var wasHidden = $("ws-provider-menu").classList.contains("hidden");
-      toggleMenu("ws-provider-menu");
-      if (wasHidden) {
-        providerSetupSig = null;   // refresh the account/setup block every open
-        var pending = loadModels(false);
-        if (pending && pending.then) pending.then(renderProviders, renderProviders);
-        else renderProviders();
-      }
-    });
-    bind("ws-provider-refresh", "click", function (e) {
-      e.stopPropagation();
-      loadModels(true);
-    });
     bind("ws-model-btn", "click", function (e) {
       e.stopPropagation();
       if (e.currentTarget.disabled) return;
@@ -3620,6 +3679,11 @@
       }
     });
     bind("ws-model-refresh", "click", function (e) { e.stopPropagation(); loadModels(true); });
+    bind("ws-model-manage", "click", function (e) {
+      e.stopPropagation();
+      closeMenus();
+      if (window.switchMainView) window.switchMainView("connections");
+    });
     bind("ws-model-search", "input", function (e) { state.modelQuery = e.target.value || ""; renderModels(); });
     bind("ws-new-session", "click", function (e) {
       e.stopPropagation();
@@ -3697,7 +3761,7 @@
     // Close menus on an outside click only: clicks inside an open menu (e.g. the
     // model search box, refresh) must not dismiss it.
     document.addEventListener("click", function (e) {
-      var open = ["ws-agent-menu", "ws-provider-menu", "ws-model-menu",
+      var open = ["ws-agent-menu", "ws-model-menu",
                   "ws-new-project-menu", "ws-new-window-menu"];
       for (var i = 0; i < open.length; i++) {
         var menu = $(open[i]);

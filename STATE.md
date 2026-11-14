@@ -2136,12 +2136,14 @@ Audit, spec and report live in `docs/AI_CONNECTION_ARCHITECTURE_AUDIT.md`
   in-process chat routes through any compatible connection via a
   thread-local `request_override` (`record_as` keeps the connection id on
   conversations).
-- **Workspace UI**: new Connection Source dropdown (CLI | Provider |
-  Gateway, one route active at a time) before the provider dropdown; the
-  provider dropdown becomes the Connection dropdown when a source is
-  active (dynamic from the registry, compatibility-annotated); the model
-  menu shows connection models above the agent's own CLI models; the
-  selection persists per agent (`dennis.workspace.source`) and per window.
+- **Workspace UI** (initial design, later superseded by the flattened
+  Agent + Model list — see the 2026-11-15 flattened-UI section): Connection
+  Source dropdown (CLI | Provider | Gateway, one route active at a time)
+  before the provider dropdown; the provider dropdown becomes the
+  Connection dropdown when a source is active (dynamic from the registry,
+  compatibility-annotated); the model menu shows connection models above
+  the agent's own CLI models; the selection persists per agent
+  (`dennis.workspace.source`) and per window.
 - **AI Connections manager** (`js/connections.js` + `#connections-view`):
   provider/gateway panes, Test/Models(discover, add/remove, aliases)/Edit/
   Remove, add-connection modal with presets, routing preference control.
@@ -2233,3 +2235,72 @@ assuming):
   FreeLLMAPI connection → connection model → session model switch - 13/13
   checks, reading the configured model dynamically and using a unique port
   per run so runs can't race a dying server.
+
+## 2026-11-15 — Restore: unified connection workspace UI after accidental flattening
+
+- **What happened**: Claude-in-OS sessions modified the workspace UI.
+  Session A (00:31) added FreeLLMAPI catalog-model support
+  (`freellmapi.catalog_models` + app.py integration: catalog models listed
+  under the Custom provider filter, switching to one saves it) - kept,
+  verified complementary. Session B (01:03) flattened the workspace to
+  "Agent + Model only" per an in-session request and deleted the Connection
+  Source / Connection dropdowns (~29KB of UI code, incl. one 26KB block);
+  session C (01:15) committed everything (0833f85).
+- **Restore**: both files restored verbatim from Claude Code's file-history
+  pre-edit snapshots (verified pristine: colon-fix present, no flattened-UI
+  code), workspace.js cache version bumped to `20261115-restore1`.
+  Committed as 3f57a90.
+- **Verified**: 682 Python tests OK, JS 5/5, e2e_connections_smoke 20/20
+  (Source dropdown + manager + save round-trip), e2e_freellm_user_flow
+  13/13 (Claude Code via Source: Gateway → FreeLLMAPI → connection model →
+  session switch). No dangling references to the flattened UI.
+
+## 2026-11-15 (fix 2) — Flattened Agent + Model UI completed; free FreeLLMAPI restored
+
+- **What the user actually wanted**: the workspace toolbar with only
+  **Agent** and **Model**. The earlier "Restore" entry undid the flattening
+  because commit 0833f85 was a half-finished refactor (its Claude session
+  hit a 402 credit error mid-edit): `recallSource`, `providerById`,
+  `resolveProviderId` and `CUSTOM_PROVIDER_ID` were referenced but
+  undefined, and `unifiedConnectionModels()` was dead code. So the
+  flattened UI was rebuilt completely from the working 3f57a90 base
+  instead of restoring 0833f85 verbatim.
+- **Toolbar**: `index.html` now has Agent → Model → Status only; the
+  Source/Provider dropdowns and their menu markup are gone. A **Manage
+  connections…** entry at the bottom of the Model menu opens the AI
+  Connections view.
+- **Merged Model menu** (`js/workspace.js`): one searchable list grouped as
+  `Via FreeLLMAPI`, `Via Provider · <name>`, `Via Gateway · <name>`, then
+  `Agent's own models (CLI login)`. Rows show display name; native ids and
+  endpoint/compatibility text live in the row tooltip. Chips: honest
+  pricing (`free`/`paid`/`local`; `unknown` never shown as free), `ctx
+  <window>`, `tools`/`vision` when supported, saved/default badges.
+  Unavailable rows are disabled with a reason. Picking a model carries its
+  route (`conn:<connection>:<native>`); no source state is remembered or
+  preselected.
+- **Filtering rules**: derived `freellmapi:*` connections are skipped in the
+  Provider/Gateway sections (they would duplicate section 1). FreeLLMAPI
+  catalog models are listed only when `endpoint_match` is true — the
+  catalog carries 80 models from other providers (ModelScope, Groq,
+  Cohere, …) that cannot work on the saved OpenRouter endpoint, so they
+  are hidden rather than offered and failing.
+- **Free FreeLLMAPI setup restored** (verified with a real `claude -p`
+  call: exit 0, stdout `OK`, no human-readable unrecognized-model warning):
+  claude-code → `https://openrouter.ai/api` (root) →
+  `inclusionai/ling-3.2-flash:free` (zero cost, 1M ctx) with
+  `context_tokens: 1048576`; the key is reused from the user's OpenRouter
+  auth. `z-ai/glm-5.3-flash` was the stray paid model left in
+  `data/freellmapi.json` and was replaced by the free one.
+- **Tests**: full Python suite OK (759 tests in the current working tree,
+  682 on this feature's base; the rest are unrelated Ads/Cosmos tests that
+  another session is adding), JS **5/5**;
+  `e2e_connections_smoke.py` 19/19 (Agent+Model only, no Source/Provider,
+  Manage connections, manager save/remove),
+  `e2e_freellm_user_flow.py` 13/13 (flattened list → Via FreeLLMAPI saved
+  model → isolated temp-session switch),
+  `e2e_unified_models.py` 16/16 (mock Anthropic gateway: discovery,
+  gateway section, chips, native-id tooltips, backend switch). All e2e
+  runs create an isolated temp session/connection first, so no real
+  session model is switched during tests.
+- **Live server note**: the `app.py` process on :8080 predates these
+  changes; restart it and reload the page to see the flattened UI.
