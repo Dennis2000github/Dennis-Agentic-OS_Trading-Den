@@ -92,8 +92,10 @@ CLI_PROFILES = {
         # OpenCode v2's interactive root command (its default TUI) accepts no
         # --model/-m flag; passing one aborts the CLI at startup ("Unrecognized
         # flag: -m"), which is why sessions showed up as stopped. The model is
-        # chosen in the TUI with /model, so we launch bare and never inject a
-        # model flag. `opencode run` is the only subcommand that takes -m.
+        # chosen with /models in the TUI, so we never inject a model flag.
+        # Model SWITCHES are applied by backend/model_launch.py: a per-session
+        # config file ({"model": ...}) plus --standalone, because the shared
+        # background service ignores per-client env/config.
         "binary": "opencode",
         "models_cmd": ["models"],
         "model_flag": [],
@@ -117,7 +119,10 @@ CLI_PROFILES = {
         "base_args": ["tui", "--local"],
         "models_cmd": ["models", "list", "--json"],
         "model_flag": [],  # The TUI changes models with Ctrl+L or /model.
-        "model_input": "/model {model}\r",
+        # The TUI takes the model inline: /model <id> after it has rendered.
+        "model_input_steps": [
+            {"at": 1.5, "text": "/model {model}\r"},
+        ],
         "resume_flag": [],
         "continue_flag": [],
         "supports_live_model_switch": False,

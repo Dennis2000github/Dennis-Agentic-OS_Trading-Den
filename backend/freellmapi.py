@@ -21,6 +21,9 @@ _AGENT_ENVS = {
     "codex": ("OPENAI", "OPENAI_BASE_URL", "OPENAI_API_KEY"),
     "codex-cli": ("OPENAI", "OPENAI_BASE_URL", "OPENAI_API_KEY"),
 }
+# Agents the dashboard exposes. ``codex-cli`` remains accepted as an alias for
+# backward compatibility but the UI only needs one Codex entry.
+SUPPORTED_AGENTS = ("claude-code", "codex")
 _LOCK = threading.RLock()
 
 
@@ -90,13 +93,23 @@ def set_config(values):
     api_key = str(values.get("api_key") or "").strip()
     if not api_key:
         with _LOCK:
-            api_key = (_agent_data(agent_id).get("api_key") or "").strip()
+            existing = _agent_data(agent_id)
+        # Reuse a saved key only for the same endpoint. Changing providers must
+        # supply the new provider's key instead of silently reusing the old one.
+        if (existing.get("base_url") or "").rstrip("/") == base_url:
+            api_key = (existing.get("api_key") or "").strip()
     if not base_url or not api_key or not model:
         raise FreeLLMAPIError("Base URL, API key, and model ID are required.")
     if len(base_url) > 2048 or len(api_key) > 4096 or len(model) > 256:
         raise FreeLLMAPIError("A FreeLLMAPI setting is too long.")
     if any(ch in base_url + api_key + model for ch in ("\n", "\r", "\x00")):
         raise FreeLLMAPIError("Settings cannot contain line breaks.")
+    if "{" in base_url and "}" in base_url:
+        match = re.search(r"\{([^}]+)\}", base_url)
+        placeholder = match.group(0) if match else "{...}"
+        raise FreeLLMAPIError(f"Base URL contains placeholder '{placeholder}'. Please replace it with your account details before saving.")
+    if api_key.startswith("http://") or api_key.startswith("https://"):
+        raise FreeLLMAPIError("API key appears to be a URL. Please paste your actual provider API key or token.")
     parsed = urlsplit(base_url)
     local_http = parsed.scheme == "http" and parsed.hostname in ("localhost", "127.0.0.1", "::1")
     if parsed.scheme != "https" and not local_http:

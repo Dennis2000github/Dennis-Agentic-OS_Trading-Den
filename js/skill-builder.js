@@ -26,11 +26,16 @@
 
   var STATE_STAGES = [
     "Validating source",
-    "Fetching source content",
-    "Extracting relevant information",
-    "Analyzing the workflow",
-    "Generating the skill",
-    "Preparing the review screen",
+    "Reference Analysis",
+    "Video Reverse Engineering",
+    "Video Style",
+    "Video Format",
+    "Production Technology",
+    "Dependencies",
+    "Skill Generation",
+    "Validation and Replication",
+    "Review and Approval",
+    "Obsidian Publication",
     "Completed"
   ];
 
@@ -54,6 +59,10 @@
     modelId: null,
     mode: "source",
     objective: "tutorial",
+    reviewTab: "skill",
+    jobs: [],
+    jobsLoading: false,
+    packagePreview: null,
     templates: [],
     templateQuery: "",
     templateCategory: "all",
@@ -149,7 +158,7 @@
   /* mode + progress                                                     */
   /* ------------------------------------------------------------------ */
   function setMode(mode) {
-    state.mode = mode === "templates" ? "templates" : "source";
+    state.mode = mode === "templates" ? "templates" : (mode === "video" ? "video" : "source");
     var buttons = state.view ? state.view.querySelectorAll(".sb-mode") : [];
     Array.prototype.forEach.call(buttons, function (b) {
       var active = b.getAttribute("data-sb-mode") === state.mode;
@@ -160,27 +169,71 @@
     var srcFields = $("sb-source-fields");
     var srcActions = $("sb-source-actions");
     var tmplWrap = $("sb-templates-wrap");
+    var frameOptions = $("sb-frame-options");
+    var label = $("sb-source-label");
+    var eyes = $("sb-eyes");
+    var isTemplates = state.mode === "templates";
+    var isVideo = state.mode === "video";
 
-    if (state.mode === "templates") {
+    if (isTemplates) {
       if (srcFields) srcFields.classList.add("hidden");
       if (srcActions) srcActions.classList.add("hidden");
+      if (frameOptions) frameOptions.classList.add("hidden");
       if (tmplWrap) tmplWrap.classList.remove("hidden");
       loadTemplates();
     } else {
       if (srcFields) srcFields.classList.remove("hidden");
       if (srcActions) srcActions.classList.remove("hidden");
       if (tmplWrap) tmplWrap.classList.add("hidden");
+      if (frameOptions) frameOptions.classList.toggle("hidden", !isVideo);
+      if (label) {
+        label.textContent = isVideo
+          ? "Reference video URL(s)"
+          : "YouTube, video or GitHub URL(s)";
+      }
     }
+    if (eyes) {
+      eyes.disabled = false;
+      if (isVideo) eyes.checked = true;
+    }
+    syncCharacterField();
+    syncObjectiveNote();
+    syncReplicationField();
   }
 
   function getObjective() {
-    // Non-configurable: fixed to Source -> Skill
-    return "tutorial";
+    var input = state.view
+      ? state.view.querySelector('input[name="sb-objective"]:checked')
+      : null;
+    return input && input.value === "reference" ? "reference" : "tutorial";
+  }
+
+  function syncObjectiveNote() {
+    var note = $("sb-objective-note");
+    if (!note) return;
+    var objective = getObjective();
+    note.textContent = objective === "reference"
+      ? "reconstruct the method, never the content"
+      : "extract the method from a tutorial";
   }
 
   function syncCharacterField() {
-    var input = $("sb-character-url");
-    if (input) input.classList.add("hidden");
+    var field = $("sb-character-field");
+    if (!field) return;
+    var show = state.mode === "video" && getObjective() === "reference";
+    field.classList.toggle("hidden", !show);
+  }
+
+  function framesOn() { var el = $("sb-frames"); return !!(el && el.checked); }
+  function replicateOn() { var el = $("sb-replicate"); return !!(el && el.checked); }
+  function replicationTopic() {
+    var el = $("sb-replication-topic");
+    return (el && el.value || "").trim();
+  }
+  function syncReplicationField() {
+    var input = $("sb-replication-topic");
+    if (!input) return;
+    input.classList.toggle("hidden", !replicateOn());
   }
 
   /* ------------------------------------------------------------------ */
@@ -841,8 +894,10 @@
     if (state.busy || state.jobId) return;
     var list = urls();
     if (!list.length) { setPane("log", "Paste at least one source URL."); setTab("log"); return; }
-    if (action === "generate" && state.mode === "video") {
+    if (state.mode === "video") {
       state.objective = getObjective();
+    } else {
+      state.objective = "tutorial";
     }
     var body = {
       action: action,
@@ -850,6 +905,9 @@
       mode: state.mode,
       objective: state.objective,
       eyes: eyesOn(),
+      extract_frames: state.mode === "video" && framesOn(),
+      replicate: state.mode === "video" && replicateOn(),
+      replication_topic: state.mode === "video" ? replicationTopic() : "",
       agent_id: state.agentId || undefined,
       model_id: state.modelId || undefined,
       character_image_url: (state.mode === "video" && state.objective === "reference")
@@ -915,6 +973,7 @@
     state.jobId = null;
     setBusy(false);
     stopElapsed();
+    loadJobs();
   }
 
   function showProgressError(message) {
@@ -963,15 +1022,43 @@
       }).join("\n\n---\n\n");
   }
 
+  function evidenceSummary(evidenceList) {
+    return (evidenceList || []).map(function (ev) {
+      var source = ev.source || {};
+      var technical = ev.technical || {};
+      var timeline = ev.timeline || {};
+      var tech = [
+        technical.width && technical.height ? technical.width + "x" + technical.height : "",
+        technical.fps ? technical.fps + " fps" : "",
+        technical.duration_seconds ? technical.duration_seconds + "s" : "",
+        technical.container || ""
+      ].filter(Boolean).join(" · ");
+      var lines = ["EVIDENCE · " + (source.title || source.id || source.url || "reference")];
+      if (tech) lines.push("technical: " + tech);
+      lines.push("scenes: " + (ev.scene_count || 0) + " · frames: " + (ev.frame_count || 0) +
+        (timeline.cuts != null ? " · cuts: " + timeline.cuts +
+          " (" + (timeline.cuts_per_minute || 0) + "/min)" : ""));
+      if (timeline.mean_scene_seconds) {
+        lines.push("mean scene: " + timeline.mean_scene_seconds + "s");
+      }
+      if ((ev.limitations || []).length) {
+        lines.push("limitations: " + ev.limitations.join(" · "));
+      }
+      return lines.join("\n");
+    }).filter(Boolean).join("\n\n---\n\n");
+  }
+
   function onJobDone(job) {
     var result = job.result || {};
     if (result.draft) {
       setPane("skill", result.draft.content || "");
       setPane("transcript", sourcePreviews(result.sources) || sourceSummary(result.sources));
       var vis = (result.sources || []).filter(function (s) { return s.visual_chars; });
-      setPane("visual", vis.length
+      var evidenceText = evidenceSummary(result.draft.evidence);
+      var visualText = vis.length
         ? visualPreviews(result.sources)
-        : "No visual analysis was run for this job.");
+        : "No visual analysis was run for this job.";
+      setPane("visual", [evidenceText, visualText].filter(Boolean).join("\n\n---\n\n"));
       var t = result.timings || {};
       log("draft ready: " + result.draft.name + " (fetch " + (t.fetch_seconds || "?") +
           "s, generation " + (t.generation_seconds || "?") + "s, total " + (t.total_seconds || "?") + "s)");
@@ -979,6 +1066,7 @@
         result.warnings.forEach(function (w) { log("warning: " + w); });
       }
       openReview(result.draft, result);
+      loadJobs();
       return;
     }
     if (result.sources) {
@@ -994,13 +1082,125 @@
     log("job completed with no result");
   }
 
-  function cancelJob() {
-    if (!state.jobId) return;
-    var id = state.jobId;
-    api("/api/skill-builder/jobs/" + encodeURIComponent(id) + "/cancel", { method: "POST", body: {} })
+  /* ------------------------------------------------------------------ */
+  /* recent jobs rail                                                    */
+  /* ------------------------------------------------------------------ */
+  function loadJobs() {
+    state.jobsLoading = true;
+    return api("/api/skill-builder/jobs").then(function (r) {
+      state.jobsLoading = false;
+      if (r.ok && r.data && Array.isArray(r.data.jobs)) {
+        state.jobs = r.data.jobs;
+        renderJobs();
+      }
+    }).catch(function () {
+      state.jobsLoading = false;
+      renderJobs();
+    });
+  }
+
+  function jobModeLabel(job) {
+    var request = (job && job.request) || {};
+    var mode = request.mode === "video" ? "video" : "source";
+    var objective = request.objective === "reference" ? "reference" : "tutorial";
+    return mode + " · " + objective;
+  }
+
+  function renderJobs() {
+    var host = $("sb-jobs");
+    if (!host) return;
+    var list = state.jobs || [];
+    if (!list.length) {
+      host.innerHTML = '<div class="sb-rail-empty">' +
+        (state.jobsLoading ? "Loading jobs…" : "No jobs yet.") + "</div>";
+      return;
+    }
+    host.innerHTML = list.slice(0, 8).map(function (job) {
+      var status = job.status || "queued";
+      var running = status === "running" || status === "queued";
+      var action = job.kind === "generate" ? "Generate" : "Analyze";
+      var detail = running
+        ? (job.stage || "Working…")
+        : (job.error || (status === "interrupted"
+            ? "Interrupted — resubmit to continue"
+            : status));
+      var buttons = [];
+      if (running) {
+        buttons.push('<button type="button" class="sb-mini" data-job-attach="' + esc(job.id) + '">Attach</button>');
+      } else if (status === "interrupted") {
+        buttons.push('<button type="button" class="sb-mini sb-mini-primary" data-job-resume="' + esc(job.id) + '">Resubmit</button>');
+      } else if (status === "done" && job.result && job.result.draft) {
+        buttons.push('<button type="button" class="sb-mini sb-mini-primary" data-job-open="' + esc(job.id) + '">Review</button>');
+      }
+      if (running) {
+        buttons.push('<button type="button" class="sb-mini ml-auto" data-job-cancel="' + esc(job.id) + '">Cancel</button>');
+      }
+      return '<div class="sb-job-row">' +
+        '<div class="flex items-center gap-1.5">' +
+          '<span class="sb-job-dot sb-job-' + esc(status) + '"></span>' +
+          '<span class="flex-1 min-w-0 truncate text-[10.5px] text-slate-200">' + esc(action) + " · " + esc(jobModeLabel(job)) + "</span>" +
+          '<span class="text-[9px] font-mono text-slate-500">' + esc((job.elapsed_seconds || 0) + "s") + "</span>" +
+        "</div>" +
+        '<div class="text-[9px] text-slate-500 truncate mt-0.5" title="' + esc(detail) + '">' + esc(detail) + "</div>" +
+        (buttons.length ? '<div class="flex items-center gap-1.5 mt-1">' + buttons.join("") + "</div>" : "") +
+        "</div>";
+    }).join("");
+  }
+
+  function attachJob(id) {
+    if (state.busy || state.jobId) return;
+    state.jobId = id;
+    state.pollErrors = 0;
+    setBusy(true, "Attaching…");
+    setProgressVisible(true);
+    log("attached to running job " + id);
+    setTab("log");
+    pollJob();
+  }
+
+  function resumeJob(id) {
+    if (state.busy || state.jobId) return;
+    api("/api/skill-builder/jobs/" + encodeURIComponent(id)).then(function (r) {
+      if (!r.ok || !r.data || !r.data.request) {
+        throw new Error((r.data && r.data.error) || "Job not found");
+      }
+      var request = r.data.request;
+      setBusy(true, "Resubmitting…");
+      setProgressVisible(true);
+      renderProgress({ stages: STATE_STAGES, stage_index: 0, stage: "Validating source",
+                      detail: "Resubmitting interrupted job", percent: 3, status: "queued" });
+      startElapsed();
+      log("resubmitting interrupted job " + id + " (" + jobModeLabel(r.data) + ")");
+      setTab("log");
+      return api("/api/skill-builder/jobs", { method: "POST", body: request }).then(function (res) {
+        if (!res.ok || !res.data || !res.data.job) {
+          throw new Error((res.data && res.data.error) || ("HTTP " + res.status));
+        }
+        state.jobId = res.data.job.id;
+        state.pollErrors = 0;
+        log("job " + state.jobId + " started");
+        pollJob();
+      });
+    }).catch(function (e) {
+      finishJob();
+      showProgressError(String(e.message || e));
+    });
+  }
+
+  function openJobDraft(id) {
+    var job = (state.jobs || []).filter(function (j) { return j.id === id; })[0];
+    if (!job || !job.result || !job.result.draft) return;
+    onJobDone(job);
+  }
+
+  function cancelJob(id) {
+    var target = id || state.jobId;
+    if (!target) return;
+    api("/api/skill-builder/jobs/" + encodeURIComponent(target) + "/cancel", { method: "POST", body: {} })
       .then(function (r) {
         if (!r.ok) log("cancel failed: " + ((r.data && r.data.error) || r.status));
         else log("cancel requested");
+        loadJobs();
       }).catch(function (e) { log("cancel error: " + e); });
   }
 
@@ -1025,6 +1225,169 @@
     el.textContent = text || "";
   }
 
+  function reviewJson(value, emptyText) {
+    if (!value || (typeof value === "object" && !Object.keys(value).length)) {
+      return emptyText;
+    }
+    try { return JSON.stringify(value, null, 2); }
+    catch (e) { return emptyText; }
+  }
+
+  function setReviewTab(tab) {
+    state.reviewTab = tab || "skill";
+    var tabs = state.view ? state.view.querySelectorAll("[data-sb-rtab]") : [];
+    Array.prototype.forEach.call(tabs, function (b) {
+      var active = b.getAttribute("data-sb-rtab") === state.reviewTab;
+      b.classList.toggle("sb-review-tab-active", active);
+      b.setAttribute("aria-selected", active ? "true" : "false");
+    });
+    var panels = state.view ? state.view.querySelectorAll("[data-sb-rpanel]") : [];
+    Array.prototype.forEach.call(panels, function (p) {
+      p.classList.toggle("active", p.getAttribute("data-sb-rpanel") === state.reviewTab);
+    });
+    if (state.reviewTab === "package") loadPackagePreview();
+  }
+
+  function renderReviewPanels(draft) {
+    draft = draft || {};
+    var panels = {
+      analysis: [draft.analysis, "No structured analysis — this is a source-mode draft."],
+      style: [draft.style_profile, "No separate style profile was produced."],
+      format: [draft.format_profile, "No separate format profile was produced."],
+      production: [draft.production, "No production plan was produced."],
+      dependencies: [draft.dependencies, "No dependency manifest was produced."]
+    };
+    Object.keys(panels).forEach(function (key) {
+      var el = $("sb-review-" + key);
+      if (el) el.textContent = reviewJson(panels[key][0], panels[key][1]);
+    });
+    renderReviewTests(draft);
+    renderPackageList(((draft.package || {}).files) || []);
+  }
+
+  function renderReviewTests(draft) {
+    var host = $("sb-review-tests");
+    if (!host) return;
+    var validation = draft.validation || {};
+    var checks = validation.checks || [];
+    var replication = validation.replication || null;
+    var errors = validation.package_errors || [];
+    var html = "";
+
+    html += '<div class="sb-test-head">Static checks <span class="sb-test-verdict ' +
+      (validation.passed ? "ok" : "bad") + '">' +
+      (validation.passed ? "passed" : (checks.length ? "not passed" : "not run")) +
+      "</span></div>";
+    if (!checks.length) {
+      html += '<div class="sb-rail-empty">No package checks for this draft.</div>';
+    } else {
+      html += '<ul class="sb-test-checks">' + checks.map(function (c) {
+        var fail = !c.passed;
+        var soft = fail && c.required === false;
+        return '<li class="' + (fail ? (soft ? "warn" : "fail") : "pass") + '">' +
+          '<span class="sb-test-mark">' + (fail ? (soft ? "!" : "×") : "✓") + "</span>" +
+          '<span class="flex-1 min-w-0">' + esc(c.name) +
+          (c.detail ? ' <span class="sb-test-detail">' + esc(c.detail) + "</span>" : "") +
+          (c.required === false ? ' <span class="sb-test-soft">recommended</span>' : "") +
+          "</span></li>";
+      }).join("") + "</ul>";
+    }
+    if (errors.length) {
+      html += '<div class="sb-test-head">Package errors</div><ul class="sb-test-checks">' +
+        errors.map(function (e) {
+          return '<li class="fail"><span class="sb-test-mark">×</span><span>' + esc(e) + "</span></li>";
+        }).join("") + "</ul>";
+    }
+    html += '<div class="sb-test-head">Replication test <span class="sb-test-verdict ' +
+      (replication ? (replication.passed ? "ok" : "bad") : "") + '">' +
+      (replication ? (replication.passed ? "passed" : "did not pass") : "not requested") +
+      "</span></div>";
+    if (!replication) {
+      html += '<div class="sb-rail-empty">Enable “Run replication test” in Video Reverse Engineering mode to test the method on a new topic.</div>';
+    } else if (replication.error) {
+      html += '<div class="sb-review-warn">' + esc(replication.error) + "</div>";
+    } else {
+      html += '<ul class="sb-test-checks">' + (replication.criteria || []).map(function (c) {
+        return '<li class="' + (c.passed ? "pass" : "fail") + '">' +
+          '<span class="sb-test-mark">' + (c.passed ? "✓" : "×") + "</span>" +
+          '<span class="flex-1 min-w-0">' + esc(c.id || c.name || "criterion") +
+          '<span class="sb-test-detail">' + esc(c.detail || "") + "</span></span></li>";
+      }).join("") + "</ul>";
+      html += '<div class="sb-test-foot">Content overlap with the reference: ' +
+        esc(((replication.content_overlap || 0) * 100).toFixed(1)) + "%" +
+        (replication.topic ? " · topic: " + esc(replication.topic) : "") +
+        (replication.model ? " · model: " + esc(replication.model) : "") + "</div>";
+    }
+    if (draft.warnings && draft.warnings.length) {
+      html += '<div class="sb-test-head">Warnings</div><ul class="sb-test-checks">' +
+        draft.warnings.map(function (w) {
+          return '<li class="warn"><span class="sb-test-mark">!</span><span>' + esc(w) + "</span></li>";
+        }).join("") + "</ul>";
+    }
+    host.innerHTML = html;
+  }
+
+  function renderPackageList(files) {
+    var host = $("sb-package-list");
+    if (!host) return;
+    var list = files || [];
+    if (!list.length) {
+      host.innerHTML = '<div class="sb-rail-empty">No compiled package.</div>';
+      return;
+    }
+    host.innerHTML = list.map(function (f) {
+      return '<button type="button" class="sb-package-file" data-pkg-path="' + esc(f.path) + '">' +
+        '<span class="sb-package-file-name">' + esc(f.path) + "</span>" +
+        '<span class="sb-package-file-size">' + esc(f.bytes || 0) + " B</span>" +
+        "</button>";
+    }).join("");
+  }
+
+  function showPackageFile(path) {
+    var pre = $("sb-package-preview");
+    if (!pre) return;
+    var files = (state.packagePreview && state.packagePreview.files) || [];
+    var file = files.filter(function (f) { return f.path === path; })[0];
+    if (!file) { pre.textContent = "Select a package file to preview it."; return; }
+    pre.textContent = file.preview != null && file.preview !== ""
+      ? file.preview
+      : "(binary or empty file — " + (file.bytes || 0) + " bytes)";
+    var buttons = state.view ? state.view.querySelectorAll("[data-pkg-path]") : [];
+    Array.prototype.forEach.call(buttons, function (b) {
+      b.classList.toggle("sb-package-file-active", b.getAttribute("data-pkg-path") === path);
+    });
+  }
+
+  function loadPackagePreview() {
+    if (!state.draft) return Promise.resolve();
+    var id = state.draft.id;
+    if (state.packagePreview && state.packagePreview.id === id) return Promise.resolve();
+    var pre = $("sb-package-preview");
+    return api("/api/skill-builder/package?draft=" + encodeURIComponent(id)).then(function (r) {
+      if (!r.ok) {
+        state.packagePreview = null;
+        renderPackageList([]);
+        if (pre) pre.textContent = (r.data && r.data.error) || "This draft has no compiled package.";
+        return;
+      }
+      state.packagePreview = {
+        id: id,
+        root: r.data.root,
+        total_bytes: r.data.total_bytes || 0,
+        files: r.data.files || []
+      };
+      renderPackageList(state.packagePreview.files);
+      if (state.packagePreview.files.length) {
+        showPackageFile(state.packagePreview.files[0].path);
+      } else if (pre) {
+        pre.textContent = "The package is empty.";
+      }
+    }).catch(function (e) {
+      state.packagePreview = null;
+      if (pre) pre.textContent = "Could not load the package: " + (e.message || e);
+    });
+  }
+
   function updateReviewTarget() {
     var card = $("sb-review");
     if (!card || !state.draft) return;
@@ -1044,8 +1407,10 @@
     ($("sb-review-content") || {}).value = draft.content || "";
     var meta = $("sb-review-meta");
     if (meta) {
+      var pkg = draft.package || {};
       meta.textContent = (draft.mode === "video" ? "Video Reverse Engineering" : "Source → Skill") +
         " · " + ((draft.sources || []).length) + " source(s) · generated by " + (draft.author || "unknown") +
+        ((pkg.files || []).length ? " · package " + pkg.files.length + " file(s)" : "") +
         " · nothing saved yet";
     }
     var src = $("sb-review-source");
@@ -1054,6 +1419,9 @@
     }).join(" · ") || "—";
     var did = $("sb-review-draft");
     if (did) did.textContent = draft.id || "—";
+    state.packagePreview = null;
+    renderReviewPanels(draft);
+    setReviewTab("skill");
     setReviewConflict(draft.conflict
       ? "A skill named '" + draft.name + "' already exists. Rename it, or Add to Vault to confirm replacement."
       : "");
@@ -1241,9 +1609,22 @@
     var setupBtn = $("sb-setup");
     if (setupBtn) setupBtn.addEventListener("click", runSetup);
     var refreshBtn = $("sb-skills-refresh");
-    if (refreshBtn) refreshBtn.addEventListener("click", function () { loadStatus(); loadSkills(); });
+    if (refreshBtn) refreshBtn.addEventListener("click", function () { loadStatus(); loadSkills(); loadJobs(); });
     var cancelBtn = $("sb-progress-cancel");
-    if (cancelBtn) cancelBtn.addEventListener("click", cancelJob);
+    if (cancelBtn) cancelBtn.addEventListener("click", function () { cancelJob(); });
+    var jobsRefresh = $("sb-jobs-refresh");
+    if (jobsRefresh) jobsRefresh.addEventListener("click", function () { loadJobs(); });
+    var jobsHost = $("sb-jobs");
+    if (jobsHost) jobsHost.addEventListener("click", function (e) {
+      var attach = e.target.closest("[data-job-attach]");
+      if (attach) { attachJob(attach.getAttribute("data-job-attach")); return; }
+      var resume = e.target.closest("[data-job-resume]");
+      if (resume) { resumeJob(resume.getAttribute("data-job-resume")); return; }
+      var open = e.target.closest("[data-job-open]");
+      if (open) { openJobDraft(open.getAttribute("data-job-open")); return; }
+      var cancel = e.target.closest("[data-job-cancel]");
+      if (cancel) cancelJob(cancel.getAttribute("data-job-cancel"));
+    });
 
     var modeButtons = state.view.querySelectorAll(".sb-mode");
     Array.prototype.forEach.call(modeButtons, function (b) {
@@ -1254,9 +1635,14 @@
       input.addEventListener("change", function () {
         state.objective = getObjective();
         syncCharacterField();
+        syncObjectiveNote();
       });
     });
+    var replicateInput = $("sb-replicate");
+    if (replicateInput) replicateInput.addEventListener("change", syncReplicationField);
     syncCharacterField();
+    syncObjectiveNote();
+    syncReplicationField();
 
     // Agent dropdown
     var agentBtn = $("sb-agent-btn");
@@ -1346,6 +1732,16 @@
       t.addEventListener("click", function () { setTab(t.getAttribute("data-sb-tab")); });
     });
 
+    var reviewTabs = state.view.querySelectorAll("[data-sb-rtab]");
+    Array.prototype.forEach.call(reviewTabs, function (t) {
+      t.addEventListener("click", function () { setReviewTab(t.getAttribute("data-sb-rtab")); });
+    });
+    var packageList = $("sb-package-list");
+    if (packageList) packageList.addEventListener("click", function (e) {
+      var file = e.target.closest("[data-pkg-path]");
+      if (file) showPackageFile(file.getAttribute("data-pkg-path"));
+    });
+
     var skillsHost = $("sb-skills");
     if (skillsHost) skillsHost.addEventListener("click", function (e) {
       var v = e.target.closest("[data-view]");
@@ -1388,6 +1784,7 @@
     setTab("transcript");
     loadStatus();
     loadSkills();
+    loadJobs();
     loadAgents();
     icons();
   }
@@ -1397,6 +1794,7 @@
     if (!state.view) return;
     loadStatus();
     loadSkills();
+    loadJobs();
     loadAgents();
     icons();
   }

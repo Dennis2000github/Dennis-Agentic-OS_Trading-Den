@@ -64,10 +64,12 @@ _detect_cache = {"at": 0.0, "data": None}
 
 
 class ComposioError(Exception):
-    def __init__(self, message, code="composio_error", status=400):
+    def __init__(self, message, code="composio_error", status=400, details=None):
         super().__init__(message)
+        self.message = str(message)
         self.code = code
         self.status = status
+        self.details = details if isinstance(details, dict) else {}
 
 
 # ---------------------------------------------------------------------------
@@ -155,7 +157,7 @@ def clear_keys():
 # ---------------------------------------------------------------------------
 # HTTP
 # ---------------------------------------------------------------------------
-def _http_json(path, params=None, key_kind="api"):
+def _http_json(path, params=None, key_kind="api", method="GET", body=None):
     data = keys()
     key = data["api"] if key_kind == "api" else data["consumer"]
     if not key:
@@ -169,7 +171,11 @@ def _http_json(path, params=None, key_kind="api"):
         "User-Agent": "DENNIS-OS-Composio/1.0",
         API_HEADER if key_kind == "api" else CONSUMER_HEADER: key,
     }
-    request = urllib.request.Request(url, headers=headers)
+    payload = None
+    if body is not None:
+        headers["Content-Type"] = "application/json"
+        payload = json.dumps(body).encode("utf-8")
+    request = urllib.request.Request(url, headers=headers, data=payload, method=method)
     try:
         with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT) as response:
             body = response.read(MAX_PAYLOAD + 1)
@@ -264,26 +270,146 @@ def _doc_url(slug):
     return "%s/toolkits/%s" % (DOCS_URL, slug)
 
 
+# Dashboard-style category buckets. Raw Composio categories are fine-grained
+# slugs; the Plugins tab groups them into the same top-level buckets the
+# native Composio dashboard shows (Artificial Intelligence, Sales & CRM, ...).
+# Every raw slug maps to exactly one bucket; unknown slugs land in "Other".
+CATEGORY_BUCKETS = {
+    "Artificial Intelligence": (
+        "artificial-intelligence", "ai-agents", "ai-chatbots", "ai-models",
+        "ai-assistants", "ai-safety-compliance-detection", "ai & web",
+    ),
+    "Sales & CRM": (
+        "crm", "sales-&-crm", "ai-sales-tools", "people-&-contact-data",
+        "contact-management", "crm & sales",
+    ),
+    "Marketing": (
+        "marketing", "marketing-automation", "email-newsletters",
+        "social-media-marketing", "ads-&-conversion", "seo-&-ai-visibility",
+        "drip-emails", "call-tracking", "url-shortener", "webinars",
+    ),
+    "Communication": (
+        "communication", "team-chat", "phone-&-sms", "video-conferencing",
+        "notifications", "ai-meeting-assistants", "transcription",
+    ),
+    "Productivity & Project Management": (
+        "productivity", "project-management", "task-management",
+        "time-tracking-software", "team-collaboration", "notes",
+        "product-management", "spreadsheets", "forms-&-surveys",
+        "event-management", "signatures", "productivity",
+    ),
+    "Content & Files": (
+        "documents", "documents-&-ocr", "images-&-design",
+        "file-management-&-storage", "ai-content-generation",
+        "media-generation", "ai-document-extraction", "bookmark-managers",
+        "video-&-audio", "audio-&-speech", "education", "online-courses",
+        "content-&-files", "files & storage", "video-generation",
+    ),
+    "Commerce & Payments": (
+        "ecommerce", "commerce", "payment-processing", "accounting",
+        "taxes", "proposal-&-invoice-management", "fundraising",
+    ),
+    "Customer Support": (
+        "customer-support", "reviews", "customer-appreciation", "support",
+    ),
+    "Developer Tools": (
+        "developer-tools", "model-context-protocol", "web-scraping-&-browser",
+        "app-builder", "website-builders", "website-&-app-building",
+        "it-operations", "server-monitoring", "internet-of-things", "developer",
+    ),
+    "Data & Analytics": (
+        "analytics", "databases", "business-intelligence",
+        "web-search-&-research", "company-data", "market-data", "dashboards",
+    ),
+    "Email & Calendar": (
+        "email", "calendar", "scheduling-&-booking", "transactional-email",
+        "email & calendar",
+    ),
+    "Social Media": (
+        "social-media-accounts", "social-&-creator-data", "social",
+    ),
+    "HR & Recruiting": (
+        "human-resources", "hr-talent-&-recruitment",
+    ),
+    "Security & Identity": (
+        "security-&-identity-tools",
+    ),
+    "Travel & Lifestyle": (
+        "places-&-weather", "fitness", "lifestyle-&-entertainment",
+        "gaming", "news-&-lifestyle",
+    ),
+}
+# Curated rail order: the buckets the native dashboard shows first, then any
+# custom buckets by size, with "Other" always last.
+_BUCKET_ORDER = [
+    "Artificial Intelligence", "Sales & CRM", "Marketing", "Communication",
+    "Productivity & Project Management", "Content & Files",
+    "Commerce & Payments", "Customer Support", "Developer Tools",
+    "Data & Analytics", "Email & Calendar", "Social Media",
+    "HR & Recruiting", "Security & Identity", "Travel & Lifestyle",
+]
+_BUCKET_LOOKUP = {}
+for _bucket, _slugs in CATEGORY_BUCKETS.items():
+    for _slug in _slugs:
+        _BUCKET_LOOKUP[_slug] = _bucket
+
+
+def _bucket_for(raw_category_id):
+    return _BUCKET_LOOKUP.get((raw_category_id or "").strip().lower(), "Other")
+
+
+def _bucket_from_ids(category_ids):
+    """First category that maps to a known bucket; empty string if none."""
+    for raw_category_id in category_ids or []:
+        bucket = _BUCKET_LOOKUP.get(str(raw_category_id).strip().lower())
+        if bucket:
+            return bucket
+    return ""
+
+
+def _category_ids(item, meta):
+    """Composio returns categories as [{'id': ..., 'name': ...}] dicts (or plain
+    strings on some shapes); normalize both to lowercase id strings."""
+    raw = item.get("categories") or meta.get("categories") or []
+    if isinstance(raw, str):
+        raw = [raw]
+    ids = []
+    for entry in raw:
+        if isinstance(entry, dict):
+            entry = entry.get("id") or entry.get("slug") or entry.get("name")
+        if entry:
+            ids.append(str(entry).strip().lower())
+    return ids
+
+
+def _pretty_category(raw_category_id):
+    return " ".join(
+        part.upper() if part in ("&", "ai", "crm", "hr", "sms", "ocr", "it")
+        else part.capitalize()
+        for part in str(raw_category_id or "").replace("_", "-").split("-")
+    ).replace("&", "&")
+
+
 def _normalize_toolkit(item):
     meta = item.get("meta") if isinstance(item.get("meta"), dict) else {}
     slug = str(item.get("slug") or meta.get("slug") or "").strip().lower()
     if not slug:
         return None
-    categories = item.get("categories") or meta.get("categories") or []
-    if isinstance(categories, str):
-        categories = [categories]
-    categories = [str(c) for c in categories if c]
+    category_ids = _category_ids(item, meta)
     auth = item.get("auth_schemes") or meta.get("auth_schemes") or []
     if isinstance(auth, str):
         auth = [auth]
     count = item.get("tools_count", meta.get("tools_count"))
+    primary = _bucket_from_ids(category_ids)
+    primary_raw = category_ids[0] if category_ids else ""
     return {
         "slug": slug,
         "name": str(item.get("name") or meta.get("name") or slug),
         "description": str(meta.get("description") or item.get("description") or "")[:400],
         "logo": str(meta.get("logo") or item.get("logo") or ""),
-        "category": categories[0] if categories else "Other",
-        "categories": categories,
+        "category": primary or "Other",
+        "category_label": _pretty_category(primary_raw),
+        "categories": category_ids,
         "tools_count": count if isinstance(count, int) else None,
         "auth": [str(a) for a in auth if isinstance(a, (str, int, float))][:4],
         "no_auth": bool(item.get("no_auth")),
@@ -364,12 +490,33 @@ def _live_connections():
     ]
 
 
+def _cache_mangled(cache):
+    """Older cache rows stringified category dicts. Detect and refetch once."""
+    toolkits = cache.get("toolkits")
+    if not isinstance(toolkits, list) or not toolkits:
+        return False
+    first = toolkits[0]
+    if not isinstance(first, dict):
+        return True
+    category = first.get("category")
+    if isinstance(category, str) and category.strip().startswith("{'"):
+        return True
+    categories = first.get("categories")
+    return isinstance(categories, list) and any(
+        isinstance(entry, str) and entry.strip().startswith("{'")
+        for entry in categories[:3]
+    )
+
+
 def catalog(force=False):
     """Toolkits from the live API, else cache, else the curated seed."""
     data = keys()
     warning = ""
     cache = _read_cache()
     age = _cache_age(cache)
+    if _cache_mangled(cache):
+        cache = {}
+        age = None
 
     if not data["api"]:
         seed = seed_catalog()
@@ -411,6 +558,11 @@ def _with_seed(toolkits, source, warning, age, fetched_at):
         if not isinstance(item, dict) or not item.get("slug"):
             continue
         entry = dict(item)
+        # Re-bucket from the stored category ids on every read so cached rows
+        # heal automatically when the mapping changes.
+        ids = entry.get("categories") if isinstance(entry.get("categories"), list) else []
+        entry["category"] = _bucket_from_ids(ids) or str(entry.get("category") or "Other")
+        entry.setdefault("category_label", _pretty_category(ids[0] if ids else ""))
         entry.setdefault("category", "Other")
         entry.setdefault("docs", _doc_url(entry["slug"]))
         entry.setdefault("source", source)
@@ -420,8 +572,17 @@ def _with_seed(toolkits, source, warning, age, fetched_at):
     counts = {}
     for item in normalized:
         counts[item["category"]] = counts.get(item["category"], 0) + 1
+
+    def _bucket_sort_key(kv):
+        name, count = kv
+        if name == "Other":
+            return (1, len(_BUCKET_ORDER) + 1, -count, name)
+        if name in _BUCKET_ORDER:
+            return (0, _BUCKET_ORDER.index(name), -count, name)
+        return (0, len(_BUCKET_ORDER), -count, name)
+
     categories = [{"name": name, "count": count}
-                  for name, count in sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))]
+                  for name, count in sorted(counts.items(), key=_bucket_sort_key)]
     return {
         "toolkits": normalized,
         "categories": categories,
@@ -480,6 +641,137 @@ def connections():
         return {"connections": _live_connections(), "warning": ""}
     except ComposioError as exc:
         return {"connections": [], "warning": str(exc)}
+
+
+# ---------------------------------------------------------------------------
+# Connect flow (auth config -> hosted Connect Link)
+# ---------------------------------------------------------------------------
+CONNECT_USER_ID = "dennis-os-local"
+
+
+def _auth_config_for(slug):
+    """Find an existing auth config whose toolkit matches the slug."""
+    items = _paginate("/auth_configs", {"limit": 100, "show_disabled": "true"}, max_pages=5)
+    for item in items:
+        if not isinstance(item, dict) or not item.get("id"):
+            continue
+        if str(item.get("status") or "").upper() == "DISABLED":
+            continue
+        toolkit = item.get("toolkit")
+        toolkit_slug = ""
+        if isinstance(toolkit, dict):
+            toolkit_slug = str(toolkit.get("slug") or "")
+        elif isinstance(toolkit, str):
+            toolkit_slug = toolkit
+        if toolkit_slug.strip().lower() == slug:
+            return str(item["id"])
+    return None
+
+
+def connect(slug):
+    """Start a connection for a toolkit: reuse or create an auth config, then
+    request a hosted Connect Link. Returns the redirect URL to open."""
+    slug = (slug or "").strip().lower()
+    if not slug or not NAME_RE.match(slug):
+        raise ComposioError("A toolkit slug is required.", "slug_invalid")
+    if not keys()["api"]:
+        raise ComposioError(
+            "Add a project API key in the Plugins tab to connect apps.", "not_configured", 409,
+            details={"signup_url": DASHBOARD_URL})
+
+    entry = None
+    try:
+        catalog_data = catalog()
+        for candidate in catalog_data["toolkits"]:
+            if candidate["slug"] == slug:
+                entry = candidate
+                break
+    except ComposioError:
+        entry = None
+    display_name = str(entry.get("name") or slug) if isinstance(entry, dict) else slug
+    schemes = [str(s).upper() for s in (entry.get("auth") if isinstance(entry, dict) else []) or []]
+
+    auth_config_id = _auth_config_for(slug)
+    if not auth_config_id:
+        if schemes and "OAUTH2" not in schemes:
+            creation = {
+                "toolkit": {"slug": slug},
+                "auth_config": {
+                    "type": "use_custom_auth",
+                    "authScheme": schemes[0],
+                    "name": display_name,
+                    "credentials": {},
+                },
+            }
+        else:
+            creation = {
+                "toolkit": {"slug": slug},
+                "auth_config": {
+                    "type": "use_composio_managed_auth",
+                    "name": display_name,
+                },
+            }
+        try:
+            created = _http_json("/auth_configs", method="POST", body=creation)
+        except ComposioError as managed_err:
+            if creation["auth_config"]["type"] == "use_composio_managed_auth" and schemes:
+                # If managed auth is unavailable for an OAuth2 toolkit, custom OAuth requires
+                # client_id and client_secret upfront. Retrying with empty credentials {}
+                # will always fail with: Missing required field "Client id" for auth scheme "OAUTH2".
+                if "OAUTH2" in schemes:
+                    raise ComposioError(
+                        "The toolkit '%s' (%s) requires custom OAuth2 credentials (Client ID and Secret). "
+                        "Please create an Auth Config in your Composio Dashboard at %s to connect it."
+                        % (display_name, slug, DASHBOARD_URL),
+                        "custom_oauth_required",
+                        400,
+                        details={"dashboard_url": DASHBOARD_URL, "slug": slug, "upstream": str(managed_err)}
+                    )
+                # Non-OAuth schemes (e.g. API_KEY) can have empty credentials here
+                # because the user fills them in on the hosted Connect Link page.
+                created = _http_json("/auth_configs", method="POST", body={
+                    "toolkit": {"slug": slug},
+                    "auth_config": {
+                        "type": "use_custom_auth",
+                        "authScheme": schemes[0],
+                        "name": display_name,
+                        "credentials": {},
+                    },
+                })
+            else:
+                raise
+        created_config = created.get("auth_config") if isinstance(created, dict) else None
+        auth_config_id = ""
+        if isinstance(created_config, dict) and created_config.get("id"):
+            auth_config_id = str(created_config["id"])
+        elif isinstance(created, dict) and created.get("id"):
+            auth_config_id = str(created["id"])
+        if not auth_config_id:
+            raise ComposioError(
+                "Composio did not return an auth config for %s." % slug, "auth_config_missing", 502)
+
+    link = _http_json("/connected_accounts/link", method="POST", body={
+        "auth_config_id": auth_config_id,
+        "user_id": CONNECT_USER_ID,
+    })
+    redirect_url = ""
+    connected_account_id = ""
+    if isinstance(link, dict):
+        redirect_url = str(link.get("redirect_url") or "")
+        connected_account_id = str(link.get("connected_account_id") or "")
+        if not redirect_url and isinstance(link.get("connected_account"), dict):
+            redirect_url = str(link["connected_account"].get("redirect_url") or "")
+            connected_account_id = connected_account_id or str(link["connected_account"].get("id") or "")
+    if not redirect_url:
+        raise ComposioError(
+            "Composio did not return a connect link for %s." % slug, "connect_link_missing", 502)
+    return {
+        "slug": slug,
+        "auth_config_id": auth_config_id,
+        "connected_account_id": connected_account_id,
+        "redirect_url": redirect_url,
+        "user_id": CONNECT_USER_ID,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -860,7 +1152,11 @@ def overview():
     data = keys()
     warning = catalog_data.get("warning") or ""
     conns = {"connections": [], "warning": ""}
-    if data["api"] and catalog_data.get("source") == "live":
+    # Fetch connections on every overview call: the toolkit catalog is cached
+    # for hours, so gating on catalog.source == "live" meant a freshly made
+    # connection never showed up (Connected tab stayed empty) until the
+    # catalog cache expired.
+    if data["api"]:
         conns = connections()
     if conns.get("warning") and not warning:
         warning = conns["warning"]

@@ -52,6 +52,7 @@
     projects: [],
     sessions: [],
     sessionsLoadId: 0,
+    sessionOpenSeq: 0,
     agentId: null,
     modelId: null,
     sessionId: null,
@@ -63,6 +64,7 @@
     providerLocked: false,
     providers: [],
     providerSetup: null,
+    customProvider: null,  // FreeLLMAPI connection status for this agent
     ready: null,
     readyNote: null,
     screen: { starting: false, exited: false, hasSession: false, chat: false },
@@ -72,6 +74,9 @@
     resizeTimer: null,
     runTimer: null,
     autoPreviewed: null,
+    windows: [],          // parallel workspace windows: {agentId, sessionId, ...}
+    activeWindow: 0,
+    windowSeq: 0,
   };
 
   var registry = null;
@@ -102,6 +107,256 @@
     if (s < 3600) return Math.floor(s / 60) + "m ago";
     if (s < 86400) return Math.floor(s / 3600) + "h ago";
     return Math.floor(s / 86400) + "d ago";
+  }
+
+  // -- parallel windows --------------------------------------------------
+  // Each window owns one project session (one CLI process) and its own
+  // agent/provider/model. Switching a window swaps the toolbar context and
+  // shows that session's already-running dashboard; nothing is stopped and no
+  // other window's terminal is touched.
+  var WINDOWS_KEY = "dennis.workspace.windows";
+
+  function blankWindow(agentId, sessionId) {
+    return {
+      id: "w" + (++state.windowSeq),
+      agentId: agentId || null,
+      sessionId: sessionId || null,
+      title: null,
+      agentName: null,
+      modelLabel: null,
+      status: "stopped",
+      modelId: null,
+      providerId: null,
+      providerLocked: false,
+      modelQuery: "",
+    };
+  }
+
+  function currentWindow() {
+    return state.windows[state.activeWindow] || null;
+  }
+
+  function isActiveWindow(win) {
+    return !!win && state.windows[state.activeWindow] === win;
+  }
+
+  function windowIndexForSession(id) {
+    if (!id) return -1;
+    for (var i = 0; i < state.windows.length; i++) {
+      if (state.windows[i].sessionId === id) return i;
+    }
+    return -1;
+  }
+
+  function readSavedWindows() {
+    try {
+      var raw = window.localStorage.getItem(WINDOWS_KEY);
+      if (!raw) return null;
+      var v = JSON.parse(raw);
+      if (v && typeof v === "object" && Array.isArray(v.windows) && v.windows.length) return v;
+    } catch (e) { /* storage unavailable */ }
+    return null;
+  }
+
+  /* Copy the live toolbar context back into the active window record. */
+  function syncActiveWindow() {
+    var w = currentWindow();
+    if (!w) return;
+    if (state.agentId) w.agentId = state.agentId;
+    w.sessionId = state.sessionId || null;
+    if (state.current) w.title = state.current.title || state.current.project || w.title;
+    var a = agentById(w.agentId);
+    if (a) w.agentName = a.name;
+    w.modelId = state.modelId || null;
+    w.modelQuery = state.modelQuery || "";
+    w.providerId = state.providerId || null;
+    w.providerLocked = !!state.providerLocked;
+    var current = state.models && (state.models.current || state.modelId);
+    w.modelLabel = current ? (modelName(current) || "") : "";
+    if (state.screen) {
+      if (state.screen.starting) w.status = "starting";
+      else if (state.screen.exited) w.status = "stopped";
+    }
+  }
+
+  function persistWindows() {
+    syncActiveWindow();
+    try {
+      window.localStorage.setItem(WINDOWS_KEY, JSON.stringify({
+        active: state.activeWindow,
+        windows: state.windows.map(function (w) {
+          return { agentId: w.agentId, sessionId: w.sessionId };
+        }),
+      }));
+    } catch (e) { /* storage unavailable */ }
+  }
+
+  /* Rebuild the toolbar/screen context from one window record. */
+  function applyWindowContext(w, opts) {
+    opts = opts || {};
+    state.agentId = w.agentId || null;
+    state.sessionId = w.sessionId || null;
+    state.current = null;
+    state.modelId = w.modelId || null;
+    state.modelQuery = w.modelQuery || "";
+    state.providerId = w.providerId || null;
+    state.providerLocked = !!w.providerLocked;
+    state.providers = [];
+    state.providerSetup = null;
+    state.customProvider = null;
+    state.models = {
+      status: "idle", items: [], error: null, current: null,
+      liveSwitch: false, forAgent: w.agentId || null,
+    };
+    state.screen = { starting: false, exited: false, hasSession: false, chat: false };
+    state.autoPreviewed = null;
+    state.sessions = [];
+    state.panel = PanelState.agentSelected(state.panel || PanelState.defaultPanel());
+    if (opts.collapse) state.panel = PanelState.collapse(state.panel);
+  }
+
+  function renderWindows() {
+    var host = $("ws-windows");
+    if (!host) return;
+    host.innerHTML = "";
+    if (!state.windows.length) {
+      host.innerHTML = '<span class="ws-windows-empty">No window open</span>';
+      return;
+    }
+    state.windows.forEach(function (w, i) {
+      var active = i === state.activeWindow;
+      var tab = document.createElement("div");
+      tab.className = "ws-window-tab" + (active ? " ws-window-tab-active" : "");
+      tab.setAttribute("data-window-index", String(i));
+
+      var label = w.title || w.agentName || (w.agentId ? agentNameOf(w.agentId) : "New window");
+      var main = document.createElement("button");
+      main.type = "button";
+      main.className = "ws-window-main";
+      main.setAttribute("role", "tab");
+      main.setAttribute("aria-selected", active ? "true" : "false");
+      main.title = w.sessionId
+        ? (label + (w.agentName ? " · " + w.agentName : "") + (w.modelLabel ? " · " + w.modelLabel : "") +
+           "\nSwitch to this window (its session keeps running).")
+        : (w.agentName ? "New window · " + w.agentName : "New window");
+      main.innerHTML =
+        '<span class="ws-window-dot" style="background:' + statusColor(w.status) + '"></span>' +
+        '<span class="ws-window-label">' + esc(label) + "</span>" +
+        (w.modelLabel ? '<span class="ws-window-meta">' + esc(w.modelLabel) + "</span>" : "");
+      main.addEventListener("click", function (e) {
+        e.stopPropagation();
+        activateWindow(i);
+      });
+      tab.appendChild(main);
+
+      var close = document.createElement("button");
+      close.type = "button";
+      close.className = "ws-window-close";
+      close.title = "Close window (the session keeps running in Sessions)";
+      close.innerHTML = '<i data-lucide="x" class="w-3 h-3"></i>';
+      close.addEventListener("click", function (e) {
+        e.stopPropagation();
+        closeWindow(i);
+      });
+      tab.appendChild(close);
+      host.appendChild(tab);
+    });
+    icons();
+  }
+
+  function agentNameOf(id) {
+    var a = agentById(id);
+    return a ? a.name : "";
+  }
+
+  /* Switch to a window: show its own project session instantly. */
+  function activateWindow(i, opts) {
+    opts = opts || {};
+    if (!state.windows[i]) return;
+    if (i === state.activeWindow && !opts.force) {
+      var rec = registry && registry.active();
+      if (rec && rec.view && rec.view.focus) { try { rec.view.focus(); } catch (e) {} }
+      return;
+    }
+    if (!opts.force) syncActiveWindow();
+    state.activeWindow = i;
+    var w = state.windows[i];
+    applyWindowContext(w, { collapse: !!opts.collapse });
+    renderWindows();
+    updateAgentLabel();
+    renderAgents();
+    renderProjectMenu();
+    renderSessions();
+    renderPanel();
+    refreshToolbarLabels();
+    persistWindows();
+
+    var agent = agentById(w.agentId);
+    if (agent && isChatAgent(agent)) {
+      state.modelId = chatModelPref();
+      state.screen = { starting: false, exited: false, hasSession: false, chat: true };
+      if (chatOpen()) state.screen.chat = true;
+      else openChat();
+      setStatus("idle");
+      renderScreen();
+      loadModels(false);
+      loadSessions();
+      return;
+    }
+    closeChat();
+
+    if (!w.sessionId) {
+      resetScreen();
+      setStatus("stopped");
+      renderScreen();
+      loadModels(false);
+      loadSessions();
+      return;
+    }
+
+    // A dashboard that is still alive appears with no process restart. The
+    // metadata refresh below only updates the toolbar and session list.
+    if (hasLiveView(w.sessionId)) {
+      state.sessionId = w.sessionId;
+      state.screen = {
+        starting: false,
+        exited: w.status === "stopped",
+        hasSession: w.status !== "stopped",
+      };
+      if (registry) registry.select(w.sessionId);
+      setStatus(w.status === "stopped" ? "running" : (w.status || "running"));
+      renderScreen();
+      if (registry) registry.resize(w.sessionId);
+    }
+    loadModels(false);
+    loadSessions();
+    openSession(w.sessionId, { auto: true, keepView: true });
+  }
+
+  function refreshToolbarLabels() {
+    updateModelLabel();
+    updateProviderLabel();
+    updateModelAvailability();
+    updateProviderAvailability();
+  }
+
+  function closeWindow(i) {
+    if (state.windows.length <= 1) {
+      note("The workspace needs at least one window. Use the agent menu to change it.");
+      return;
+    }
+    var w = state.windows[i];
+    if (!w) return;
+    var wasActive = i === state.activeWindow;
+    if (w.sessionId && registry && registry.has(w.sessionId)) {
+      try { registry.dispose(w.sessionId); } catch (e) { /* ignore */ }
+      delete views[w.sessionId];
+    }
+    state.windows.splice(i, 1);
+    if (state.activeWindow > i) state.activeWindow -= 1;
+    if (state.activeWindow >= state.windows.length) state.activeWindow = state.windows.length - 1;
+    if (wasActive) activateWindow(state.activeWindow, { force: true });
+    else { renderWindows(); persistWindows(); }
   }
 
   // -- transport ---------------------------------------------------------
@@ -492,6 +747,27 @@
   // -- providers (CLI-reported, never invented) --------------------------
   var PROVIDER_KEY = "dennis.workspace.provider"; // agentId -> providerId
   var providerSetupSig = null;                    // avoid re-rendering on keystrokes
+  /* The Custom provider (FreeLLMAPI) is not CLI-reported: it is the connection
+   * the user set up in the FreeLLMAPI sidebar view (base URL + model + key).
+   * The backend injects its model into the list with provider "FreeLLMAPI",
+   * so this id doubles as the model-list filter for the connection. */
+  var CUSTOM_PROVIDER_ID = "FreeLLMAPI";
+
+  function customProviderDescriptor() {
+    var c = state.customProvider || {};
+    var configured = !!c.configured;
+    return {
+      id: CUSTOM_PROVIDER_ID,
+      label: "Custom (FreeLLMAPI)",
+      model_count: configured ? 1 : 0,
+      available: configured,
+      custom: true,
+      configured: configured,
+      supported: c.supported !== false,
+      model: c.model || "",
+      base_url: c.base_url || "",
+    };
+  }
 
   function recallProvider(agentId) {
     try {
@@ -517,6 +793,7 @@
 
   function providerById(id) {
     if (!id) return null;
+    if (id === CUSTOM_PROVIDER_ID) return customProviderDescriptor();
     var list = state.providers || [];
     for (var i = 0; i < list.length; i++) {
       if (list[i].id === id) return list[i];
@@ -528,6 +805,7 @@
    * current session's model, then the provider this agent was last used with. */
   function resolveProviderId(providers, items) {
     var known = function (id) {
+      if (id === CUSTOM_PROVIDER_ID) return true;  // always offered
       return (providers || []).some(function (p) { return p.id === id; });
     };
     // An explicit pick wins, including an explicit "All providers" (null).
@@ -563,50 +841,6 @@
     if (disabled && $("ws-provider-menu")) $("ws-provider-menu").classList.add("hidden");
   }
 
-  var WEB_MODELS = [
-    { id: "chatgpt", name: "ChatGPT", url: "https://chatgpt.com/", color: "#10a37f" },
-    { id: "gemini", name: "Gemini", url: "https://gemini.google.com/", color: "#8ab4f8" },
-    { id: "claude", name: "Claude", url: "https://claude.ai/", color: "#d97757" },
-    { id: "deepseek", name: "DeepSeek", url: "https://chat.deepseek.com/", color: "#4d6bfe" },
-    { id: "copilot", name: "Microsoft Copilot", url: "https://copilot.microsoft.com/", color: "#60a5fa" },
-    { id: "perplexity", name: "Perplexity", url: "https://www.perplexity.ai/", color: "#20b8cd" },
-    { id: "grok", name: "Grok", url: "https://grok.com/", color: "#d1d5db" },
-    { id: "qwen", name: "Qwen Chat", url: "https://chat.qwen.ai/", color: "#7c3aed" },
-    { id: "kimi", name: "Kimi", url: "https://www.kimi.com/", color: "#3b82f6" },
-    { id: "mistral", name: "Le Chat (Mistral)", url: "https://chat.mistral.ai/", color: "#f97316" },
-    { id: "poe", name: "Poe", url: "https://poe.com/", color: "#8b5cf6" }
-  ];
-
-  function renderWebModels() {
-    var host = $("ws-web-model-options");
-    if (!host) return;
-    host.innerHTML = "";
-    WEB_MODELS.forEach(function (model) {
-      var btn = document.createElement("button");
-      btn.className = "ws-menu-item";
-      btn.innerHTML =
-        '<span class="ws-agent-dot" style="background:' + model.color + '"></span>' +
-        '<span class="flex-1 text-left truncate">' + esc(model.name) + "</span>" +
-        '<i data-lucide="panels-top-left" class="w-3 h-3 text-slate-500"></i>';
-      btn.addEventListener("click", function (e) {
-        e.stopPropagation();
-        if (!window.dennisDesktop || !window.dennisDesktop.openWebModel) {
-          note("Open DENNIS Desktop to use the Web Model Dashboard.");
-        } else {
-          window.dennisDesktop.openWebModel(model.id).catch(function () {
-            note("Couldn't open the Web Model Dashboard.");
-          });
-        }
-        var menu = $("ws-web-model-menu");
-        var toggle = $("ws-web-model-btn");
-        if (menu) menu.classList.add("hidden");
-        if (toggle) toggle.setAttribute("aria-expanded", "false");
-      });
-      host.appendChild(btn);
-    });
-    icons();
-  }
-
   function updateProviderLabel() {
     var el = $("ws-provider-label");
     if (!el) return;
@@ -624,7 +858,7 @@
       (opts.available === false ? " ws-menu-item-disabled" : "");
     btn.innerHTML =
       '<span class="ws-agent-dot" style="background:' +
-        (opts.available === false ? "#ef4444" : "#f59e0b") + '"></span>' +
+        (opts.dotColor || (opts.available === false ? "#ef4444" : "#f59e0b")) + '"></span>' +
       '<span class="flex-1 text-left truncate">' + esc(label) + "</span>" +
       '<span class="text-[10px] font-mono text-slate-500 shrink-0">' + esc(countText) + "</span>";
     if (opts.title) btn.title = opts.title;
@@ -659,15 +893,18 @@
       return;
     }
 
-    var providers = state.providers || [];
-    if (!providers.length) {
+    var providers = (state.providers || []).filter(function (p) {
+      // The Custom provider is always offered as its own row below.
+      return (p.id || "").toLowerCase() !== CUSTOM_PROVIDER_ID.toLowerCase();
+    });
+    if (!providers.length && !(state.customProvider && state.customProvider.configured)) {
       host.innerHTML = '<div class="px-3 py-2 text-[11px] text-slate-500">' +
-        "This agent did not report any provider. Configure it below, then press Refresh.</div>";
-      return;
+        "This agent did not report any provider. Configure a Custom provider below, then press Refresh.</div>";
     }
 
     if (providers.length > 1) {
       var total = providers.reduce(function (n, p) { return n + (p.model_count || 0); }, 0);
+      if (state.customProvider && state.customProvider.configured) total += 1;
       host.appendChild(providerRow(
         "All providers",
         total + (total === 1 ? " model" : " models"),
@@ -684,6 +921,24 @@
         { id: p.id, available: p.available !== false }
       ));
     });
+    // Custom provider (FreeLLMAPI): always offered, click it to connect or
+    // to run the CLI on the connection saved in the FreeLLMAPI sidebar view.
+    var custom = customProviderDescriptor();
+    host.appendChild(providerRow(
+      custom.label,
+      custom.configured ? "1 model" : (custom.supported ? "Setup" : "CC & Codex only"),
+      state.providerId === CUSTOM_PROVIDER_ID,
+      {
+        id: CUSTOM_PROVIDER_ID,
+        available: true,   // selectable even before connecting: opens setup
+        dotColor: custom.configured ? "#34d399" : (custom.supported ? "#f59e0b" : "#94a3b8"),
+        title: custom.configured
+          ? ("Run this agent on the FreeLLMAPI connection (" + custom.model + ")")
+          : (custom.supported
+              ? "Connect any catalog provider with your own base URL, model, and key."
+              : "Custom providers currently support Claude Code and Codex CLI."),
+      }
+    ));
     icons();
   }
 
@@ -693,12 +948,33 @@
     var host = $("ws-provider-setup");
     if (!host) return;
     var setup = state.providerSetup;
-    var sig = setup
-      ? [setup.label || "", setup.command || "", setup.hint || "", setup.form || ""].join("\u0001")
-      : "";
+    var customSelected = state.providerId === CUSTOM_PROVIDER_ID;
+    var custom = state.customProvider || {};
+    var sig = customSelected
+      ? ["custom", custom.configured ? "1" : "0", custom.supported === false ? "0" : "1"].join("\u0001")
+      : (setup
+          ? [setup.label || "", setup.command || "", setup.hint || "", setup.form || ""].join("\u0001")
+          : "");
     if (sig === providerSetupSig) return;   // already rendered (model search keystroke)
     providerSetupSig = sig;
     host.innerHTML = "";
+    if (customSelected) {
+      host.classList.remove("hidden");
+      if (custom.supported === false) {
+        var note = document.createElement("div");
+        note.className = "ws-setup-state ws-setup-state-missing";
+        note.textContent = "Custom providers (FreeLLMAPI) currently support Claude Code and Codex CLI.";
+        host.appendChild(note);
+        return;
+      }
+      var heading = document.createElement("div");
+      heading.className = "text-[10px] font-semibold text-slate-300";
+      heading.textContent = "Custom provider \u00b7 FreeLLMAPI";
+      host.appendChild(heading);
+      renderFreeLLMAPIAuth(host);
+      icons();
+      return;
+    }
     if (!setup || (!setup.command && !setup.hint && !setup.form)) {
       host.classList.add("hidden");
       return;
@@ -789,7 +1065,15 @@
       }}).then(function (r) {
         if (!r.ok) { message((r.data && r.data.error) || "Could not save the provider."); return; }
         key.value = ""; paint((r.data && r.data.settings) || {}); message("Connected. Refreshing agent models…");
-        return loadModels(true).then(function () { message("Connected. Choose the FreeLLMAPI model from the model menu."); });
+        return loadModels(true).then(function () {
+          message("Connected. Choose the FreeLLMAPI model from the model menu.");
+          // The Custom provider is now live: jump straight to its model list.
+          if (state.providerId === CUSTOM_PROVIDER_ID) {
+            closeMenus();
+            toggleMenu("ws-model-menu");
+            focusModelSearch();
+          }
+        });
       }).catch(function () { message("Backend unreachable."); })
         .then(function () { connect.disabled = false; });
     });
@@ -798,6 +1082,13 @@
       api("/api/freellmapi?agent_id=" + encodeURIComponent(state.agentId), { method: "DELETE" }).then(function (r) {
         if (!r.ok) { message((r.data && r.data.error) || "Could not disconnect."); return; }
         key.value = ""; paint((r.data && r.data.settings) || {}); message("Disconnected.");
+        // The Custom filter has no models now; fall back to all providers.
+        if (state.providerId === CUSTOM_PROVIDER_ID) {
+          state.providerId = null;
+          state.providerLocked = false;
+          rememberProvider(state.agentId, null);
+          updateProviderLabel();
+        }
         return loadModels(true);
       }).catch(function () { message("Backend unreachable."); })
         .then(function () { disconnect.disabled = false; });
@@ -929,6 +1220,11 @@
     updateProviderLabel();
     renderProviders();
     renderModels();
+    if (id === CUSTOM_PROVIDER_ID && !(state.customProvider && state.customProvider.configured)) {
+      // Nothing to pick yet: keep this menu open on the connect form instead
+      // of jumping to an empty model list.
+      return;
+    }
     // Complete the switch in the model list: the provider is a filter, the
     // model is what actually changes. Nothing restarts until a model is picked.
     closeMenus();
@@ -952,6 +1248,7 @@
       }));
       window.localStorage.setItem(OPEN_KEY, JSON.stringify(open));
     } catch (e) { /* storage unavailable */ }
+    persistWindows();
   }
 
   function recallLast() {
@@ -996,6 +1293,16 @@
     state.providerSetup = null;
     state.models = { status: "idle", items: [], error: null, current: null, liveSwitch: false, forAgent: null };
     state.panel = PanelState.agentSelected(state.panel || PanelState.defaultPanel());
+    var win = currentWindow();
+    if (win) {
+      win.agentId = id;
+      win.sessionId = null;
+      win.title = null;
+      win.status = "stopped";
+      win.modelLabel = null;
+      win.agentName = agent.name;
+    }
+    renderWindows();
     updateAgentLabel();
     renderAgents();
     renderProjectMenu();
@@ -1017,7 +1324,8 @@
     loadSessions().then(function () {
       // Reopen THIS agent's own previously-live session (not just the newest),
       // so switching back to an agent resumes its still-running CLI instead of
-      // spawning a new one.
+      // spawning a new one. A user who switched windows meanwhile wins.
+      if (!isActiveWindow(win)) return;
       if (state.agentId !== id) return;
       var remembered = sessionForAgent(id);
       var target = null;
@@ -1059,6 +1367,14 @@
     state.providerSetup = null;
     state.models = { status: "idle", items: [], error: null, current: null, liveSwitch: false, forAgent: last.agentId };
     state.panel = PanelState.agentSelected(state.panel || PanelState.defaultPanel());
+    var win = currentWindow();
+    if (win) {
+      win.agentId = last.agentId;
+      win.agentName = agent.name;
+      win.sessionId = null;
+      win.title = null;
+    }
+    renderWindows();
     updateAgentLabel();
     renderAgents();
     renderProjectMenu();
@@ -1066,6 +1382,7 @@
     renderPanel();
     loadModels(false);
     loadSessions().then(function () {
+      if (!isActiveWindow(win)) return;
       if (state.agentId !== last.agentId) return;
       var target = null;
       for (var i = 0; i < state.sessions.length; i++) {
@@ -1191,6 +1508,11 @@
     var v = map[s] || map.stopped;
     el.setAttribute("data-status", s);
     el.innerHTML = '<span class="w-2 h-2 rounded-full" style="background:' + v[1] + '"></span><span>' + v[0] + "</span>";
+    var w = currentWindow();
+    if (w && w.status !== s) {
+      w.status = s;
+      renderWindows();
+    }
     updateModelAvailability();
     updateProviderAvailability();
   }
@@ -1211,6 +1533,7 @@
   function loadModels(refresh) {
     if (!state.agentId) { renderModels(); return Promise.resolve(); }
     var forAgent = state.agentId;
+    var win = currentWindow();
     // Switching back to an agent whose list is already loaded must not relaunch
     // a CLI — reuse the cached list (the server caches it for 5 minutes too).
     if (!refresh && state.models.forAgent === forAgent &&
@@ -1229,7 +1552,7 @@
       (forProject ? "&project=" + encodeURIComponent(forProject) : "") +
       (state.sessionId ? "&session_id=" + encodeURIComponent(state.sessionId) : "");
     return api("/api/agents/" + forAgent + "/models" + q).then(function (r) {
-      if (state.agentId !== forAgent) return;
+      if (!isActiveWindow(win) || state.agentId !== forAgent) return;
       if (!r.ok) {
         state.providers = [];
         state.providerId = null;
@@ -1257,12 +1580,14 @@
       }
       state.providers = (r.data && r.data.providers) || [];
       state.providerSetup = (r.data && r.data.provider_setup) || null;
+      state.customProvider = (r.data && r.data.custom_provider) || null;
       state.providerId = resolveProviderId(state.providers, items);
       renderModels();
       updateModelLabel();
+      if (win) { syncActiveWindow(); renderWindows(); }
       if (currentIsChat() && window.DeepSeekChat) window.DeepSeekChat.setModel(state.modelId);
     }).catch(function () {
-      if (state.agentId !== forAgent) return;
+      if (!isActiveWindow(win) || state.agentId !== forAgent) return;
       state.providers = [];
       state.providerId = null;
       state.models = { status: "error", items: [], error: "Couldn't load models for this agent.", current: state.models.current, liveSwitch: false, forAgent: forAgent };
@@ -1342,7 +1667,13 @@
       return terms.every(function (t) { return hay.indexOf(t) !== -1; });
     });
     if (!shown.length) {
-      host.innerHTML = '<div class="px-3 py-2 text-[11px] text-slate-500">No matching model.</div>';
+      if (state.providerId === CUSTOM_PROVIDER_ID &&
+          !(state.customProvider && state.customProvider.configured)) {
+        host.innerHTML = '<div class="px-3 py-2 text-[11px] text-slate-500">' +
+          "No model yet \u2014 connect the Custom provider in the Provider menu.</div>";
+      } else {
+        host.innerHTML = '<div class="px-3 py-2 text-[11px] text-slate-500">No matching model.</div>';
+      }
       return;
     }
     shown.forEach(function (m) {
@@ -1399,30 +1730,34 @@
   function selectModel(id) {
     var m = state.models.items.filter(function (x) { return x.id === id; })[0];
     if (!m || !m.available) return;
+    var win = currentWindow();
     state.modelQuery = "";
     if (!state.sessionId) {  // applied when a session starts
       state.modelId = id;
       updateModelLabel();
       renderModels();
+      if (win) { win.modelLabel = modelName(id) || ""; renderWindows(); persistWindows(); }
       if (currentIsChat()) {
         rememberChatModel(id);
         if (window.DeepSeekChat) window.DeepSeekChat.setModel(id);
       }
       return;
     }
+    var sessionId = state.sessionId;
     var previous = state.models.current || state.current && state.current.model_id || null;
-    api("/api/project-sessions/" + state.sessionId + "/model", { method: "POST", body: { model_id: id } })
+    api("/api/project-sessions/" + sessionId + "/model", { method: "POST", body: { model_id: id } })
       .then(function (r) {
         if (r.status === 409 && r.data && r.data.warning) {
           var go = window.confirm(r.data.message + "\n\nContinue?");
           if (!go) { revertModel(previous); return; }
-          api("/api/project-sessions/" + state.sessionId + "/model", { method: "POST", body: { model_id: id, confirm: true } })
+          api("/api/project-sessions/" + sessionId + "/model", { method: "POST", body: { model_id: id, confirm: true } })
             .then(afterModelChange, function () { revertModel(previous); });
           return;
         }
         afterModelChange(r);
       }, function () { revertModel(previous); });
     function afterModelChange(r) {
+      if (!isActiveWindow(win) || state.sessionId !== sessionId) return;
       if (!r.ok) {
         revertModel(previous);
         note((r.data && r.data.error) || "Couldn't switch model. Keeping the previous one.");
@@ -1435,6 +1770,7 @@
       updateModelLabel();
       renderModels();
       setStatus(r.data.status || "running");
+      if (win) { win.modelLabel = modelName(applied) || ""; renderWindows(); persistWindows(); }
       if (!r.data.current_model) {
         note("Model saved. It applies when the session starts.");
       } else {
@@ -1444,6 +1780,7 @@
       }
     }
     function revertModel(previous) {
+      if (!isActiveWindow(win) || state.sessionId !== sessionId) return;
       state.modelId = previous;
       updateModelLabel();
       renderModels();
@@ -1539,6 +1876,251 @@
     icons();
   }
 
+  // -- new window (parallel agent + provider + model) --------------------
+  function renderNewWindowMenu() {
+    var host = $("ws-new-window-menu");
+    if (!host || !host.classList) return;
+    host.innerHTML = "";
+
+    var title = document.createElement("div");
+    title.className = "ws-menu-title";
+    title.textContent = "New window session";
+    host.appendChild(title);
+
+    var input = document.createElement("input");
+    input.id = "ws-new-window-name";
+    input.type = "text";
+    input.placeholder = "Project name (optional)";
+    input.className = "w-full mx-0 mb-1 px-2.5 py-1.5 rounded-lg bg-slate-900/90 border border-slate-700 text-slate-200 text-[11px] outline-none focus:border-cyan-500";
+    host.appendChild(input);
+
+    var hint = document.createElement("div");
+    hint.className = "px-2 pb-1.5 text-[9.5px] text-slate-500 leading-snug";
+    hint.textContent = "Pick an agent. It opens in its own window and your current session keeps running.";
+    host.appendChild(hint);
+
+    if (!state.projects.length) {
+      var none = document.createElement("div");
+      none.className = "px-3 py-2 text-[11px] text-slate-500";
+      none.textContent = "No project folders allowed.";
+      host.appendChild(none);
+      icons();
+      return;
+    }
+
+    var folder = document.createElement("select");
+    folder.id = "ws-new-window-folder";
+    folder.className = "w-full mb-1 rounded-lg bg-slate-900/90 border border-slate-700 text-slate-200 text-[11px] px-2 py-1.5 outline-none focus:border-cyan-500";
+    folder.setAttribute("aria-label", "Project folder");
+    state.projects.forEach(function (p) {
+      var opt = document.createElement("option");
+      opt.value = p.path;
+      opt.textContent = p.name;
+      folder.appendChild(opt);
+    });
+    host.appendChild(folder);
+
+    var label = document.createElement("div");
+    label.className = "px-2 py-1 text-[9.5px] uppercase tracking-wider text-slate-500 font-mono";
+    label.textContent = "Open a window for";
+    host.appendChild(label);
+
+    state.agents.forEach(function (a) {
+      var btn = document.createElement("button");
+      btn.className = "ws-menu-item" + (a.available ? "" : " ws-menu-item-disabled");
+      btn.innerHTML =
+        '<span class="ws-agent-dot" style="background:' + (a.available ? "#10b981" : "#ef4444") + '"></span>' +
+        '<span class="flex-1 text-left truncate">' + esc(a.name) + "</span>" +
+        '<span class="text-[10px] font-mono text-slate-500 shrink-0">' +
+        (a.available ? (a.transport === "chat" ? "built-in" : "new window") : esc(a.reason || "unavailable")) +
+        "</span>";
+      btn.title = a.available ? ("Open " + a.name + " in a new parallel window") : (a.reason || "Unavailable");
+      if (a.available) {
+        btn.addEventListener("click", function (e) {
+          e.stopPropagation();
+          createWindowSession(a.id, folder.value, input.value);
+        });
+      }
+      host.appendChild(btn);
+    });
+    icons();
+  }
+
+  /* Create and activate a fresh window record (no project session yet). */
+  function addWindow(agentId) {
+    syncActiveWindow();
+    closeChat();
+    var win = blankWindow(agentId, null);
+    win.agentName = agentNameOf(agentId);
+    win.status = "stopped";
+    state.windows.push(win);
+    state.activeWindow = state.windows.length - 1;
+    state.agentId = agentId || null;
+    state.sessionId = null;
+    state.current = null;
+    state.modelId = null;
+    state.modelQuery = "";
+    state.providerId = null;
+    state.providerLocked = false;
+    state.providers = [];
+    state.providerSetup = null;
+    state.models = {
+      status: "idle", items: [], error: null, current: null,
+      liveSwitch: false, forAgent: agentId || null,
+    };
+    state.screen = { starting: false, exited: false, hasSession: false, chat: false };
+    state.autoPreviewed = null;
+    state.sessions = [];
+    state.panel = PanelState.agentSelected(state.panel || PanelState.defaultPanel());
+    resetScreenDashboards();
+    renderWindows();
+    updateAgentLabel();
+    renderAgents();
+    renderProjectMenu();
+    renderSessions();
+    renderModels();
+    refreshToolbarLabels();
+    renderScreen();
+    renderPanel();
+    persistWindows();
+    return win;
+  }
+
+  /* New window + project session. The CLI is not started yet: the provider and
+   * model can be picked in this window first, then Start session runs it in
+   * parallel with every other window. */
+  function createWindowSession(agentId, projectPath, projectName) {
+    var agent = agentById(agentId);
+    if (!agent || !agent.available) return;
+    closeMenus();
+    var path = projectPath || (state.projects[0] && state.projects[0].path) || "";
+    if (!isChatAgent(agent) && !path) {
+      note("No project folder is allowed.");
+      return;
+    }
+    var win = addWindow(agentId);
+    note("");
+    if (isChatAgent(agent)) {
+      state.modelId = chatModelPref();
+      state.screen = { starting: false, exited: false, hasSession: false, chat: true };
+      rememberLast();
+      openChat();
+      loadModels(false);
+      loadSessions();
+      setStatus("idle");
+      renderScreen();
+      return;
+    }
+    loadModels(false);
+    var body = { agent_id: agentId, project: path };
+    var clean = (projectName || "").trim();
+    if (clean) body.title = clean;
+    note("Creating window session…");
+    api("/api/project-sessions", { method: "POST", body: body }).then(function (r) {
+      if (!isActiveWindow(win)) return;    // switched away while creating
+      if (!r.ok) {
+        note((r.data && r.data.error) || "Couldn't create the window session.");
+        return;
+      }
+      var s = r.data.session;
+      state.sessions = [s].concat(state.sessions.filter(function (item) { return item.id !== s.id; }));
+      state.sessionId = s.id;
+      state.current = s;
+      state.screen = { starting: false, exited: true, hasSession: true, chat: false };
+      state.panel = PanelState.normalize(s.panel);
+      state.handoff[s.id] = state.handoff[s.id] || { burst: 0, suppressed: 0 };
+      win.sessionId = s.id;
+      win.title = s.title || s.project;
+      win.status = "stopped";
+      rememberLast();
+      renderWindows();
+      renderSessions();
+      renderScreen();
+      renderPanel();
+      setStatus("stopped");
+      note("Window ready. Pick a provider and model, then press Start session.");
+      loadModels(false).then(function () {
+        if (!isActiveWindow(win)) return;
+        toggleMenu("ws-provider-menu");
+        var nameInput = $("ws-new-window-name");
+        if (nameInput) nameInput.value = "";
+      });
+      loadSessions();
+    }, function () {
+      if (!isActiveWindow(win)) return;
+      note(backendHint());
+    });
+  }
+
+  function warmOtherWindows(activeIdx) {
+    state.windows.forEach(function (w, i) {
+      if (i === activeIdx || !w.sessionId) return;
+      if (registry && registry.has(w.sessionId)) return;
+      api("/api/project-sessions/" + w.sessionId).then(function (r) {
+        if (!r.ok) return;
+        var s = r.data.session;
+        if (!s) return;
+        if (s.status === "running" || s.status === "busy" || s.status === "idle") {
+          w.status = s.status;
+          w.title = s.title || s.project || w.title;
+          renderWindows();
+          attachView(w.sessionId, s, true);
+        }
+      }).catch(function () { /* best effort */ });
+    });
+  }
+
+  /* Restore every window after a refresh: the active one opens its session and
+   * the others reconnect hidden so a tab switch is immediate. */
+  function restoreWorkspace() {
+    var saved = readSavedWindows();
+    if (!saved) { restoreLastSession(); return; }
+    var list = [];
+    saved.windows.forEach(function (w) {
+      if (!w || !w.agentId) return;
+      var agent = agentById(w.agentId);
+      if (!agent || !agent.available) return;
+      var rec = blankWindow(w.agentId, w.sessionId || null);
+      rec.agentName = agent.name;
+      list.push(rec);
+    });
+    if (!list.length) { restoreLastSession(); return; }
+    state.windows = list;
+    state.activeWindow = Math.min(Math.max(0, parseInt(saved.active, 10) || 0), list.length - 1);
+    var win = state.windows[state.activeWindow];
+    applyWindowContext(win, { collapse: true });
+    renderWindows();
+    updateAgentLabel();
+    renderAgents();
+    renderProjectMenu();
+    renderSessions();
+    renderPanel();
+    refreshToolbarLabels();
+
+    var agent = agentById(win.agentId);
+    if (agent && isChatAgent(agent)) {
+      state.modelId = chatModelPref();
+      state.screen = { starting: false, exited: false, hasSession: false, chat: true };
+      openChat();
+      loadModels(false);
+      loadSessions();
+      setStatus("idle");
+      renderScreen();
+      warmOtherWindows(state.activeWindow);
+      return;
+    }
+    resetScreen();
+    setStatus("stopped");
+    loadModels(false);
+    loadSessions().then(function () {
+      if (!isActiveWindow(win)) return;
+      var has = win.sessionId && state.sessions.some(function (s) { return s.id === win.sessionId; });
+      if (has) openSession(win.sessionId, { auto: true, collapse: true });
+      else { state.screen.hasSession = false; renderScreen(); }
+      warmOtherWindows(state.activeWindow);
+    });
+  }
+
   // -- sessions ----------------------------------------------------------
   function loadSessions() {
     var loadId = ++state.sessionsLoadId;
@@ -1590,19 +2172,96 @@
       row.innerHTML =
         '<span class="w-1.5 h-1.5 rounded-full shrink-0" style="background:' + statusColor(s.status) + '"></span>' +
         '<span class="flex-1 min-w-0">' +
-        '<span class="block truncate text-[11px] text-slate-200">' + esc(s.title || s.project) + "</span>" +
+        '<span class="ws-session-title block truncate text-[11px] text-slate-200" title="Rename with the pencil">' +
+          esc(s.title || s.project) + "</span>" +
         '<span class="block truncate text-[9.5px] text-slate-500 font-mono">' + esc(timeAgo(s.last_active)) + "</span>" +
         "</span>";
+      var ren = document.createElement("button");
+      ren.className = "ws-session-act opacity-0 group-hover:opacity-100";
+      ren.title = "Rename project name";
+      ren.innerHTML = '<i data-lucide="pencil" class="w-3 h-3"></i>';
+      ren.addEventListener("click", function (e) {
+        e.stopPropagation();
+        beginRenameSession(row, s);
+      });
+      row.appendChild(ren);
       var del = document.createElement("button");
       del.className = "ws-session-del opacity-0 group-hover:opacity-100";
       del.title = "Delete session";
       del.innerHTML = '<i data-lucide="x" class="w-3 h-3"></i>';
       del.addEventListener("click", function (e) { e.stopPropagation(); deleteSession(s.id); });
       row.appendChild(del);
-      row.addEventListener("click", function () { openSession(s.id); });
+      row.addEventListener("click", function () { openSessionInWindow(s.id); });
       host.appendChild(row);
     });
     icons();
+  }
+
+  function openSessionInWindow(id) {
+    var existing = windowIndexForSession(id);
+    if (existing !== -1 && existing !== state.activeWindow) {
+      activateWindow(existing);
+      return;
+    }
+    openSession(id);
+  }
+
+  /* Inline project-name editor: the title is the project name shown in the
+   * session list and on this window's tab. The folder on disk never changes. */
+  function beginRenameSession(row, s) {
+    if (!row || row.querySelector(".ws-session-rename")) return;
+    var titleEl = row.querySelector(".ws-session-title");
+    if (!titleEl) return;
+    var input = document.createElement("input");
+    input.type = "text";
+    input.className = "ws-session-rename";
+    input.maxLength = 120;
+    input.value = s.title || s.project || "";
+    input.setAttribute("aria-label", "Project name");
+    titleEl.textContent = "";
+    titleEl.appendChild(input);
+    var done = false;
+    function finish(save) {
+      if (done) return;
+      done = true;
+      var value = input.value.trim();
+      if (!save || !value || value === (s.title || "")) { renderSessions(); return; }
+      renameSession(s.id, value);
+    }
+    input.addEventListener("keydown", function (e) {
+      e.stopPropagation();
+      if (e.key === "Enter") { e.preventDefault(); finish(true); }
+      else if (e.key === "Escape") { e.preventDefault(); finish(false); }
+    });
+    input.addEventListener("blur", function () { finish(true); });
+    input.addEventListener("click", function (e) { e.stopPropagation(); });
+    window.setTimeout(function () { input.focus(); input.select(); }, 0);
+  }
+
+  function renameSession(id, title) {
+    api("/api/project-sessions/" + id, { method: "PATCH", body: { title: title } }).then(function (r) {
+      if (!r.ok) {
+        note((r.data && r.data.error) || "Couldn't rename the project.");
+        renderSessions();
+        return;
+      }
+      var rec = (r.data && r.data.session) || {};
+      var applied = rec.title || title;
+      state.sessions = state.sessions.map(function (s) {
+        return s.id === id ? Object.assign({}, s, { title: applied }) : s;
+      });
+      if (state.current && state.current.id === id) state.current.title = applied;
+      state.windows.forEach(function (w) {
+        if (w.sessionId === id) w.title = applied;
+      });
+      renderSessions();
+      renderWindows();
+      persistWindows();
+      note("Project renamed.");
+    }, function () {
+      note(backendHint());
+      renderSessions();
+    });
   }
 
   function createSession(projectPath, title) {
@@ -1645,15 +2304,44 @@
         resetScreen();
       }
       state.sessions = state.sessions.filter(function (s) { return s.id !== id; });
+      state.windows.forEach(function (w) {
+        if (w.sessionId === id) {
+          w.sessionId = null;
+          w.title = null;
+          w.modelLabel = null;
+          w.status = "stopped";
+        }
+      });
+      renderWindows();
       renderSessions();
+      persistWindows();
       loadAgents();
     });
   }
 
   function openSession(id, opts) {
     opts = opts || {};
+    var win = currentWindow();
+    var seq = ++state.sessionOpenSeq;
     return api("/api/project-sessions/" + id).then(function (r) {
-      if (!r.ok) return;
+      if (seq !== state.sessionOpenSeq) return;    // a newer open won
+      if (!isActiveWindow(win)) return;   // the user switched windows meanwhile
+      if (!r.ok) {
+        if (r.status === 404 && win) {
+          win.sessionId = null;
+          win.title = null;
+          win.status = "stopped";
+          state.sessionId = null;
+          state.current = null;
+          state.sessions = state.sessions.filter(function (s) { return s.id !== id; });
+          renderWindows();
+          renderSessions();
+          resetScreen();
+          setStatus("stopped");
+          persistWindows();
+        }
+        return;
+      }
       var s = r.data.session;
       if (state.sessionId && state.sessionId !== id) closeHistory();
       state.sessionId = id;
@@ -1661,11 +2349,13 @@
       state.agentId = s.agent_id;
       state.modelId = s.current_model || s.model_id;
       // Derive the provider from this session's model instead of keeping a
-      // filter from a different session.
-      state.providerId = null;
-      state.providerLocked = false;
+      // filter from a different session. A window switch keeps the provider
+      // filter the user picked for that window.
+      if (!(opts.keepView && state.providerLocked)) {
+        state.providerId = null;
+        state.providerLocked = false;
+      }
       state.modelQuery = "";
-      rememberLast();
       state.models.current = s.current_model || null;
       state.panel = PanelState.normalize(s.panel);
       if (state.panel.overlay) state.panel = PanelState.exitFullscreen(state.panel);
@@ -1674,6 +2364,15 @@
       // user clicks, even if the session left them expanded.
       if (opts.collapse) state.panel = PanelState.collapse(state.panel);
       state.handoff[id] = state.handoff[id] || { burst: 0, suppressed: 0 };
+      if (win) {
+        win.agentId = s.agent_id || win.agentId;
+        win.sessionId = id;
+        win.title = s.title || s.project || win.title;
+        win.agentName = agentNameOf(win.agentId) || win.agentName;
+        if (s.status) win.status = s.status;
+        renderWindows();
+      }
+      rememberLast();
       updateAgentLabel();
       renderAgents();
       renderSessions();
@@ -1711,6 +2410,11 @@
     var view = rec.view;
     views[id] = view;
     view.onStatus = function (status) {
+      var wi = windowIndexForSession(id);
+      if (wi !== -1 && state.windows[wi].status !== status) {
+        state.windows[wi].status = status;
+        if (state.sessionId !== id) renderWindows();
+      }
       if (state.sessionId !== id) return;
       if (state.current) state.current.status = status;
       setStatus(status);
@@ -1720,6 +2424,11 @@
       renderScreen();
     };
     view.onExit = function () {
+      var wi = windowIndexForSession(id);
+      if (wi !== -1) {
+        state.windows[wi].status = "stopped";
+        if (state.sessionId !== id) renderWindows();
+      }
       if (state.sessionId !== id) return;
       state.screen.starting = false;
       state.screen.exited = true;
@@ -1755,6 +2464,7 @@
   }
 
   function startSession(id, session) {
+    var win = currentWindow();
     state.screen.starting = true;
     state.screen.exited = false;
     state.screen.hasSession = true;
@@ -1766,7 +2476,8 @@
       method: "POST",
       body: { rows: dims.rows, cols: dims.cols, model_id: state.modelId || undefined },
     }).then(function (r) {
-      if (state.sessionId !== id) return;
+      if (win) win.status = r.ok ? ((r.data && r.data.status) || "running") : "stopped";
+      if (!isActiveWindow(win) || state.sessionId !== id) { renderWindows(); return; }
       if (!r.ok) {
         state.screen.starting = false;
         state.screen.exited = true;
@@ -1781,7 +2492,8 @@
       if (r.data.message) note(r.data.message);
       attachView(id, session || state.current || { agent_id: state.agentId });
     }, function () {
-      if (state.sessionId !== id) return;
+      if (win) win.status = "stopped";
+      if (!isActiveWindow(win) || state.sessionId !== id) { renderWindows(); return; }
       state.screen.starting = false;
       state.screen.exited = true;
       renderScreen();
@@ -2459,7 +3171,8 @@
 
   // -- menus -------------------------------------------------------------
   function closeMenus() {
-    ["ws-agent-menu", "ws-provider-menu", "ws-model-menu", "ws-web-model-menu", "ws-new-project-menu"].forEach(function (id) {
+    ["ws-agent-menu", "ws-provider-menu", "ws-model-menu", "ws-new-project-menu",
+     "ws-new-window-menu"].forEach(function (id) {
       var el = $(id);
       if (el) el.classList.add("hidden");
     });
@@ -2484,6 +3197,12 @@
     if (!$("agent-workspace")) return;
     state.initDone = true;
 
+    if (!state.windows.length) {
+      state.windows = [blankWindow(null, null)];
+      state.activeWindow = 0;
+    }
+    renderWindows();
+
     ensureRegistry();
     // Preload xterm so the first dashboard mounts without waiting on the CDN.
     ensureXterm().catch(function () {});
@@ -2493,17 +3212,6 @@
     bind("ws-agent-btn", "click", function (e) {
       e.stopPropagation();
       if (!e.currentTarget.disabled) toggleMenu("ws-agent-menu");
-    });
-    bind("ws-web-model-btn", "click", function (e) {
-      e.stopPropagation();
-      var menu = $("ws-web-model-menu");
-      if (!menu) return;
-      var opening = menu.classList.contains("hidden");
-      closeMenus();
-      menu.classList.toggle("hidden", !opening);
-      var toggle = $("ws-web-model-btn");
-      if (toggle) toggle.setAttribute("aria-expanded", opening ? "true" : "false");
-      if (opening) renderWebModels();
     });
     bind("ws-provider-btn", "click", function (e) {
       e.stopPropagation();
@@ -2542,6 +3250,13 @@
       renderProjectMenu();
       toggleMenu("ws-new-project-menu");
       var nameInput = $("ws-new-session-name");
+      if (nameInput) setTimeout(function () { nameInput.focus(); }, 0);
+    });
+    bind("ws-new-window", "click", function (e) {
+      e.stopPropagation();
+      renderNewWindowMenu();
+      toggleMenu("ws-new-window-menu");
+      var nameInput = $("ws-new-window-name");
       if (nameInput) setTimeout(function () { nameInput.focus(); }, 0);
     });
 
@@ -2603,7 +3318,8 @@
     // Close menus on an outside click only: clicks inside an open menu (e.g. the
     // model search box, refresh) must not dismiss it.
     document.addEventListener("click", function (e) {
-      var open = ["ws-agent-menu", "ws-provider-menu", "ws-model-menu", "ws-web-model-menu", "ws-new-project-menu"];
+      var open = ["ws-agent-menu", "ws-provider-menu", "ws-model-menu",
+                  "ws-new-project-menu", "ws-new-window-menu"];
       for (var i = 0; i < open.length; i++) {
         var menu = $(open[i]);
         if (menu && !menu.classList.contains("hidden") && menu.contains(e.target)) return;
@@ -2659,7 +3375,7 @@
       setStatus("stopped");
       renderScreen();
       icons();
-      restoreLastSession();
+      restoreWorkspace();
     });
   }
 
@@ -2689,8 +3405,22 @@
 
   window.Workspace = {
     init: init,
+    /* Live agent/model selection for voice bridges (JARVIS/Apollo). */
+    voiceContext: function () {
+      var a = agentById(state.agentId);
+      var m = state.modelId ? modelName(state.modelId) : null;
+      return {
+        agentId: state.agentId || null,
+        agentName: a ? (a.name || a.id) : null,
+        modelId: state.modelId || null,
+        modelName: m || null,
+        sessionId: state.sessionId || null,
+      };
+    },
     _state: state,
     _registry: function () { return registry; },
+    _windows: function () { return state.windows; },
+    _activateWindow: activateWindow,
     _modelDisabledReason: modelDisabledReason,
   };
   ready(init);

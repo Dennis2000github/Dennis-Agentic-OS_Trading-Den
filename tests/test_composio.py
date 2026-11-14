@@ -183,6 +183,21 @@ class ComposioTestCase(unittest.TestCase):
         ids = {item["id"] for item in plugins.catalog()["items"]}
         self.assertIn("composio", ids)
 
+    def test_composio_error_attributes(self):
+        err = composio.ComposioError("test message", "test_code", 400, {"k": "v"})
+        self.assertEqual(err.message, "test message")
+        self.assertEqual(err.code, "test_code")
+        self.assertEqual(err.status, 400)
+        self.assertEqual(err.details, {"k": "v"})
+
+    def test_connect_slug_validation(self):
+        with self.assertRaises(composio.ComposioError) as ctx:
+            composio.connect("")
+        self.assertEqual(ctx.exception.code, "slug_invalid")
+        with self.assertRaises(composio.ComposioError) as ctx:
+            composio.connect("invalid slug with spaces!")
+        self.assertEqual(ctx.exception.code, "slug_invalid")
+
 
 if __name__ == "__main__":
     unittest.main()

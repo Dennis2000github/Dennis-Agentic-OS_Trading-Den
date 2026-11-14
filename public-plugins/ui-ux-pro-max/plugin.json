@@ -1,0 +1,57 @@
+{
+  "name": "ui-ux-pro-max",
+  "title": "UI UX Pro Max",
+  "tag": "UX",
+  "icon": "palette",
+  "category": "Design intelligence",
+  "version": "2.15.0",
+  "description": "UI/UX design intelligence for agents: 80 searchable styles, 192 product palettes, 74 font pairings, 120 UX guidelines, 25 chart types and 22 stack guides for React, Next.js, Vue, Svelte, Astro, SwiftUI, React Native, Flutter, Tailwind, shadcn/ui and more.",
+  "author": "nextlevelbuilder",
+  "repository": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
+  "homepage": "https://uupm.cc",
+  "license": "MIT",
+  "keywords": [
+    "ui",
+    "ux",
+    "design",
+    "design-system",
+    "color-palette",
+    "typography",
+    "accessibility",
+    "charts",
+    "components"
+  ],
+  "skills": [
+    "skills/ui-ux-pro-max",
+    "skills/banner-design",
+    "skills/brand",
+    "skills/design",
+    "skills/design-system",
+    "skills/slides",
+    "skills/ui-styling"
+  ],
+  "mcp": [],
+  "compatibility": {
+    "agents": [
+      "generic",
+      "claude-code",
+      "cursor",
+      "codex",
+      "gemini-cli",
+      "opencode",
+      "hermes"
+    ]
+  },
+  "x-dennis": {
+    "tier": "public",
+    "tag": "UX",
+    "icon": "palette",
+    "category": "Design intelligence",
+    "source_repo": "https://github.com/nextlevelbuilder/ui-ux-pro-max-skill",
+    "homepage": "https://uupm.cc",
+    "upstream_version": "2.15.0",
+    "upstream_commit": "6ae86f61f520d6ca229d2f40e070410638c908c5",
+    "generated_at": "2026-11-12",
+    "skills_count": 7
+  }
+}

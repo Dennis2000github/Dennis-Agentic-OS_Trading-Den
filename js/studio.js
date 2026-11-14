@@ -81,7 +81,7 @@
     playlists: [],
     templates: [],
     searchQuery: "",
-    tab: "openmontage",
+    tab: "higgsfield",
     higgsfieldTab: "activity",
     stageKey: "",
     stageOutputs: [],
@@ -93,13 +93,7 @@
     pendingPlaylistMedia: null,
     finishedSeen: {},
     pollTimer: null,
-    tickTimer: null,
-    openmontage: {
-      status: null,
-      busy: false,
-      timer: null,
-      autoStartAttempted: false
-    }
+    tickTimer: null
   };
 
   function $(id) { return document.getElementById(id); }
@@ -197,82 +191,8 @@
   }
 
   /* ------------------------------------------------------------------ */
-  /* Native OpenMontage Backlot service                                  */
+  /* Media URLs                                                          */
   /* ------------------------------------------------------------------ */
-  function openMontageStatusMessage(status) {
-    if (!status) return "Checking the isolated OpenMontage service…";
-    if (status.running) return "The native OpenMontage dashboard is connected. Its projects, assets, and production views remain native to OpenMontage.";
-    if (!status.configured) return "OpenMontage is not configured. Set DENNIS_OPENMONTAGE_ROOT to the isolated checkout and run its supported setup.";
-    if (!status.ffmpeg_available) return "OpenMontage is configured, but FFmpeg is not available on PATH. The dashboard can still be inspected; media generation/rendering may be limited.";
-    return "OpenMontage is configured but stopped. Start the isolated Backlot service to load its native dashboard.";
-  }
-
-  function renderOpenMontage() {
-    var status = S.openmontage.status || {};
-    var running = !!status.running;
-    var pill = $("studio-openmontage-service-pill");
-    var start = $("studio-openmontage-start");
-    var stop = $("studio-openmontage-stop");
-    var external = $("studio-openmontage-external");
-    var frameWrap = $("studio-openmontage-frame-wrap");
-    var empty = $("studio-openmontage-empty");
-    var frame = $("studio-openmontage-frame");
-    if (pill) {
-      pill.classList.toggle("is-live", running);
-      pill.classList.toggle("is-error", !running && status.configured === false);
-    }
-    setText("studio-openmontage-service-text", running ? "Running" : (status.configured ? "Stopped" : "Not configured"));
-    setText("studio-openmontage-message", openMontageStatusMessage(status));
-    show(start, !running && !!status.configured && !S.openmontage.busy);
-    show(stop, running && !!status.owned_process && !S.openmontage.busy);
-    show(external, running);
-    show(frameWrap, running);
-    show(empty, !running);
-    if (running && status.url) {
-      if (frame && frame.getAttribute("src") !== status.url) frame.setAttribute("src", status.url);
-      if (external) external.setAttribute("href", status.url);
-    } else if (frame) {
-      frame.removeAttribute("src");
-    }
-    updateHeader();
-    icons();
-  }
-
-  function loadOpenMontageStatus(silent) {
-    return api("/api/openmontage/status").then(function (data) {
-      S.openmontage.status = data || {};
-      renderOpenMontage();
-      return data;
-    }).catch(function (err) {
-      S.openmontage.status = { running: false, configured: false, error: err.message };
-      renderOpenMontage();
-      if (!silent) toast(err.message);
-      return null;
-    });
-  }
-
-  function openMontageAction(action, button, quiet) {
-    if (S.openmontage.busy) return;
-    S.openmontage.busy = true;
-    busy(button, true);
-    renderOpenMontage();
-    return api("/api/openmontage/" + action, { method: "POST", body: {} })
-      .then(function (data) {
-        S.openmontage.status = data || {};
-        renderOpenMontage();
-        if (!quiet) toast(action === "stop" ? "OpenMontage stopped" : "OpenMontage is ready");
-      })
-      .catch(function (err) {
-        toast(err.message);
-        return loadOpenMontageStatus(true);
-      })
-      .then(function () {
-        S.openmontage.busy = false;
-        busy(button, false);
-        renderOpenMontage();
-      });
-  }
-
   function mediaLink(mediaId, remoteUrl) {
     if (mediaId) return SS.mediaUrl(mediaId, S.token);
     return remoteUrl || "";
@@ -506,30 +426,39 @@
   }
 
   function renderAgents() {
-    var host = $("studio-agent-options");
+    /* One agent list, several hosts: the Activity console plus the Build
+       dropdowns in the Ads and YouTube headers. Agents keep their own
+       provider + model — they build; generation uses Provider/Model. */
+    var hosts = ["studio-agent-options", "ads-agent-options", "yt-agent-options"];
+    hosts.forEach(function (hostId) {
+      var host = $(hostId);
+      if (!host) return;
+      if (!S.agents.length) {
+        host.innerHTML = '<div class="studio-rail-empty">No agents registered.</div>';
+        return;
+      }
+      host.innerHTML = S.agents.map(function (agent) {
+        var active = agent.id === S.agentId;
+        var available = agent.available !== false;
+        var providerModel = [agent.provider, agent.model].filter(Boolean).join(" · ") || "agent";
+        return '' +
+          '<button class="ws-menu-item' + (active ? " ws-menu-item-active" : "") + (available ? "" : " ws-menu-item-disabled") + '" data-agent="' + esc(agent.id) + '"' + (available ? "" : " disabled") + '>' +
+            '<span class="studio-dot ' + (available ? "on" : "off") + '"></span>' +
+            '<span class="flex-1 min-w-0 text-left">' +
+              '<span class="block truncate">' + esc(agent.name || agent.id) + '</span>' +
+              '<span class="block text-[9.5px] text-slate-500 truncate">' +
+                esc(providerModel + " · " + (available ? "ready" : (agent.reason || "not installed"))) +
+              '</span>' +
+            '</span>' +
+          '</button>';
+      }).join("");
+    });
+    ["studio-agent-label", "ads-agent-label", "yt-agent-label"].forEach(function (labelId) {
+      var el = $(labelId);
+      if (el) el.textContent = S.agent ? (S.agent.name || S.agent.id) : "—";
+    });
     var btn = $("studio-agent-btn");
     if (btn) btn.disabled = !S.agents.length;
-    setText("studio-agent-label", S.agent ? (S.agent.name || S.agent.id) : "—");
-    if (!host) return;
-    if (!S.agents.length) {
-      host.innerHTML = '<div class="studio-rail-empty">No agents registered.</div>';
-      icons();
-      return;
-    }
-    host.innerHTML = S.agents.map(function (agent) {
-      var active = agent.id === S.agentId;
-      var available = agent.available !== false;
-      return '' +
-        '<button class="ws-menu-item' + (active ? " ws-menu-item-active" : "") + (available ? "" : " ws-menu-item-disabled") + '" data-agent="' + esc(agent.id) + '"' + (available ? "" : " disabled") + '>' +
-          '<span class="studio-dot ' + (available ? "on" : "off") + '"></span>' +
-          '<span class="flex-1 min-w-0 text-left">' +
-            '<span class="block truncate">' + esc(agent.name || agent.id) + '</span>' +
-            '<span class="block text-[9.5px] text-slate-500 truncate">' +
-              esc((agent.provider || "agent") + " · " + (available ? "ready" : (agent.reason || "not installed"))) +
-            '</span>' +
-          '</span>' +
-        '</button>';
-    }).join("");
     icons();
   }
 
@@ -2147,21 +2076,120 @@
   /* ------------------------------------------------------------------ */
   /* Setup                                                               */
   /* ------------------------------------------------------------------ */
+  /* ------------------------------------------------------------------ */
+  /* Provider registry (Provider Setup)                                  */
+  /* ------------------------------------------------------------------ */
+  function renderRegistry() {
+    var host = $("studio-registry");
+    if (!host) return;
+    api("/api/studio/registry").then(function (data) {
+      var providers = (data && data.providers) || [];
+      if (!providers.length) {
+        host.innerHTML = '<p class="studio-setup-status warn">No providers registered.</p>';
+        return;
+      }
+      host.innerHTML = providers.map(function (provider) {
+        var statusClass = provider.connected ? "ok" : (provider.fields.length ? "warn" : "ok");
+        var statusText = provider.connected
+          ? "Connected"
+          : (provider.fields.length ? "Not connected" : "Always available");
+        var fieldsForm = "";
+        if (provider.fields.length) {
+          fieldsForm = '<div class="studio-registry-form' + (S.registryOpen === provider.id ? "" : " hidden") + '" data-registry-form="' + esc(provider.id) + '">' +
+            provider.fields.map(function (field) {
+              return '<label class="studio-field"><span>' + esc(field.label) + '</span>' +
+                '<input type="password" autocomplete="off" spellcheck="false" data-registry-field="' + esc(provider.id) + ":" + esc(field.id) + '" placeholder="' + esc(provider.env.length ? "or " + provider.env.join(" / ") : "") + '"></label>';
+            }).join("") +
+            '<div class="studio-setup-actions">' +
+            '<button type="button" class="studio-btn" data-registry-save="' + esc(provider.id) + '">Save</button>' +
+            '<button type="button" class="studio-btn studio-btn-ghost" data-registry-test="' + esc(provider.id) + '">Test</button>' +
+            '<button type="button" class="studio-btn studio-btn-danger" data-registry-delete="' + esc(provider.id) + '">Remove</button>' +
+            '</div>' +
+            '<p class="studio-setup-message" data-registry-message="' + esc(provider.id) + '"></p>' +
+            '</div>';
+        }
+        return '<div class="studio-registry-row' + (provider.connected ? " connected" : "") + '">' +
+          '<div class="studio-registry-head">' +
+          '<span class="studio-dot ' + (provider.connected ? "on" : "off") + '"></span>' +
+          '<div class="flex-1 min-w-0">' +
+          '<b>' + esc(provider.label) + '</b>' +
+          '<span class="studio-registry-note">' + esc(provider.note || "") + '</span>' +
+          '</div>' +
+          '<span class="studio-registry-status ' + statusClass + '">' + statusText + '</span>' +
+          (fieldsForm ? '<button type="button" class="studio-btn studio-btn-ghost" data-registry-toggle="' + esc(provider.id) + '">' +
+            (S.registryOpen === provider.id ? "Close" : (provider.connected ? "Edit" : "Connect")) + '</button>' : "") +
+          '</div>' +
+          fieldsForm +
+          '</div>';
+      }).join("");
+      icons();
+    }).catch(function (err) {
+      host.innerHTML = '<p class="studio-setup-status warn">' + esc(err.message) + '</p>';
+    });
+  }
+
+  function registryMessage(providerId, text, ok) {
+    var el = document.querySelector('[data-registry-message="' + providerId + '"]');
+    if (!el) return;
+    el.textContent = text || "";
+    el.className = "studio-setup-message" + (ok ? " ok" : (text ? " warn" : ""));
+  }
+
+  function registrySave(providerId) {
+    var values = {};
+    Array.prototype.forEach.call(
+      document.querySelectorAll('[data-registry-field^="' + providerId + ':"]'), function (input) {
+        var field = input.getAttribute("data-registry-field").split(":")[1];
+        if (input.value.trim()) values[field] = input.value.trim();
+      });
+    if (!Object.keys(values).length) {
+      registryMessage(providerId, "Enter at least one credential value.");
+      return;
+    }
+    registryMessage(providerId, "Saving…");
+    api("/api/studio/registry/credentials", {
+      method: "POST", body: { provider: providerId, values: values }
+    }).then(function (data) {
+      Array.prototype.forEach.call(
+        document.querySelectorAll('[data-registry-field^="' + providerId + ':"]'), function (input) {
+          input.value = "";
+        });
+      registryMessage(providerId, "Connected. The provider is now selectable in the step dropdowns.", true);
+      if (window.StudioFashion) StudioFashion.refreshRegistry();
+      renderRegistry();
+    }).catch(function (err) {
+      registryMessage(providerId, err.message);
+    });
+  }
+
+  function registryTest(providerId) {
+    registryMessage(providerId, "Testing…");
+    api("/api/studio/registry/test", { method: "POST", body: { provider: providerId } })
+      .then(function (data) {
+        registryMessage(providerId, data.message || "Connection OK.", true);
+      })
+      .catch(function (err) {
+        registryMessage(providerId, err.message);
+      });
+  }
+
+  function registryDelete(providerId) {
+    if (!window.confirm("Remove the stored credentials for this provider?")) return;
+    api("/api/studio/registry/credentials/delete", { method: "POST", body: { provider: providerId } })
+      .then(function () {
+        registryMessage(providerId, "Credentials removed.", true);
+        if (window.StudioFashion) StudioFashion.refreshRegistry();
+        renderRegistry();
+      })
+      .catch(function (err) {
+        registryMessage(providerId, err.message);
+      });
+  }
+
   function renderSetup() {
     var provider = S.provider;
     var cred = (provider && provider.credentials) || {};
-    var credStatus = $("studio-cred-status");
-    if (credStatus) {
-      if (cred.configured) {
-        credStatus.textContent = "Configured" +
-          (cred.source === "env" ? " from environment variables" : " and stored server-side") +
-          (cred.hint ? " (" + cred.hint + ")" : "") + ".";
-        credStatus.className = "studio-setup-status ok";
-      } else {
-        credStatus.textContent = "Not configured. Missing: " + ((cred.missing || []).join(", ") || "credentials") + ".";
-        credStatus.className = "studio-setup-status warn";
-      }
-    }
+    renderRegistry();
 
     var mcp = S.mcpConfig || {};
     var mcpProvider = find(S.providers, "higgsfield_mcp") || {};
@@ -2203,59 +2231,6 @@
     if (!el) return;
     el.textContent = text || "";
     el.className = "studio-setup-message" + (ok ? " ok" : (text ? " warn" : ""));
-  }
-
-  function saveCredentials() {
-    var key = $("studio-api-key");
-    var secret = $("studio-secret");
-    if (!key || !secret) return;
-    if (!key.value.trim() || !secret.value.trim()) {
-      setupMessage("studio-cred-message", "Both API key and secret are required.");
-      return;
-    }
-    var button = $("studio-cred-save");
-    busy(button, true);
-    setupMessage("studio-cred-message", "Saving…");
-    api("/api/studio/providers/higgsfield/credentials", {
-      method: "POST",
-      body: { api_key: key.value.trim(), secret: secret.value.trim() }
-    }).then(function (data) {
-      key.value = "";
-      secret.value = "";
-      setupMessage("studio-cred-message", "Saved. Credentials are never returned to this page.", true);
-      return loadProviders().then(function () {
-        if (S.providerId === "higgsfield") loadModels();
-      });
-    }).catch(function (err) {
-      setupMessage("studio-cred-message", err.message);
-    }).then(function () { busy(button, false); });
-  }
-
-  function testCredentials() {
-    var button = $("studio-cred-test");
-    busy(button, true);
-    setupMessage("studio-cred-message", "Testing…");
-    api("/api/studio/providers/higgsfield/test", { method: "POST", body: {} })
-      .then(function (data) {
-        setupMessage("studio-cred-message", data.message || "Credentials accepted.", true);
-      })
-      .catch(function (err) {
-        setupMessage("studio-cred-message", err.message);
-      })
-      .then(function () { busy(button, false); });
-  }
-
-  function deleteCredentials() {
-    if (!window.confirm("Delete the stored Higgsfield credentials?")) return;
-    var button = $("studio-cred-delete");
-    busy(button, true);
-    api("/api/studio/providers/higgsfield/credentials", { method: "DELETE" })
-      .then(function () {
-        setupMessage("studio-cred-message", "Stored credentials deleted.", true);
-        return loadProviders();
-      })
-      .catch(function (err) { setupMessage("studio-cred-message", err.message); })
-      .then(function () { busy(button, false); });
   }
 
   function saveMcp() {
@@ -2318,23 +2293,15 @@
   function updateHeader() {
     var active = S.jobs.filter(function (job) { return SS.isActive(job); })[0];
     var headerReady;
-    if (S.tab === "openmontage") {
-      var montage = S.openmontage.status || {};
-      if (montage.running) setText("studio-status-text", "OpenMontage connected");
-      else if (montage.configured) setText("studio-status-text", "OpenMontage stopped");
-      else setText("studio-status-text", "OpenMontage setup needed");
-      headerReady = !!montage.running;
-    } else {
-      if (S.generateBusy) setText("studio-status-text", "Submitting…");
-      else if (active) setText("studio-status-text", SS.stateLabel(active.state) + " · " + SS.jobTitle(active));
-      else if (S.provider && S.provider.configured) setText("studio-status-text", "Connected");
-      else setText("studio-status-text", "Higgsfield setup needed");
-      headerReady = !!(S.provider && S.provider.configured);
-    }
+    if (S.generateBusy) setText("studio-status-text", "Submitting…");
+    else if (active) setText("studio-status-text", SS.stateLabel(active.state) + " · " + SS.jobTitle(active));
+    else if (S.provider && S.provider.configured) setText("studio-status-text", "Connected");
+    else setText("studio-status-text", "Higgsfield setup needed");
+    headerReady = !!(S.provider && S.provider.configured);
     var pill = $("studio-status");
     if (pill) {
       pill.classList.toggle("studio-pill-warn", !headerReady);
-      pill.classList.toggle("studio-pill-live", S.tab === "openmontage" ? headerReady : (!!active || S.generateBusy));
+      pill.classList.toggle("studio-pill-live", !!active || S.generateBusy);
     }
     renderProviders();
   }
@@ -2345,23 +2312,29 @@
       S.higgsfieldTab = tab;
       tab = "higgsfield";
     }
-    if (["openmontage", "higgsfield", "setup"].indexOf(tab) === -1) tab = "higgsfield";
+    if (["higgsfield", "fashion", "setup", "assets", "preset"].indexOf(tab) === -1) tab = "fashion";
     S.tab = tab;
     updateHeader();
     Array.prototype.forEach.call(document.querySelectorAll("[data-studio-tab]"), function (button) {
-      button.classList.toggle("active", button.getAttribute("data-studio-tab") === tab);
+      button.classList.toggle("is-active", button.getAttribute("data-studio-tab") === tab);
     });
     Array.prototype.forEach.call(document.querySelectorAll("[data-studio-subtab]"), function (button) {
-      button.classList.toggle("active", button.getAttribute("data-studio-subtab") === S.higgsfieldTab);
+      button.classList.toggle("is-active", button.getAttribute("data-studio-subtab") === S.higgsfieldTab);
     });
     var inHiggsfield = tab === "higgsfield";
-    show($("studio-higgsfield-subtabs"), inHiggsfield);
-    show($("studio-panel-openmontage"), tab === "openmontage");
+    var view = $("studio-view");
+    if (view) view.setAttribute("data-tab", tab);
+    show($("collart-stepper"), tab === "fashion");
+    show($("collart-dock"), tab === "fashion");
+    show($("studio-higgsfield-subtabs"), false);
     show($("studio-panel-activity"), inHiggsfield && S.higgsfieldTab === "activity");
     show($("studio-panel-library"), inHiggsfield && S.higgsfieldTab === "library");
     show($("studio-panel-playlists"), inHiggsfield && S.higgsfieldTab === "playlists");
     show($("studio-panel-templates"), inHiggsfield && S.higgsfieldTab === "templates");
     show($("studio-panel-history"), inHiggsfield && S.higgsfieldTab === "history");
+    show($("studio-panel-fashion"), tab === "fashion");
+    show($("studio-panel-assets"), tab === "assets");
+    show($("studio-panel-preset"), tab === "preset");
     show($("studio-panel-setup"), tab === "setup");
     var settings = $("studio-settings-btn");
     if (settings) settings.classList.toggle("active", tab === "setup");
@@ -2373,12 +2346,14 @@
     if (inHiggsfield && S.higgsfieldTab === "playlists") loadPlaylists(true);
     if (inHiggsfield && S.higgsfieldTab === "templates") loadTemplates(true);
     if (inHiggsfield && S.higgsfieldTab === "history") loadJobs(true);
-    if (tab === "openmontage") {
-      loadOpenMontageStatus(true).then(function (data) {
-        if (S.openmontage.autoStartAttempted || !data || data.running || !data.configured) return;
-        S.openmontage.autoStartAttempted = true;
-        openMontageAction("start", null, true);
-      });
+    if (tab === "fashion" && window.StudioFashion && window.StudioFashion.show) {
+      window.StudioFashion.show();
+    }
+    if (tab === "assets" && window.StudioFashion && window.StudioFashion.showAssets) {
+      window.StudioFashion.showAssets();
+    }
+    if (tab === "preset" && window.StudioFashion && window.StudioFashion.showPresetPage) {
+      window.StudioFashion.showPresetPage();
     }
     if (tab === "setup") renderSetup();
   }
@@ -2587,9 +2562,12 @@
         loadLibrary(true),
         loadPlaylists(true),
         loadTemplates(true),
-        loadVideoTemplates(true),
-        loadOpenMontageStatus(true)
+        loadVideoTemplates(true)
       ]);
+    }).then(function () {
+      if (window.StudioFashion && window.StudioFashion.refresh) {
+        window.StudioFashion.refresh();
+      }
     });
   }
 
@@ -3367,17 +3345,21 @@
   }
 
   function bind() {
-    var agentBtn = $("studio-agent-btn");
-    if (agentBtn) agentBtn.addEventListener("click", function (event) {
-      event.stopPropagation();
-      toggleMenu("studio-agent-menu");
-    });
-    var agentOptions = $("studio-agent-options");
-    if (agentOptions) agentOptions.addEventListener("click", function (event) {
-      var item = event.target.closest("[data-agent]");
-      if (!item) return;
-      closeMenus();
-      chooseAgent(item.getAttribute("data-agent"));
+    document.addEventListener("click", function (event) {
+      var menuBtn = event.target.closest("[data-agent-menu-btn]");
+      if (menuBtn) {
+        event.stopPropagation();
+        var menu = document.getElementById(menuBtn.getAttribute("data-agent-menu-btn") === true ? "" : "") || null;
+        var host = menuBtn.parentElement;
+        var menuEl = host ? host.querySelector(".ws-menu") : null;
+        if (menuEl) toggleMenu(menuEl.id);
+        return;
+      }
+      var agentItem = event.target.closest("[data-agent]");
+      if (agentItem && agentItem.closest(".ws-menu")) {
+        closeMenus();
+        chooseAgent(agentItem.getAttribute("data-agent"));
+      }
     });
 
     var providerBtn = $("studio-provider-btn");
@@ -3725,19 +3707,6 @@
     var settings = $("studio-settings-btn");
     if (settings) settings.addEventListener("click", function () { setTab("setup"); });
 
-    var openMontageStart = $("studio-openmontage-start");
-    if (openMontageStart) openMontageStart.addEventListener("click", function () {
-      openMontageAction("start", openMontageStart);
-    });
-    var openMontageStop = $("studio-openmontage-stop");
-    if (openMontageStop) openMontageStop.addEventListener("click", function () {
-      openMontageAction("stop", openMontageStop);
-    });
-    var openMontageRefresh = $("studio-openmontage-refresh");
-    if (openMontageRefresh) openMontageRefresh.addEventListener("click", function () {
-      loadOpenMontageStatus(false);
-    });
-
     var modalClose = $("studio-modal-close");
     if (modalClose) modalClose.addEventListener("click", closeModal);
     var modal = $("studio-modal");
@@ -3754,12 +3723,22 @@
 
     var refresh = $("studio-refresh");
     if (refresh) refresh.addEventListener("click", refreshAll);
-    var credSave = $("studio-cred-save");
-    if (credSave) credSave.addEventListener("click", saveCredentials);
-    var credTest = $("studio-cred-test");
-    if (credTest) credTest.addEventListener("click", testCredentials);
-    var credDelete = $("studio-cred-delete");
-    if (credDelete) credDelete.addEventListener("click", deleteCredentials);
+    var registryHost = $("studio-registry");
+    if (registryHost) registryHost.addEventListener("click", function (event) {
+      var toggle = event.target.closest("[data-registry-toggle]");
+      if (toggle) {
+        var pid = toggle.getAttribute("data-registry-toggle");
+        S.registryOpen = S.registryOpen === pid ? null : pid;
+        renderRegistry();
+        return;
+      }
+      var save = event.target.closest("[data-registry-save]");
+      if (save) { registrySave(save.getAttribute("data-registry-save")); return; }
+      var test = event.target.closest("[data-registry-test]");
+      if (test) { registryTest(test.getAttribute("data-registry-test")); return; }
+      var del = event.target.closest("[data-registry-delete]");
+      if (del) { registryDelete(del.getAttribute("data-registry-delete")); return; }
+    });
     var mcpSave = $("studio-mcp-save");
     if (mcpSave) mcpSave.addEventListener("click", saveMcp);
     var mcpConnect = $("studio-mcp-connect");
@@ -3788,10 +3767,6 @@
       }
     });
 
-    var headerTab = $("header-nav-studio");
-    if (headerTab) headerTab.addEventListener("click", function () {
-      if (window.switchMainView) window.switchMainView("studio");
-    });
     bindVideoKit();
   }
 
@@ -3811,12 +3786,6 @@
         setText("studio-result-elapsed", label);
       }, TICK_MS);
     }
-    if (!S.openmontage.timer) {
-      S.openmontage.timer = window.setInterval(function () {
-        if (document.hidden || S.tab !== "openmontage") return;
-        loadOpenMontageStatus(true);
-      }, 5000);
-    }
   }
 
   function init() {
@@ -3824,7 +3793,7 @@
     if (!S.view || S.initialized) return;
     S.initialized = true;
     bind();
-    setTab("openmontage");
+    setTab("fashion");
     renderStage();
     renderParams();
     renderInputModes();
@@ -3841,8 +3810,7 @@
         loadLibrary(true),
         loadPlaylists(true),
         loadTemplates(true),
-        loadVideoTemplates(true),
-        loadOpenMontageStatus(true)
+        loadVideoTemplates(true)
       ]);
     }).catch(function (err) {
       toast(err.message);
@@ -3860,7 +3828,18 @@
     else refresh();
   }
 
-  window.Studio = { init: init, refresh: refresh, open: open };
+  window.Studio = {
+    init: init,
+    refresh: refresh,
+    open: open,
+    setTab: setTab,
+    toast: toast,
+    openJob: function (jobId) {
+      selectJob(jobId);
+      setTab("history");
+    },
+    providerId: function () { return S.providerId; }
+  };
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
   else init();

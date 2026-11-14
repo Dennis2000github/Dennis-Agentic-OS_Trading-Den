@@ -51,8 +51,99 @@ MODE_LABELS = {
     "character_training": "Character training",
 }
 
+#: Internal lifecycle. ``queued`` covers both the "Queued" and "Submitted"
+#: moments of the external contract: a job is *submitted* once
+#: ``provider_request_id`` is set, and it stays ``queued`` until the provider
+#: starts work. Keeping one state preserves jobs stored by earlier versions.
 STATES = ("queued", "running", "succeeded", "failed", "cancelled")
 TERMINAL_STATES = frozenset(("succeeded", "failed", "cancelled"))
+
+#: Human labels for the normalized lifecycle, shared by API and UI.
+LIFECYCLE_LABELS = {
+    "queued": "Queued",
+    "submitted": "Submitted",
+    "running": "Processing",
+    "succeeded": "Completed",
+    "failed": "Failed",
+    "cancelled": "Cancelled",
+}
+
+#: Provider capability profiles. Adapters merge these into their descriptor and
+#: into every model's ``capabilities`` so the UI can gate controls truthfully.
+#: ``cancel`` is ``none``, ``queued_only`` or ``any``; ``progress`` means the
+#: provider reports a real 0-100 value (never a fabricated one).
+PROVIDER_CAPABILITIES = {
+    "higgsfield": {
+        "cancel": "queued_only",
+        "progress": False,
+        "estimate": False,
+        "upload": True,
+        "webhook": True,
+        "polling": True,
+        "video_models": True,
+        "image_models": True,
+    },
+    "fal": {
+        "cancel": "queued_only",
+        "progress": False,
+        "estimate": False,
+        "upload": True,
+        "webhook": True,
+        "polling": True,
+        "video_models": True,
+        "image_models": False,
+    },
+    "runway": {
+        "cancel": "any",
+        "progress": True,
+        "estimate": False,
+        "upload": True,
+        "webhook": False,
+        "polling": True,
+        "video_models": True,
+        "image_models": False,
+    },
+    "luma": {
+        "cancel": "any",
+        "progress": False,
+        "estimate": False,
+        "upload": False,
+        "webhook": True,
+        "polling": True,
+        "video_models": True,
+        "image_models": False,
+    },
+    "google_veo": {
+        "cancel": "none",
+        "progress": False,
+        "estimate": False,
+        "upload": False,
+        "webhook": False,
+        "polling": True,
+        "video_models": True,
+        "image_models": False,
+    },
+    "minimax": {
+        "cancel": "none",
+        "progress": False,
+        "estimate": False,
+        "upload": False,
+        "webhook": True,
+        "polling": True,
+        "video_models": True,
+        "image_models": False,
+    },
+    "replicate": {
+        "cancel": "any",
+        "progress": False,
+        "estimate": False,
+        "upload": True,
+        "webhook": True,
+        "polling": True,
+        "video_models": True,
+        "image_models": False,
+    },
+}
 
 _STATE_ALIASES = {
     "queued": "queued",
@@ -64,6 +155,7 @@ _STATE_ALIASES = {
     "in_queue": "queued",
     "in_progress": "running",
     "inprogress": "running",
+    "dreaming": "running",
     "processing": "running",
     "running": "running",
     "generating": "running",
@@ -559,22 +651,38 @@ def derive_summary(model):
     return summary
 
 
+def provider_capabilities(provider="higgsfield"):
+    """The capability profile for ``provider`` (higgsfield defaults)."""
+    base = dict(PROVIDER_CAPABILITIES.get("higgsfield") or {})
+    base.update(PROVIDER_CAPABILITIES.get(provider) or {})
+    base["provider"] = provider
+    return base
+
+
 def capabilities_for(model, provider="higgsfield"):
     """Provider capabilities for a model.
 
-    The official API is asynchronous, cannot report progress, and only cancels
-    requests that are still queued. ``estimate`` stays false because no cost
-    estimate endpoint is documented.
+    The profile comes from ``PROVIDER_CAPABILITIES``; a catalog entry may
+    override individual keys (``capabilities``) when a single model differs
+    from its provider, and unavailable models advertise no submission rights.
     """
     kind = model.get("kind")
     props = (model.get("schema") or {}).get("properties") or {}
+    profile = provider_capabilities(provider)
+    overrides = model.get("capabilities")
+    if isinstance(overrides, dict):
+        profile.update({k: v for k, v in overrides.items() if k != "outputs"})
+    available = model.get("availability", "available") == "available"
     return {
-        "cancel": "queued_only",
-        "progress": False,
-        "estimate": False,
-        "upload": True,
-        "webhook": True,
-        "polling": True,
+        "cancel": profile.get("cancel", "queued_only"),
+        "progress": bool(profile.get("progress")),
+        "estimate": bool(profile.get("estimate")),
+        "upload": bool(profile.get("upload")),
+        "webhook": bool(profile.get("webhook")),
+        "polling": bool(profile.get("polling")),
+        "submit": available,
+        "provider": provider,
+        "verification": model.get("verification", "documented"),
         "outputs": {
             "image": kind == "image",
             "video": kind == "video",

@@ -5,17 +5,13 @@
 
 ---
 
-## Desktop app and Web Model workspaces
+## Desktop app
 
 The browser version remains available at http://localhost:8080. To run DENNIS
 in its desktop shell, install Node.js and Python, then run npm install followed
 by npm run desktop from the repository root.
 
 The desktop shell starts app.py on loopback and opens the main DENNIS window.
-Web Model opens a managed workspace window with tabs for ChatGPT, Gemini,
-Claude, DeepSeek, Copilot, Perplexity, Grok, Qwen, Kimi, Mistral, and Poe.
-Each provider has a separate persistent sign-in profile; sign in from that
-workspace once. Provider pages are isolated from the local DENNIS renderer.
 
 ## 🚀 Overview
 
@@ -24,10 +20,9 @@ workspace once. Provider pages are isolated from the local DENNIS renderer.
 ### Key Components:
 1. **Top Header & Navigation**:
    - Brand logo with cyan-to-magenta geometric wing emblem.
-   - Module switchers: `Hermes Chat`, `Bots`, `Apollo`, `Hermes Oracle`, `Hermes Muse`, `Hermes Astros`, `Studio`, `Sessions`, `Outreach`, `Mixture`, `Workspace`.
    - User profile dropdown (`Dennis Manosa`) and plan status badge.
 2. **Left Navigation & Hermes Core**:
-   - Quick sections: `Workspace`, `Trading Den`, `Vault`, `Settings`.
+   - Quick sections: `Workspace`, `Studio`, `Trading Den`, `Vault`, `Settings`.
    - **HERMES Apollo** widget with real-time reactive spinning galaxy vortex, voice wake command ("Hey Apollo"), and Jarvis-like voice assistant.
 3. **Hero Dashboard (Top Banner)**:
    - Dynamic real-time digital clock and localized date greeting.
@@ -171,6 +166,29 @@ availability) and the `models`; a provider is only listed if a model named it.
   Agent → Provider → Model order and the same `/models` payload, so the agent
   that writes a skill is chosen and filtered the same way.
 
+### Parallel workspace windows and project names
+
+The window bar above the Workspace toolbar holds one tab per project session.
+Each tab is an independent window with its own **Agent → Provider → Model** and
+its own CLI process, so several sessions can keep running at once.
+
+- **Add a window.** Press **+ New window** and pick an agent. The new window
+  creates a project session, then opens its provider and model menus so you can
+  choose before pressing **Start session**. The previously active window keeps
+  running untouched.
+- **Switch windows.** Selecting a tab swaps the toolbar context and shows that
+  session's live dashboard; sessions in other windows are never stopped or
+  reloaded.
+- **Close a window.** Closing a tab only removes the view. The session and its
+  process stay available from the Sessions list, where they can be reopened in
+  the active window.
+- **Rename a project.** The pencil next to any session name edits the display
+  title inline (`PATCH /api/project-sessions/<id>`, 120-character limit). The
+  title updates the sidebar row and the window tab; the project folder on disk
+  is never renamed.
+- **Persistence.** Open windows, their sessions and the active tab are stored in
+  `localStorage` (`dennis.workspace.windows`) and restored on reload.
+
 ### Cursor and OpenClaw requirements
 
 These agents are optional and are shown in the dropdown even before their CLI
@@ -205,6 +223,7 @@ DENNIS Agentic OS/
 │   ├── kanban.js            # Hermes board renderer + orchestrator API client
 │   ├── hermes.js            # In-OS Hermes orchestrator panel
 │   ├── plugins.js           # Plugins view: upstream API Mega List repository workspace
+│   ├── installedPlugins.js  # Installed Plugins rail: apps, packs, tags, GitHub install
 │   ├── composio.js          # Local Composio Dashboard shell and native API controls
 │   ├── studio.js            # Studio generation console controller
 │   ├── studioState.js       # Pure Studio helpers (node-testable)
@@ -329,6 +348,44 @@ pipeline.
   `~/.agents/plugins_backup_2026-10-23`; the old first-party catalog entry and
   its installed skill links were removed.
 
+### Installed Plugins (apps, skill packs and GitHub repos)
+
+The **Installed Plugins** sidebar rail is the registry view for everything the
+OS has installed or bundled. It is separate from the **Plugins** tab (the API
+Mega List / Composio console) and from **FreeLLMAPI**; each card links back to
+its native app when one exists.
+
+- **One list, short tags:** every app, skill pack and GitHub repo carries a
+  short tag (`UX`, `MCP`, `API`, `LLM`, `REV`, …) plus a lifecycle status:
+  `Installed`, `Disabled`, `Built-in`, `Bundled` or `Available`.
+- **Live merge:** `GET /api/plugins/installed` merges the real folders under
+  `~/.agents/plugins`, the bundled catalog in `public-plugins/`, and the apps
+  shipped with the OS (API Mega List, FreeLLMAPI). Installed packs are read
+  from their manifest, so new folders appear without a code change.
+- **Install from GitHub:** paste a repository URL (or a local folder) in the
+  rail. The backend clones with `git clone --depth 1`, detects a root
+  `plugin.json`, a Claude `.claude-plugin/plugin.json`, `skills/*/SKILL.md` or
+  `.claude/skills/*/SKILL.md`, then installs the pack under
+  `~/.agents/plugins/<name>`.
+- **Actions:** install a bundled pack, enable/disable, link its skills into
+  selected agents (Claude Code, Codex, Cursor, Gemini CLI, OpenCode, Hermes,
+  generic `~/.agents/skills`), open the native app, open the GitHub repo, or
+  uninstall (removing its agent skill links).
+- **Bundled packs:** Composio (`MCP`), REA (`REV`) and
+  [UI UX Pro Max](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill)
+  (`UX`, 7 skills: orchestrator, banner design, brand, design, design system,
+  slides, UI styling). API Mega List (`API`) and FreeLLMAPI (`LLM`) are built-in
+  apps rather than agent-skill packs.
+- **Bundled source:** `public-plugins/ui-ux-pro-max/` is a portable copy of the
+  upstream `.claude/skills/` tree; `plugin.json` and `SOURCE.json` record the
+  version, commit and license. Reinstall it with
+  `POST /api/plugins/install {"catalog_id":"ui-ux-pro-max"}`.
+- **Endpoints:** `GET /api/plugins/installed`; the install/toggle/link/uninstall
+  actions reuse the owner-gated `POST /api/plugins/*` routes.
+- **Frontend:** `js/installedPlugins.js` + `#installed-plugins-view`, styled by
+  `css/installed-plugins.css`; `js/app.js` routes the
+  `installed-plugins` view and sidebar label.
+
 #### Composio
 
 The **Composio Dashboard** tab provides local Dashboard-style views for
@@ -343,3 +400,25 @@ Platform / For You features not exposed by the local adapter.
 
 The portable plugin pack remains in `public-plugins/composio/` for agent-side
 installation and MCP configuration outside the Dashboard.
+
+### FreeLLMAPI (free model catalog + per-agent connections)
+
+The **FreeLLMAPI** sidebar section is a local dashboard over
+[`open-free-llm-api/awesome-freellm-apis`](https://github.com/open-free-llm-api/awesome-freellm-apis),
+the directory behind [`freellm.net`](https://freellm.net). It lists 505 free
+models from 30 providers with search, tier/credit-card/modality filters, base
+URLs, API-key links, context windows, rate limits, and the top models by weekly
+usage.
+
+- **Source of truth:** `public-plugins/free-llm-apis/README.md`, a snapshot
+  recorded in `SNAPSHOT.json` (commit + sync time).
+  `python3 scripts/sync_free_llm_apis.py` refreshes it from a local checkout;
+  `DENNIS_FREELLM_REPO` can point at another checkout.
+- **Backend:** `backend/freellm_catalog.py` parses the repository's own
+  generated Markdown tables behind owner-gated `GET /api/freellmapi/catalog`.
+  No repository code is executed and nothing is scraped per request.
+- **Connect:** choose a provider/model, paste the provider key, and **Save
+  connection**. The dashboard writes the existing per-agent FreeLLMAPI settings
+  through `POST/DELETE /api/freellmapi` (`data/freellmapi.json`, owner-only) for
+  Claude Code or Codex CLI, then the model appears in that agent's model menu.
+- **Tests:** `python3 -m unittest tests.test_freellm_catalog tests.test_freellm_routes`.

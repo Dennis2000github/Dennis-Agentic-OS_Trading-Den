@@ -9,10 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // 1. Digital Clock & Date
   initClock();
 
-  // 2. Navigation Tabs (Top Header)
-  initTopNav();
-
-  // 3. Sidebar Navigation & Trading Den
+  // 2. Sidebar Navigation & Trading Den
   initSidebar();
   initTradingDen();
 
@@ -24,6 +21,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 6. Quick Tools & Modals
   initQuickToolsAndModals();
+
+  // 7. JARVIS is the default dashboard: land on it, not the workspace.
+  switchMainView('jarvis');
 
   // The Agent Workspace (terminal + Code & Preview panel + project sessions)
   // initializes itself from js/workspace.js.
@@ -69,52 +69,50 @@ function initClock() {
 }
 
 /* ----------------------------------------------------
-   2. TOP NAVIGATION TABS
----------------------------------------------------- */
-function initTopNav() {
-  const tabs = document.querySelectorAll('.header-nav-tab');
-  tabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-      tabs.forEach(t => {
-        t.classList.remove('nav-tab-active', 'text-blue-400', 'bg-blue-900/30');
-        t.classList.add('text-slate-400');
-      });
-      tab.classList.remove('text-slate-400');
-      tab.classList.add('nav-tab-active', 'text-blue-400');
-    });
-  });
-}
-
-/* ----------------------------------------------------
-   3. SIDEBAR NAVIGATION
+   2. SIDEBAR NAVIGATION
 ---------------------------------------------------- */
 function switchMainView(viewName) {
   const heroSection = document.getElementById('hero-banner-section');
   const workspaceSection = document.getElementById('agent-workspace');
   const registrySection = document.getElementById('registry-section');
+  const jarvisView = document.getElementById('jarvis-view');
   const tradingDenView = document.getElementById('trading-den-view');
   const vaultView = document.getElementById('vault-view');
   const hermesView = document.getElementById('hermes-view');
   const studioView = document.getElementById('studio-view');
   const skillBuilderView = document.getElementById('skill-builder-view');
   const pluginsView = document.getElementById('plugins-view');
+  const installedPluginsView = document.getElementById('installed-plugins-view');
+  const freellmView = document.getElementById('freellm-view');
+  const galaxyView = document.getElementById('memory-galaxy-view');
+  const jarvisNav = document.getElementById('sidebar-nav-jarvis');
   const workspaceNav = document.getElementById('sidebar-nav-workspace');
   const tradingNav = document.getElementById('sidebar-nav-trading');
   const vaultNav = document.getElementById('sidebar-nav-vault');
   const hermesNav = document.getElementById('sidebar-nav-hermes');
   const skillBuilderNav = document.getElementById('sidebar-nav-skillbuilder');
   const pluginsNav = document.getElementById('sidebar-nav-plugins');
+  const installedPluginsNav = document.getElementById('sidebar-nav-installed-plugins');
+  const freellmNav = document.getElementById('sidebar-nav-freellm');
+  const galaxyNav = document.getElementById('sidebar-nav-galaxy');
+  const studioNav = document.getElementById('sidebar-nav-studio');
 
   const navs = [
+    { nav: jarvisNav, view: 'jarvis' },
     { nav: workspaceNav, view: 'workspace' },
+    { nav: studioNav, view: 'studio' },
     { nav: tradingNav, view: 'trading-den' },
     { nav: vaultNav, view: 'vault' },
+    { nav: galaxyNav, view: 'memory-galaxy' },
     { nav: hermesNav, view: 'hermes' },
     { nav: skillBuilderNav, view: 'skill-builder' },
-    { nav: pluginsNav, view: 'plugins' }
+    { nav: pluginsNav, view: 'plugins' },
+    { nav: installedPluginsNav, view: 'installed-plugins' },
+    { nav: freellmNav, view: 'freellm' }
   ];
-  const VIEWS = ['workspace', 'trading-den', 'vault', 'hermes', 'studio', 'skill-builder', 'plugins'];
-  const active = VIEWS.includes(viewName) ? viewName : 'workspace';
+  const VIEWS = ['jarvis', 'workspace', 'trading-den', 'vault', 'memory-galaxy', 'hermes', 'studio', 'skill-builder', 'plugins', 'installed-plugins', 'freellm'];
+  // JARVIS is the default dashboard: unknown names fall back to it.
+  const active = VIEWS.includes(viewName) ? viewName : 'jarvis';
 
   // Highlight the active sidebar item, dim the others.
   navs.forEach(({ nav, view }) => {
@@ -133,17 +131,34 @@ function switchMainView(viewName) {
   if (heroSection) heroSection.classList.toggle('hidden', !isWorkspace);
   if (workspaceSection) workspaceSection.classList.toggle('hidden', !isWorkspace);
   if (registrySection) registrySection.classList.toggle('hidden', !isWorkspace);
+  if (jarvisView) jarvisView.classList.toggle('hidden', active !== 'jarvis');
   if (tradingDenView) tradingDenView.classList.toggle('hidden', active !== 'trading-den');
   if (vaultView) vaultView.classList.toggle('hidden', active !== 'vault');
+  if (galaxyView) galaxyView.classList.toggle('hidden', active !== 'memory-galaxy');
   if (hermesView) hermesView.classList.toggle('hidden', active !== 'hermes');
   if (studioView) studioView.classList.toggle('hidden', active !== 'studio');
   if (skillBuilderView) skillBuilderView.classList.toggle('hidden', active !== 'skill-builder');
   if (pluginsView) pluginsView.classList.toggle('hidden', active !== 'plugins');
+  if (installedPluginsView) installedPluginsView.classList.toggle('hidden', active !== 'installed-plugins');
+  if (freellmView) freellmView.classList.toggle('hidden', active !== 'freellm');
+  // Leaving the Studio clears its deep-link hash (#studio/...) so a reload
+  // boots to the home screen instead of reopening the last workspace.
+  // A deliberately pasted #studio/... link still works: it is only cleared
+  // once the user navigates to another view.
+  if (active !== 'studio' && /^#studio\b/i.test(window.location.hash)) {
+    try {
+      window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    } catch (err) { /* keep the hash rather than break navigation */ }
+  }
+  if (active === 'jarvis' && window.JarvisDashboard) window.JarvisDashboard.refresh();
   if (active === 'hermes' && window.Hermes) window.Hermes.reload();
   if (active === 'studio' && window.Studio) window.Studio.refresh();
   if (active === 'skill-builder' && window.SkillBuilder) window.SkillBuilder.refresh();
   if (active === 'plugins' && window.Plugins) window.Plugins.refresh();
   if (active === 'plugins' && window.Composio) window.Composio.refresh();
+  if (active === 'installed-plugins' && window.InstalledPlugins) window.InstalledPlugins.refresh();
+  if (active === 'freellm' && window.FreeLLMAPI) window.FreeLLMAPI.refresh();
+  if (active === 'memory-galaxy' && window.MemoryGalaxy) window.MemoryGalaxy.refresh();
 }
 window.switchMainView = switchMainView;
 
@@ -161,7 +176,13 @@ function initSidebar() {
       item.classList.add('bg-blue-600', 'text-white', 'shadow-lg', 'shadow-blue-500/20');
 
       const label = item.textContent.toLowerCase();
-      if (label.includes('trading den')) {
+      if (label.includes('jarvis')) {
+        switchMainView('jarvis');
+      } else if (label.includes('memory galaxy')) {
+        switchMainView('memory-galaxy');
+      } else if (label.includes('studio')) {
+        switchMainView('studio');
+      } else if (label.includes('trading den')) {
         switchMainView('trading-den');
       } else if (label.includes('vault')) {
         switchMainView('vault');
@@ -169,8 +190,12 @@ function initSidebar() {
         switchMainView('hermes');
       } else if (label.includes('skill builder')) {
         switchMainView('skill-builder');
+      } else if (label.includes('installed plugins')) {
+        switchMainView('installed-plugins');
       } else if (label.includes('plugins')) {
         switchMainView('plugins');
+      } else if (label.includes('freellm')) {
+        switchMainView('freellm');
       } else if (label.includes('workspace')) {
         switchMainView('workspace');
       }
@@ -340,6 +365,56 @@ let activeModelState = {
 };
 
 let allModelsCache = [];
+
+// Hermes Apollo voice bridge: lets the Jarvis voice layer submit general
+// conversational commands to the CURRENTLY selected agent + model through the
+// existing /api/chat pipeline. The context follows the live Workspace toolbar
+// (agent + model dropdowns) when the user has picked one, and falls back to
+// the last-known defaults. The selected agent stays the brain; this adds no
+// orchestrator.
+window.DennisAgentBridge = {
+  getContext() {
+    let agent = { id: activeAgentState.id, name: activeAgentState.name };
+    let model = { id: activeModelState.id, name: activeModelState.name, provider: activeModelState.provider };
+    try {
+      const ctx = window.Workspace && typeof window.Workspace.voiceContext === 'function'
+        ? window.Workspace.voiceContext() : null;
+      if (ctx && ctx.agentId) {
+        agent = { id: ctx.agentId, name: ctx.agentName || ctx.agentId };
+      }
+      if (ctx && ctx.modelId) {
+        model = { id: ctx.modelId, name: ctx.modelName || ctx.modelId, provider: '' };
+      }
+    } catch (err) { /* keep the static defaults */ }
+    return { agent, model };
+  },
+  async submit(query) {
+    const ctx = this.getContext();
+    const res = await fetch('/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: query,
+        agent_id: ctx.agent.id,
+        model_id: ctx.model.id
+      })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return { ok: false, error: data.error || `HTTP ${res.status}` };
+    }
+    const reply = data.reply || data.assistant_message?.text || data.assistant_message?.content || '';
+    if (!reply) {
+      return { ok: false, error: 'agent returned an empty response' };
+    }
+    return {
+      ok: true,
+      reply,
+      agent: data.agent || ctx.agent.name,
+      model: data.model || ctx.model.name
+    };
+  }
+};
 
 function updateChatWelcomeState() {
   const welcomeEl = document.getElementById('chat-welcome-state');

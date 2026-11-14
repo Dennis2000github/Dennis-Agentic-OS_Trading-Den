@@ -13,8 +13,8 @@
        render-blocking third-party request (swapped in once fetched). -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap">
-  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"></noscript>
+  <link rel="stylesheet" media="print" onload="this.media='all'" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap">
+  <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap"></noscript>
   <script>
     // Attach the local OS session token to every same-origin /api/ request so
     // the UI authenticates without putting the token in the URL. The token
@@ -44,9 +44,17 @@
     })();
   </script>
   <!-- Custom Cyber Theme CSS -->
-  <link rel="stylesheet" href="css/style.css?v=20261028-composio2">
+  <link rel="stylesheet" href="css/style.css?v=20261111-windows">
+  <!-- Installed Plugins rail -->
+  <link rel="stylesheet" href="css/installed-plugins.css?v=20261112-ip1">
+  <!-- FreeLLMAPI catalog dashboard -->
+  <link rel="stylesheet" href="css/freellmapi.css?v=20261030-freellm1">
   <!-- Studio cinematic workspace skin -->
   <link rel="stylesheet" href="css/studio-v2.css?v=20261028-studio-kit1">
+  <!-- YouTube Studio workspace skin -->
+  <link rel="stylesheet" href="css/studio-youtube.css?v=20261109-yt-stage2">
+  <!-- UI UX Pro Max design system skin (design-system/dennis-agentic-os/MASTER.md) -->
+  <link rel="stylesheet" href="css/theme-uiuxpro.css?v=20261112-uupm1">
 </head>
 <body class="bg-[#060913] text-slate-100 h-screen overflow-hidden flex flex-col font-sans select-none">
 
@@ -80,65 +88,6 @@
       </div>
     </div>
 
-    <!-- Center Navigation Tabs -->
-    <nav class="hidden xl:flex items-center gap-1 overflow-x-auto py-1 px-2 no-scrollbar">
-      <button class="header-nav-tab nav-tab-active flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-all">
-        <i data-lucide="message-square" class="w-3.5 h-3.5"></i>
-        <span>Hermes Chat</span>
-      </button>
-
-      <button class="header-nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:text-slate-200 transition-all">
-        <i data-lucide="bot" class="w-3.5 h-3.5"></i>
-        <span>Bots</span>
-      </button>
-
-      <button id="header-nav-apollo" class="header-nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:text-slate-200 transition-all">
-        <i data-lucide="crosshair" class="w-3.5 h-3.5"></i>
-        <span>Apollo</span>
-      </button>
-
-      <button class="header-nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:text-slate-200 transition-all">
-        <i data-lucide="eye" class="w-3.5 h-3.5"></i>
-        <span>Hermes Oracle</span>
-      </button>
-
-      <button class="header-nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:text-slate-200 transition-all">
-        <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
-        <span>Hermes Muse</span>
-      </button>
-
-      <button class="header-nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:text-slate-200 transition-all">
-        <i data-lucide="telescope" class="w-3.5 h-3.5"></i>
-        <span>Hermes Astros</span>
-      </button>
-
-      <button id="header-nav-studio" class="header-nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:text-slate-200 transition-all">
-        <span class="studio-mark" aria-hidden="true"></span>
-        <span>Studio</span>
-      </button>
-
-      <button class="header-nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:text-slate-200 transition-all">
-        <i data-lucide="layers" class="w-3.5 h-3.5"></i>
-        <span>Sessions</span>
-      </button>
-
-      <button class="header-nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:text-slate-200 transition-all">
-        <i data-lucide="rocket" class="w-3.5 h-3.5"></i>
-        <span>Outreach</span>
-      </button>
-
-      <button class="header-nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:text-slate-200 transition-all">
-        <i data-lucide="network" class="w-3.5 h-3.5"></i>
-        <span>Mixture</span>
-      </button>
-
-      <button class="header-nav-tab flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium text-slate-400 hover:text-slate-200 transition-all">
-        <i data-lucide="layout-grid" class="w-3.5 h-3.5"></i>
-        <span>Workspace</span>
-      </button>
-
-    </nav>
-
     <!-- Right Profile & Plan Pill -->
     <div class="flex items-center gap-3 shrink-0">
       <div class="flex items-center gap-2 px-2 py-1 rounded-full bg-slate-900/60 border border-slate-800 hover:border-slate-700 cursor-pointer transition">
@@ -163,9 +112,19 @@
     <aside class="w-56 border-r border-[#1b253d] bg-[#070b16] flex flex-col gap-3 p-3 shrink-0 overflow-y-auto">
       <!-- Top Navigation Group -->
       <div class="space-y-1.5">
+        <button id="sidebar-nav-jarvis" class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 font-medium text-xs transition">
+          <i data-lucide="audio-waveform" class="w-4 h-4"></i>
+          <span>JARVIS</span>
+        </button>
+
         <button id="sidebar-nav-workspace" class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-blue-600 text-white font-medium text-xs shadow-lg shadow-blue-500/20 transition">
           <i data-lucide="home" class="w-4 h-4"></i>
           <span>Workspace</span>
+        </button>
+
+        <button id="sidebar-nav-studio" class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 font-medium text-xs transition">
+          <span class="studio-mark" aria-hidden="true"></span>
+          <span>Studio</span>
         </button>
 
         <button id="sidebar-nav-trading" class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 font-medium text-xs transition">
@@ -176,6 +135,11 @@
         <button id="sidebar-nav-vault" class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 font-medium text-xs transition">
           <i data-lucide="book-open" class="w-4 h-4"></i>
           <span>Vault</span>
+        </button>
+
+        <button id="sidebar-nav-galaxy" class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 font-medium text-xs transition">
+          <i data-lucide="orbit" class="w-4 h-4"></i>
+          <span>Memory Galaxy</span>
         </button>
 
         <button id="sidebar-nav-hermes" class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 font-medium text-xs transition">
@@ -191,6 +155,17 @@
         <button id="sidebar-nav-plugins" class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 font-medium text-xs transition">
           <i data-lucide="puzzle" class="w-4 h-4"></i>
           <span>Plugins</span>
+        </button>
+
+        <button id="sidebar-nav-installed-plugins" class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 font-medium text-xs transition">
+          <i data-lucide="package-check" class="w-4 h-4"></i>
+          <span>Installed Plugins</span>
+          <span id="sidebar-installed-count" class="ml-auto text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-slate-800/80 border border-slate-700 text-slate-400">0</span>
+        </button>
+
+        <button id="sidebar-nav-freellm" class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 font-medium text-xs transition">
+          <i data-lucide="zap" class="w-4 h-4"></i>
+          <span>FreeLLMAPI</span>
         </button>
 
         <button class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 font-medium text-xs transition">
@@ -231,6 +206,38 @@
           <button id="apollo-test-wake" class="p-1.5 rounded-lg bg-[#11182c] hover:bg-blue-900/60 border border-blue-900/60 hover:border-cyan-500/50 text-slate-300 hover:text-white transition" title="Wake">
             <i data-lucide="sparkles" class="w-3.5 h-3.5 text-cyan-400"></i>
           </button>
+          <button id="apollo-voice-settings" class="p-1.5 rounded-lg bg-[#11182c] hover:bg-blue-900/60 border border-blue-900/60 hover:border-cyan-500/50 text-slate-300 hover:text-white transition" title="Voice provider & settings">
+            <i data-lucide="settings-2" class="w-3.5 h-3.5 text-cyan-400"></i>
+          </button>
+        </div>
+
+        <!-- Centralized TTS status (Kokoro default) -->
+        <div class="w-full flex items-center justify-center gap-1.5 mt-1 px-1">
+          <span id="apollo-voice-status-dot" class="w-1.5 h-1.5 rounded-full shrink-0 bg-slate-500"></span>
+          <span id="apollo-voice-status-text" class="text-[9px] text-slate-500 truncate">TTS router starting...</span>
+        </div>
+
+        <!-- Voice provider panel (hidden by default; preserves widget layout) -->
+        <div id="apollo-voice-panel" class="hidden absolute top-0 left-0 right-0 z-30 m-1 rounded-xl border border-cyan-900/60 bg-[#0a1020]/95 backdrop-blur p-3 text-left shadow-2xl">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[10px] font-bold tracking-wider text-cyan-300 uppercase">Apollo Voice</span>
+            <button id="apollo-voice-close" class="text-slate-500 hover:text-white text-xs leading-none" title="Close">✕</button>
+          </div>
+          <label class="block text-[9px] uppercase tracking-wide text-slate-500 mb-0.5">Voice provider</label>
+          <select id="apollo-voice-provider" class="w-full mb-2 rounded-md bg-[#111a30] border border-slate-800 text-[11px] text-slate-200 px-2 py-1.5 focus:border-cyan-600 outline-none"></select>
+          <label class="block text-[9px] uppercase tracking-wide text-slate-500 mb-0.5">Voice preset</label>
+          <select id="apollo-voice-preset" class="w-full mb-2 rounded-md bg-[#111a30] border border-slate-800 text-[11px] text-slate-200 px-2 py-1.5 focus:border-cyan-600 outline-none"></select>
+          <label class="block text-[9px] uppercase tracking-wide text-slate-500 mb-0.5">Speech speed <span id="apollo-voice-speed-value" class="text-cyan-400 normal-case">1.03x</span></label>
+          <input id="apollo-voice-speed" type="range" min="0.5" max="1.5" step="0.01" value="1.03" class="w-full mb-2 accent-cyan-500">
+          <div class="grid grid-cols-2 gap-1.5 mb-2">
+            <button id="apollo-voice-preview" class="rounded-md bg-blue-950/80 border border-cyan-900/60 text-[10px] text-cyan-300 px-2 py-1.5 hover:border-cyan-500/60" title="Hear the current preset voice">Preview voice</button>
+            <button id="apollo-voice-test" class="rounded-md bg-blue-950/80 border border-cyan-900/60 text-[10px] text-cyan-300 px-2 py-1.5 hover:border-cyan-500/60" title="Speak a test line via Kokoro">Voice test</button>
+          </div>
+          <button id="apollo-voice-service" class="w-full mb-2 rounded-md bg-[#111a30] border border-slate-800 text-[10px] text-slate-300 px-2 py-1.5 hover:border-cyan-600" data-mode="start">Start TTS service</button>
+          <label class="flex items-center gap-2 text-[10px] text-slate-400">
+            <input id="apollo-voice-fallback" type="checkbox" class="accent-cyan-500" checked>
+            Browser voice fallback
+          </label>
         </div>
       </div>
     </aside>
@@ -307,35 +314,27 @@
       </section>
 
       <!-- ========================================================================= -->
-      <!-- WEB MODEL DASHBOARD (Independent from Agent CLI sessions) -->
-      <!-- ========================================================================= -->
-      <section id="web-model-dashboard" class="glass-panel rounded-2xl relative flex flex-col overflow-hidden border border-cyan-900/40 bg-[#090e1f]/80">
-        <div class="px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
-          <div class="flex items-center gap-2.5">
-            <i data-lucide="globe-2" class="w-4 h-4 text-cyan-400"></i>
-            <div>
-              <h2 class="text-[13px] font-semibold text-slate-100">Web Model Dashboard</h2>
-              <p class="text-[10.5px] text-slate-500">Use web AI apps in their own workspace, separate from Agent CLI sessions.</p>
-            </div>
-          </div>
-          <div class="relative">
-            <button id="ws-web-model-btn" class="ws-dropdown" title="Choose a web model dashboard" aria-haspopup="true" aria-expanded="false">
-              <span id="ws-web-model-label">Choose Web Model</span>
-              <i data-lucide="chevron-down" class="w-3 h-3 text-slate-500"></i>
-            </button>
-            <div id="ws-web-model-menu" class="ws-menu hidden absolute right-0 top-full mt-1 z-50 w-64">
-              <div class="ws-menu-title">Open Web Model Dashboard</div>
-              <div id="ws-web-model-options" class="max-h-60 overflow-y-auto"></div>
-              <div class="px-2.5 py-2 mt-1 border-t border-[#1b2537] text-[10px] leading-snug text-slate-500">Opens in a separate DENNIS workspace with a saved sign-in profile for each provider.</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- ========================================================================= -->
       <!-- TIER 2: AGENT WORKSPACE (Real Agent CLI Screen + Collapsible Code/Preview) -->
       <!-- ========================================================================= -->
       <section id="agent-workspace" class="glass-panel rounded-2xl relative flex flex-col overflow-hidden border border-blue-900/40 bg-[#090e1f]/80 ws-workspace-row">
+
+        <!-- Window tabs: one parallel session window per agent/model, each with
+             its own project session. Switching shows that window's CLI without
+             stopping any of the others. -->
+        <div id="ws-windows-bar" class="ws-windows-bar shrink-0">
+          <div id="ws-windows" class="ws-windows" role="tablist" aria-label="Workspace windows"></div>
+          <!-- Sits directly beside the last window tab (not pushed to the far
+               right); the spacer keeps it glued to the tabs as they scroll. -->
+          <div class="relative shrink-0">
+            <button id="ws-new-window" class="ws-new-window-btn" title="Open another agent window with its own provider and model">
+              <i data-lucide="layout-panel-left" class="w-3.5 h-3.5"></i>
+              <span>New window</span>
+              <i data-lucide="plus" class="w-3 h-3"></i>
+            </button>
+            <div id="ws-new-window-menu" class="ws-menu hidden absolute left-0 top-full mt-1 z-50 w-72"></div>
+          </div>
+          <div class="ws-windows-spacer" aria-hidden="true"></div>
+        </div>
 
         <!-- Toolbar: Agent -> Provider -> Model -> Status (fixed order, no tabs, no technical text) -->
         <div id="ws-toolbar" class="px-3 py-2 border-b border-[#1b2744] bg-[#080d1b] flex items-center gap-2 flex-wrap shrink-0">
@@ -853,6 +852,136 @@
           </div>
         </div>
 
+        <!-- 6. VOICE PROVIDER REGISTRY (centralized TTS — Kokoro default) -->
+        <div class="glass-panel rounded-2xl p-3.5 flex flex-col justify-between border border-blue-900/40 bg-[#090e1f]/75 hover:border-blue-700/50 transition">
+          <div>
+            <div class="flex items-start gap-2 mb-2.5">
+              <div class="p-1.5 rounded-lg bg-blue-500/10 text-cyan-400 border border-blue-500/20">
+                <i data-lucide="volume-2" class="w-4 h-4"></i>
+              </div>
+              <div>
+                <h3 class="font-bold text-xs text-white">Voice Provider Registry</h3>
+                <p class="text-[10px] text-slate-400">Centralized TTS — one engine for every workspace</p>
+              </div>
+            </div>
+
+            <div class="space-y-2 mt-3 text-xs">
+              <div class="flex items-center justify-between py-1 border-b border-slate-800/50">
+                <div class="flex items-center gap-2">
+                  <span id="vr-service-dot" class="w-2 h-2 rounded-full bg-slate-500"></span>
+                  <span id="vr-service-text" class="text-[10.5px] text-slate-400">Checking Kokoro service…</span>
+                </div>
+                <button id="vr-service-toggle" class="text-[10px] px-2 py-0.5 rounded-full bg-blue-950/70 text-cyan-300 border border-blue-800/60 hover:border-cyan-500/60">Start</button>
+              </div>
+              <div class="py-1 border-b border-slate-800/50">
+                <label class="block text-[9px] uppercase tracking-wide text-slate-500 mb-0.5">Global default provider</label>
+                <select id="vr-global-provider" class="w-full rounded-md bg-[#111a30] border border-slate-800 text-[11px] text-slate-200 px-2 py-1.5 focus:border-cyan-600 outline-none"></select>
+              </div>
+              <div class="py-1 border-b border-slate-800/50 grid grid-cols-3 gap-1.5">
+                <div>
+                  <label class="block text-[9px] uppercase tracking-wide text-slate-500 mb-0.5">Apollo</label>
+                  <select data-vr-studio-preset="apollo" class="w-full rounded-md bg-[#111a30] border border-slate-800 text-[10px] text-slate-200 px-1.5 py-1 focus:border-cyan-600 outline-none"></select>
+                </div>
+                <div>
+                  <label class="block text-[9px] uppercase tracking-wide text-slate-500 mb-0.5">Ads</label>
+                  <select data-vr-studio-preset="ads" class="w-full rounded-md bg-[#111a30] border border-slate-800 text-[10px] text-slate-200 px-1.5 py-1 focus:border-cyan-600 outline-none"></select>
+                </div>
+                <div>
+                  <label class="block text-[9px] uppercase tracking-wide text-slate-500 mb-0.5">YouTube</label>
+                  <select data-vr-studio-preset="youtube" class="w-full rounded-md bg-[#111a30] border border-slate-800 text-[10px] text-slate-200 px-1.5 py-1 focus:border-cyan-600 outline-none"></select>
+                </div>
+              </div>
+              <div class="py-1">
+                <label class="block text-[9px] uppercase tracking-wide text-slate-500 mb-0.5">ElevenLabs API key (optional, stored backend-side)</label>
+                <div class="flex gap-1.5">
+                  <input id="vr-elevenlabs-key" type="password" placeholder="sk_…" autocomplete="off" class="flex-1 rounded-md bg-[#111a30] border border-slate-800 text-[10px] text-slate-200 px-2 py-1.5 focus:border-cyan-600 outline-none">
+                  <button id="vr-elevenlabs-save" class="rounded-md bg-blue-950/80 border border-cyan-900/60 text-[10px] text-cyan-300 px-2 hover:border-cyan-500/60">Save</button>
+                </div>
+                <div id="vr-elevenlabs-status" class="text-[9px] text-slate-500 mt-1">Not configured</div>
+              </div>
+            </div>
+          </div>
+          <button id="vr-save" class="w-full mt-3 py-1.5 px-3 rounded-xl bg-blue-950/60 hover:bg-blue-900/60 border border-blue-800/60 text-cyan-400 text-xs font-semibold flex items-center justify-center gap-1.5 transition">
+            Save voice preferences
+          </button>
+        </div>
+
+        </div>
+      </section>
+
+      <!-- ========================================================================= -->
+      <!-- JARVIS HOME VIEW (default dashboard: voice core + status + quick cmds)     -->
+      <!-- ========================================================================= -->
+      <section id="jarvis-view" class="hidden flex-1 flex flex-col gap-3.5 min-h-0 pb-6">
+
+        <!-- Hero: JARVIS core -->
+        <div class="relative overflow-hidden glass-panel rounded-2xl border border-cyan-900/50 bg-gradient-to-r from-[#050d1a] via-[#081228] to-[#050a18] p-6 flex flex-col lg:flex-row items-center gap-6 shrink-0">
+          <div class="absolute -left-24 -top-24 w-96 h-96 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none"></div>
+          <div class="absolute -right-24 -bottom-24 w-96 h-96 rounded-full bg-blue-600/10 blur-3xl pointer-events-none"></div>
+          <div class="relative shrink-0 flex items-center justify-center">
+            <canvas id="jarvis-core-canvas" class="w-[168px] h-[168px] block cursor-pointer" title="Tap the core"></canvas>
+          </div>
+          <div class="relative flex-1 min-w-0 text-center lg:text-left">
+            <div class="flex items-center justify-center lg:justify-start gap-2 flex-wrap">
+              <h1 class="text-2xl font-bold tracking-wide text-white">JARVIS</h1>
+              <span class="text-[9px] font-mono uppercase tracking-widest text-cyan-300/90 border border-cyan-700/60 bg-cyan-950/40 px-2 py-0.5 rounded-full">V2 &middot; Voice Core</span>
+              <span id="jarvis-core-state" class="text-[10px] font-mono text-slate-400 border border-slate-700/70 px-2 py-0.5 rounded-full">standby</span>
+            </div>
+            <p id="jarvis-greeting" class="mt-2 text-sm text-slate-300">Good evening, Dennis. All systems are online.</p>
+            <p class="mt-1 text-[11px] text-slate-500">Say <span class="text-cyan-300 font-mono">&ldquo;Hey Apollo&rdquo;</span> &mdash; or tap the core &mdash; to wake the voice assistant. It stays live across every view.</p>
+            <div class="mt-4 flex flex-wrap items-center justify-center lg:justify-start gap-2">
+              <button id="jarvis-qc-workspace" class="jarvis-chip"><i data-lucide="home" class="w-3.5 h-3.5"></i><span>Open Workspace</span></button>
+              <button id="jarvis-qc-galaxy" class="jarvis-chip"><i data-lucide="orbit" class="w-3.5 h-3.5"></i><span>Memory Galaxy</span></button>
+              <button id="jarvis-qc-vault" class="jarvis-chip"><i data-lucide="book-open" class="w-3.5 h-3.5"></i><span>Vault</span></button>
+              <button id="jarvis-qc-studio" class="jarvis-chip"><i data-lucide="clapperboard" class="w-3.5 h-3.5"></i><span>Studio</span></button>
+              <button id="jarvis-qc-agents" class="jarvis-chip"><i data-lucide="bot" class="w-3.5 h-3.5"></i><span>Agent Registry</span></button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Status grid -->
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3.5 shrink-0">
+          <div class="jarvis-stat glass-panel rounded-2xl border border-cyan-900/40 bg-[#070d1a]/80 p-3.5">
+            <div class="flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-cyan-300/80"><i data-lucide="activity" class="w-3.5 h-3.5"></i><span>Voice Engine</span></div>
+            <p id="jarvis-stat-voice" class="mt-2 text-sm font-semibold text-white">Checking&hellip;</p>
+            <p id="jarvis-stat-voice-sub" class="text-[10px] text-slate-500 mt-0.5">Kokoro &middot; JARVIS preset</p>
+          </div>
+          <div class="jarvis-stat glass-panel rounded-2xl border border-blue-900/40 bg-[#070b1c]/80 p-3.5">
+            <div class="flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-blue-300/80"><i data-lucide="bot" class="w-3.5 h-3.5"></i><span>Agents Ready</span></div>
+            <p id="jarvis-stat-agents" class="mt-2 text-sm font-semibold text-white">&mdash;</p>
+            <p id="jarvis-stat-agents-sub" class="text-[10px] text-slate-500 mt-0.5">Host CLIs discovered</p>
+          </div>
+          <div class="jarvis-stat glass-panel rounded-2xl border border-purple-900/40 bg-[#0b0718]/80 p-3.5">
+            <div class="flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-purple-300/80"><i data-lucide="book-open" class="w-3.5 h-3.5"></i><span>Memory Notes</span></div>
+            <p id="jarvis-stat-notes" class="mt-2 text-sm font-semibold text-white">&mdash;</p>
+            <p id="jarvis-stat-notes-sub" class="text-[10px] text-slate-500 mt-0.5">Vault second brain</p>
+          </div>
+          <div class="jarvis-stat glass-panel rounded-2xl border border-emerald-900/40 bg-[#06130e]/80 p-3.5">
+            <div class="flex items-center gap-2 text-[10px] font-mono uppercase tracking-widest text-emerald-300/80"><i data-lucide="terminal" class="w-3.5 h-3.5"></i><span>Live Sessions</span></div>
+            <p id="jarvis-stat-sessions" class="mt-2 text-sm font-semibold text-white">&mdash;</p>
+            <p id="jarvis-stat-sessions-sub" class="text-[10px] text-slate-500 mt-0.5">Project sessions running</p>
+          </div>
+        </div>
+
+        <!-- Memory + shortcuts row -->
+        <div class="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-3.5">
+          <!-- Recent memory -->
+          <div class="glass-panel rounded-2xl border border-purple-900/40 bg-[#0a0716]/80 flex flex-col min-h-0 overflow-hidden">
+            <div class="px-3 py-2 border-b border-purple-950/60 flex items-center justify-between gap-2 shrink-0">
+              <span class="text-[10px] font-mono uppercase tracking-widest text-purple-300/80 flex items-center gap-1.5"><i data-lucide="history" class="w-3.5 h-3.5"></i><span>Recent memory</span></span>
+              <button id="jarvis-open-galaxy" class="text-[10px] text-cyan-300 hover:text-cyan-200 transition">Open Memory Galaxy &rarr;</button>
+            </div>
+            <div id="jarvis-recent-notes" class="flex-1 overflow-y-auto p-2.5 space-y-1.5 text-xs"></div>
+          </div>
+          <!-- System -->
+          <div class="glass-panel rounded-2xl border border-cyan-900/40 bg-[#070d1a]/80 flex flex-col min-h-0 overflow-hidden">
+            <div class="px-3 py-2 border-b border-cyan-950/60 text-[10px] font-mono uppercase tracking-widest text-cyan-300/80 flex items-center gap-1.5 shrink-0">
+              <i data-lucide="cpu" class="w-3.5 h-3.5"></i><span>System</span>
+            </div>
+            <div id="jarvis-system" class="flex-1 overflow-y-auto p-2.5 space-y-1.5 text-xs text-slate-300">
+              <p class="text-slate-500 text-[11px]">Reading system status&hellip;</p>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -1289,6 +1418,88 @@
       </section>
 
       <!-- =================================================================== -->
+      <!-- MEMORY GALAXY VIEW (memory graph + preview bar above workspace bar) -->
+      <!-- =================================================================== -->
+      <section id="memory-galaxy-view" class="hidden flex-1 flex flex-col gap-3.5 min-h-0 pb-6">
+        <!-- Header -->
+        <div class="relative overflow-hidden glass-panel rounded-2xl border border-indigo-900/50 bg-gradient-to-r from-[#0a0a1f] via-[#0d1030] to-[#080b1d] p-4 flex flex-wrap items-center justify-between gap-3 shrink-0">
+          <div class="relative z-10 flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-300">
+              <i data-lucide="orbit" class="w-5 h-5"></i>
+            </div>
+            <div>
+              <h2 class="text-sm font-bold text-white flex items-center gap-2">Memory Galaxy
+                <span class="text-[9px] font-mono uppercase tracking-widest text-indigo-300/80 border border-indigo-700/50 px-1.5 py-0.5 rounded">Memory Layer</span>
+              </h2>
+              <p class="text-[11px] text-slate-400">Your vault as a living star map &middot; notes are stars, <code class="text-indigo-300">[[wikilinks]]</code> are the gravity between them</p>
+            </div>
+          </div>
+          <div class="relative z-10 flex flex-wrap items-center gap-2">
+            <button id="mg-refresh" class="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-lg shadow-indigo-600/25 transition">
+              <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i><span>Refresh</span>
+            </button>
+            <button id="mg-open-vault" class="flex items-center gap-2 px-3 py-2 rounded-xl bg-slate-900/90 hover:bg-slate-800 border border-slate-700/60 text-slate-200 font-semibold text-xs transition">
+              <i data-lucide="book-open" class="w-3.5 h-3.5 text-purple-400"></i><span>Open in Vault</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- PREVIEW BAR (sits above the workspace bar; previews the selected star) -->
+        <div id="mg-preview-bar" class="glass-panel rounded-2xl border border-indigo-900/40 bg-[#0a0c22]/85 px-3.5 py-2.5 shrink-0 mg-preview-bar" aria-live="polite">
+          <div id="mg-preview-empty" class="mg-preview-empty">
+            <i data-lucide="mouse-pointer-click" class="w-3.5 h-3.5"></i>
+            <span>Click a star to preview its note here.</span>
+          </div>
+          <div id="mg-preview-content" class="hidden flex items-start gap-3 min-w-0">
+            <div class="w-8 h-8 rounded-lg bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-300 shrink-0 mt-0.5">
+              <i data-lucide="file-text" class="w-4 h-4"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 min-w-0">
+                <span id="mg-preview-title" class="text-xs font-semibold text-white truncate"></span>
+                <span id="mg-preview-meta" class="text-[9.5px] font-mono text-slate-500 shrink-0"></span>
+              </div>
+              <p id="mg-preview-path" class="text-[9.5px] font-mono text-indigo-300/70 truncate"></p>
+              <p id="mg-preview-excerpt" class="text-[11px] text-slate-400 leading-snug mg-preview-excerpt"></p>
+            </div>
+            <div class="flex items-center gap-1.5 shrink-0">
+              <button id="mg-preview-open" class="mg-preview-btn">Open in Vault</button>
+              <button id="mg-preview-close" class="p-1.5 rounded-lg text-slate-500 hover:text-slate-200 hover:bg-slate-800/60 transition" title="Clear preview">
+                <i data-lucide="x" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- WORKSPACE BAR (galaxy controls) -->
+        <div id="mg-workspace-bar" class="ws-windows-bar shrink-0 rounded-xl">
+          <button id="mg-recenter" class="mg-bar-btn" title="Re-center the galaxy">
+            <i data-lucide="locate-fixed" class="w-3.5 h-3.5"></i><span>Re-center</span>
+          </button>
+          <button id="mg-reheat" class="mg-bar-btn" title="Re-run the layout forces">
+            <i data-lucide="sparkles" class="w-3.5 h-3.5"></i><span>Re-spin</span>
+          </button>
+          <div class="relative shrink-0">
+            <i data-lucide="search" class="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2"></i>
+            <input id="mg-search" type="text" placeholder="Filter stars&hellip;" aria-label="Filter galaxy stars"
+                   class="w-44 pl-8 pr-2.5 py-1.5 rounded-lg bg-[#0b1226] border border-[#22304f] text-[11px] text-slate-200 placeholder-slate-600 outline-none focus:border-indigo-500/60">
+          </div>
+          <div class="ws-windows-spacer" aria-hidden="true"></div>
+          <span id="mg-stats" class="text-[10px] font-mono text-slate-500 shrink-0 px-1"></span>
+        </div>
+
+        <!-- Galaxy canvas -->
+        <div id="mg-canvas-wrap" class="glass-panel rounded-2xl border border-indigo-900/40 bg-[#05060f]/90 flex-1 min-h-0 relative overflow-hidden">
+          <canvas id="mg-canvas" class="absolute inset-0 w-full h-full block cursor-grab"></canvas>
+          <div id="mg-empty" class="hidden absolute inset-0 flex flex-col items-center justify-center gap-2 text-slate-500 text-center p-6 pointer-events-none">
+            <i data-lucide="orbit" class="w-10 h-10 text-indigo-500/50"></i>
+            <p class="text-xs">The galaxy is empty. Create notes in the Vault to light up stars.</p>
+          </div>
+          <div class="absolute bottom-3 left-3 text-[10px] text-slate-500 font-mono pointer-events-none">Drag to pan &middot; scroll to zoom &middot; click a star to preview</div>
+        </div>
+      </section>
+
+      <!-- =================================================================== -->
       <!-- HERMES VIEW (orchestrator: sub-agents + Kanban board)               -->
       <!-- =================================================================== -->
       <section id="hermes-view" class="hidden flex-1 flex flex-col gap-3.5 min-h-0 pb-6">
@@ -1356,85 +1567,142 @@
       <!-- =================================================================== -->
       <!-- STUDIO VIEW (provider-backed generation console)                    -->
       <!-- =================================================================== -->
-      <section id="studio-view" class="hidden flex-1 flex flex-col gap-3 min-h-0 pb-6">
+      <section id="studio-view" class="hidden flex-1 min-h-0">
 
-        <!-- Studio hero -->
-        <div class="studio-hero">
-          <div class="studio-hero-title">
-            <div class="studio-hero-icon">
-              <i data-lucide="film" class="w-5 h-5" aria-hidden="true"></i>
-            </div>
-            <div class="min-w-0">
-              <h2>Video Production Studio</h2>
-              <p>OpenMontage is the native production workspace; DENNIS generation tools remain available alongside it.</p>
-            </div>
+        <!-- Dennis Studio dashboard header -->
+        <header class="collart-header">
+          <div class="collart-brand" data-studio-tab="fashion">
+            <span class="collart-brand-logo">D</span>
+            <span class="collart-brand-name">Dennis Studio</span>
           </div>
-
-          <div class="studio-search">
-            <i data-lucide="search" class="w-3.5 h-3.5 text-slate-500"></i>
-            <input id="studio-search" type="text" autocomplete="off" spellcheck="false" placeholder="Search models, prompts, or keywords…" aria-label="Search Studio">
-            <div id="studio-search-menu" class="studio-search-menu hidden">
-              <div id="studio-search-results"></div>
+<div class="studio-buildagent" title="Build agent — runs Studio tools and workflows (its own provider & model). Generation below uses the Provider + Model dropdowns.">
+              <button id="ads-agent-btn" class="studio-provider-btn" data-agent-menu-btn>
+                <i data-lucide="bot" class="w-3.5 h-3.5 text-cyan-300"></i>
+                <span class="studio-buildagent-label">Build</span>
+                <span id="ads-agent-label" class="truncate">—</span>
+                <i data-lucide="chevron-down" class="w-3 h-3 text-slate-500"></i>
+              </button>
+              <div id="ads-agent-menu" class="ws-menu studio-provider-menu hidden">
+                <div class="ws-menu-title flex items-center justify-between">
+                  <span>Build agents</span>
+                  <span class="studio-mono">own provider · model</span>
+                </div>
+                <div id="ads-agent-options"></div>
+              </div>
             </div>
-          </div>
-
-          <div class="studio-hero-actions">
-            <span id="studio-status" class="studio-pill">
-              <span class="studio-pill-dot"></span><span id="studio-status-text">Checking setup…</span>
-            </span>
-            <button id="studio-settings-btn" class="studio-icon-btn" title="Studio setup" aria-label="Studio setup">
-              <i data-lucide="settings-2" class="w-3.5 h-3.5"></i>
+          <div class="studio-workspace-switch" id="studio-workspace-switch" role="tablist" aria-label="Studio workspace">
+            <button type="button" class="studio-workspace-btn is-active" data-studio-workspace="ads" role="tab" aria-selected="true">
+              <i data-lucide="megaphone" class="w-3.5 h-3.5"></i><span>Ads Studio</span>
+            </button>
+            <button type="button" class="studio-workspace-btn" data-studio-workspace="youtube" role="tab" aria-selected="false">
+              <i data-lucide="youtube" class="w-3.5 h-3.5"></i><span>YouTube Studio</span>
             </button>
           </div>
-        </div>
+          <div class="collart-header-right">
+            <span id="studio-status" class="studio-pill collart-status">
+              <span class="studio-pill-dot"></span><span id="studio-status-text">Checking setup…</span>
+            </span>
+            <button id="studio-refresh" class="studio-icon-btn collart-iconbtn" title="Refresh Studio" aria-label="Refresh Studio"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i></button>
+            <button id="studio-settings-btn" class="studio-icon-btn collart-iconbtn" title="Provider setup" aria-label="Provider setup"><i data-lucide="settings-2" class="w-3.5 h-3.5"></i></button>
+          </div>
+        </header>
 
-        <!-- Tabs -->
-        <div class="studio-tabbar">
-          <button class="studio-tab" data-studio-tab="openmontage">OpenMontage</button>
-          <button class="studio-tab" data-studio-tab="higgsfield">Higgsfield API</button>
-          <a class="studio-tab studio-tab-external" href="https://open.higgsfield.ai" target="_blank" rel="noopener noreferrer" title="Open the official Higgsfield API console">
-            Open Higgsfield <i data-lucide="external-link" class="w-3 h-3"></i>
-          </a>
-          <span id="studio-catalog-chip" class="studio-catalog-chip">catalog: —</span>
-          <button id="studio-refresh" class="studio-icon-btn ml-auto" title="Refresh Studio"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i></button>
-        </div>
+        <!-- Centralized voiceover strip (same TTS registry as Apollo/YouTube) -->
+        <div id="ads-voiceover" data-voiceover-studio="ads" class="mb-2"></div>
 
-        <div id="studio-higgsfield-subtabs" class="studio-higgsfield-subtabs hidden" role="tablist" aria-label="Higgsfield workspace">
-          <button class="studio-subtab" data-studio-subtab="activity">Generate</button>
-          <button class="studio-subtab" data-studio-subtab="library">Library</button>
-          <button class="studio-subtab" data-studio-subtab="playlists">Playlists</button>
-          <button class="studio-subtab" data-studio-subtab="templates">Templates</button>
-          <button class="studio-subtab" data-studio-subtab="history">History</button>
-        </div>
-
-        <!-- Native OpenMontage Backlot dashboard. The dashboard and its
-             routes/assets stay owned by the isolated OpenMontage service. -->
-        <div id="studio-panel-openmontage" class="studio-panel studio-openmontage-panel">
-          <div class="studio-openmontage-head glass-panel">
-            <div class="studio-openmontage-copy">
-              <div class="studio-section-kicker">NATIVE WORKSPACE</div>
-              <h3>OpenMontage Backlot</h3>
-              <p id="studio-openmontage-message">Checking the isolated OpenMontage service…</p>
+        <!-- Collart-style Studio shell: sidebar + views + dock -->
+        <div class="collart-shell">
+          <aside class="collart-sidebar" id="studio-ads-sidebar">
+            <div class="collart-side-top">
+              <nav class="collart-side-nav">
+                <button type="button" class="collart-side-item is-active" data-studio-tab="fashion" data-nav-key="generate"><i data-lucide="sparkles" class="w-4 h-4"></i><span>Generate</span></button>
+                <button type="button" class="collart-side-item" data-studio-tab="assets" data-nav-key="assets"><i data-lucide="folder" class="w-4 h-4"></i><span>Assets</span></button>
+                <button type="button" class="collart-side-item" data-studio-subtab="library" data-nav-key="library"><i data-lucide="library" class="w-4 h-4"></i><span>Library</span></button>
+                <button type="button" class="collart-side-item" data-studio-subtab="playlists" data-nav-key="playlists"><i data-lucide="list-music" class="w-4 h-4"></i><span>Playlists</span></button>
+                <button type="button" class="collart-side-item" data-studio-tab="preset" data-nav-key="preset-video"><i data-lucide="film" class="w-4 h-4"></i><span>Preset Video</span></button>
+                <button type="button" class="collart-side-item" data-studio-subtab="history" data-nav-key="history"><i data-lucide="history" class="w-4 h-4"></i><span>History</span></button>
+              </nav>
             </div>
-            <div class="studio-openmontage-actions">
-              <span id="studio-openmontage-service-pill" class="studio-openmontage-service">
-                <span class="studio-pill-dot"></span><span id="studio-openmontage-service-text">Checking…</span>
-              </span>
-              <a id="studio-openmontage-external" class="studio-btn studio-btn-secondary hidden" href="#" target="_blank" rel="noopener noreferrer">Open native</a>
-              <button id="studio-openmontage-start" class="studio-btn hidden" type="button"><i data-lucide="play" class="w-3.5 h-3.5"></i><span>Start service</span></button>
-              <button id="studio-openmontage-stop" class="studio-btn studio-btn-secondary hidden" type="button"><i data-lucide="square" class="w-3.5 h-3.5"></i><span>Stop</span></button>
-              <button id="studio-openmontage-refresh" class="studio-icon-btn" type="button" title="Refresh OpenMontage status" aria-label="Refresh OpenMontage status"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i></button>
+
+            <div class="collart-side-bottom">
+              <nav class="collart-side-nav collart-side-nav-bottom">
+                <button type="button" class="collart-side-item" data-studio-tab="setup"><i data-lucide="settings-2" class="w-4 h-4"></i><span>Provider Setup</span></button>
+              </nav>
+              <div class="collart-contact">
+                <div class="collart-contact-icon"><i data-lucide="message-square" class="w-4 h-4"></i></div>
+                <h4>Contact Us</h4>
+                <p>Jobs run on your own provider keys. Nothing is sent to Collart.</p>
+              </div>
+              <div class="collart-social">
+                <i data-lucide="github" class="w-4 h-4"></i>
+                <i data-lucide="youtube" class="w-4 h-4"></i>
+                <i data-lucide="instagram" class="w-4 h-4"></i>
+              </div>
+              <div class="collart-footnote"><span>DENNIS Studio</span><span>|</span><span id="studio-catalog-chip" class="studio-catalog-chip">catalog</span></div>
             </div>
-          </div>
-          <div id="studio-openmontage-empty" class="studio-openmontage-empty glass-panel">
-            <i data-lucide="film" class="w-7 h-7"></i>
-            <strong>OpenMontage is not running</strong>
-            <span>Start the verified Backlot service to load its native dashboard here.</span>
-          </div>
-          <div id="studio-openmontage-frame-wrap" class="studio-openmontage-frame-wrap hidden">
-            <iframe id="studio-openmontage-frame" title="OpenMontage native dashboard" loading="lazy" referrerpolicy="same-origin"></iframe>
-          </div>
-        </div>
+          </aside>
+
+          <!-- YouTube Studio sidebar (Stage 2 shell) -->
+          <aside class="collart-sidebar yt-sidebar is-hidden" id="studio-youtube-sidebar">
+            <div class="collart-side-top">
+              <div class="yt-side-brand">
+                <span class="yt-side-mark"><i data-lucide="youtube" class="w-4 h-4"></i></span>
+                <span class="yt-side-copy"><b>YouTube Studio</b><em>Educational video</em></span>
+              </div>
+              <nav class="collart-side-nav" id="yt-side-nav" aria-label="YouTube Studio sections">
+                <button type="button" class="collart-side-item is-active" data-yt-section="overview"><i data-lucide="layout-dashboard" class="w-4 h-4"></i><span>Overview</span></button>
+                <button type="button" class="collart-side-item" data-yt-section="projects"><i data-lucide="list-video" class="w-4 h-4"></i><span>Projects</span></button>
+                <div class="collart-side-label">Editorial</div>
+                <button type="button" class="collart-side-item" data-yt-section="channel-manager"><i data-lucide="user-round-cog" class="w-4 h-4"></i><span>Channel Manager</span><em class="yt-soon">Stage 3</em></button>
+                <button type="button" class="collart-side-item" data-yt-section="research"><i data-lucide="search" class="w-4 h-4"></i><span>Niche Research</span><em class="yt-soon">Stage 3</em></button>
+                <button type="button" class="collart-side-item" data-yt-section="topics"><i data-lucide="lightbulb" class="w-4 h-4"></i><span>Topic Studio</span><em class="yt-soon">Stage 3</em></button>
+                <button type="button" class="collart-side-item" data-yt-section="scripts"><i data-lucide="file-text" class="w-4 h-4"></i><span>Script Studio</span><em class="yt-soon">Stage 3</em></button>
+                <div class="collart-side-label">Production</div>
+                <button type="button" class="collart-side-item" data-yt-section="storyboard"><i data-lucide="panels-top-left" class="w-4 h-4"></i><span>Storyboard Studio</span><em class="yt-soon">Stage 4</em></button>
+                <button type="button" class="collart-side-item" data-yt-section="assets"><i data-lucide="image" class="w-4 h-4"></i><span>Asset Studio</span><em class="yt-soon">Stage 4</em></button>
+                <button type="button" class="collart-side-item" data-yt-section="voice"><i data-lucide="mic" class="w-4 h-4"></i><span>Voice Studio</span><em class="yt-soon">Stage 4</em></button>
+                <button type="button" class="collart-side-item" data-yt-section="animation"><i data-lucide="clapperboard" class="w-4 h-4"></i><span>Animation Studio</span><em class="yt-soon">Stage 4</em></button>
+                <button type="button" class="collart-side-item" data-yt-section="thumbnails"><i data-lucide="image-plus" class="w-4 h-4"></i><span>Thumbnail Studio</span><em class="yt-soon">Stage 4</em></button>
+                <div class="collart-side-label">Distribution</div>
+                <button type="button" class="collart-side-item" data-yt-section="publishing"><i data-lucide="upload" class="w-4 h-4"></i><span>Publishing Manager</span><em class="yt-soon">Stage 5</em></button>
+                <button type="button" class="collart-side-item" data-yt-section="analytics"><i data-lucide="bar-chart-3" class="w-4 h-4"></i><span>Analytics</span><em class="yt-soon">Stage 5</em></button>
+                <button type="button" class="collart-side-item" data-yt-section="calendar"><i data-lucide="calendar-days" class="w-4 h-4"></i><span>Publishing Calendar</span><em class="yt-soon">Stage 5</em></button>
+              </nav>
+            </div>
+            <div class="collart-side-bottom">
+              <div class="yt-side-note">
+                <b>Stage 2 build</b>
+                <span>Workspace shell and isolated projects are live. Editor, production and publishing modules follow in Stages 3–5.</span>
+              </div>
+              <div class="collart-footnote"><span>YouTube Studio</span><span>|</span><span id="yt-build-chip" class="studio-catalog-chip">Stage 2</span></div>
+            </div>
+          </aside>
+
+          <main class="collart-main" id="studio-ads-main">
+            <div class="collart-stepper" id="collart-stepper">
+              <button id="step-btn-1" type="button" class="collart-stepchip is-active" data-step-jump="1">
+                <span class="step-num">1</span><span>Model</span>
+              </button>
+              <i data-lucide="chevron-right" class="collart-stepchev"></i>
+              <button id="step-btn-2" type="button" class="collart-stepchip" data-step-jump="2">
+                <span class="step-num">2</span><span>Product/Props</span>
+              </button>
+              <i data-lucide="chevron-right" class="collart-stepchev"></i>
+              <button id="step-btn-3" type="button" class="collart-stepchip" data-step-jump="3">
+                <span class="step-num">3</span><span>Dressing</span>
+              </button>
+              <i data-lucide="chevron-right" class="collart-stepchev"></i>
+              <button id="step-btn-4" type="button" class="collart-stepchip" data-step-jump="4">
+                <span class="step-num">4</span><span>Reference Video</span>
+              </button>
+              <i data-lucide="chevron-right" class="collart-stepchev"></i>
+              <button id="step-btn-5" type="button" class="collart-stepchip" data-step-jump="5">
+                <span class="step-num">5</span><span>Production</span>
+              </button>
+
+            </div>
+
+            <div class="collart-content" id="collart-content">
 
         <!-- Activity: composer + stage + rail -->
         <div id="studio-panel-activity" class="studio-panel studio-panel-activity">
@@ -1910,18 +2178,9 @@
         <div id="studio-panel-setup" class="studio-panel studio-panel-setup hidden">
           <div class="studio-setup-grid">
             <section class="studio-setup-card glass-panel">
-              <div class="studio-setup-title"><i data-lucide="key-round" class="w-4 h-4 text-cyan-300"></i>Higgsfield API credentials</div>
-              <p class="studio-setup-copy">Stored server-side with owner-only permissions. Values are never returned to this page or written to logs. Environment variables <code>HIGGSFIELD_API_KEY</code> / <code>HIGGSFIELD_SECRET</code> override stored values.</p>
-              <p id="studio-cred-status" class="studio-setup-status">Checking…</p>
-              <label class="studio-field"><span>API key</span><input id="studio-api-key" type="password" autocomplete="off" spellcheck="false" placeholder="Key ID"></label>
-              <label class="studio-field"><span>Secret</span><input id="studio-secret" type="password" autocomplete="off" spellcheck="false" placeholder="Secret"></label>
-              <div class="studio-setup-actions">
-                <button id="studio-cred-save" class="studio-btn">Save</button>
-                <button id="studio-cred-test" class="studio-btn studio-btn-ghost">Test</button>
-                <button id="studio-cred-delete" class="studio-btn studio-btn-danger">Delete</button>
-              </div>
-              <p id="studio-cred-message" class="studio-setup-message"></p>
-              <a class="studio-setup-link" href="https://docs.higgsfield.ai" target="_blank" rel="noopener noreferrer">Official API docs <i data-lucide="external-link" class="w-3 h-3"></i></a>
+              <div class="studio-setup-title"><i data-lucide="plug-zap" class="w-4 h-4 text-cyan-300"></i>Provider registry</div>
+              <p class="studio-setup-copy">Every generation provider in one place. Save credentials to connect a provider — connected providers appear in the per-step <b>Provider</b> dropdown with a <b>classified Model</b> dropdown beside it (image vs video, grouped by mode). Secrets are stored server-side with owner-only permissions and never returned to this page. Free engines (Auto, Pollinations) need no credentials.</p>
+              <div id="studio-registry" class="studio-registry"><p class="studio-setup-status">Loading registry…</p></div>
             </section>
 
             <section class="studio-setup-card glass-panel">
@@ -1952,6 +2211,756 @@
           </div>
         </div>
 
+        <!-- ============ Fashion Video dashboard (Collart-style) ============ -->
+        <div id="studio-panel-fashion" class="studio-panel studio-panel-fashion hidden">
+          <div id="fashion-setup-hint" class="collart-banner hidden">
+            <i data-lucide="key-round" class="w-4 h-4"></i>
+            <span id="fashion-setup-hint-text">Provider credentials are required before uploading. Add them in Provider Setup.</span>
+            <button type="button" class="collart-btn" data-studio-tab="setup">Open Setup</button>
+          </div>
+
+          <!-- Selected media for generation: shown below the steps on every step -->
+          <div id="fashion-carried" class="collart-carried hidden"></div>
+
+          <!-- STEP 1: MODEL -->
+          <section id="step-1-content" class="collart-step hidden">
+            <h1 class="collart-h1">Step 1: Model</h1>
+            <p class="collart-note">Pick a preset model, upload your own photo, or generate one with an image model. Free image tools — Google Flow, ChatGPT, Gemini, Claude or Grok — work too: create the character sheet there, then upload or paste the result here.</p>
+
+            <div class="collart-subtabs" role="tablist" aria-label="Model source">
+              <button id="tab-model-preset" type="button" class="is-active" data-model-tab="preset">Preset Model</button>
+              <button id="tab-model-create" type="button" data-model-tab="create">Create Model</button>
+            </div>
+
+            <!-- Preset model picker: browse the presets, upload your own into them -->
+            <div id="step2-preset-view" class="collart-stepbody">
+              <div class="collart-filters">
+                <div class="collart-select collart-select-narrow">
+                  <select id="fashion-model-filter" aria-label="Filter preset models"><option value="">Region</option></select>
+                  <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                </div>
+              </div>
+
+              <div class="collart-card collart-uploadcard">
+                <label class="collart-label">Add your own model to the presets</label>
+                <div class="collart-row">
+                  <div id="fashion-model-drop" class="collart-dropzone collart-dropzone-model" tabindex="0" role="button" aria-label="Upload a model photo">
+                    <input id="fashion-model-file" type="file" accept="image/*" hidden>
+                    <div id="fashion-model-preview" class="collart-dropzone-inner is-empty"></div>
+                  </div>
+                  <div class="collart-card collart-urlcard">
+                    <label class="collart-label">Or paste an image URL</label>
+                    <div class="collart-linkrow">
+                      <div class="collart-input-icon">
+                        <i data-lucide="link" class="w-4 h-4"></i>
+                        <input id="fashion-model-url" type="url" spellcheck="false" placeholder="https://…">
+                      </div>
+                      <button id="fashion-model-url-apply" type="button" class="collart-btn-soft">Confirm</button>
+                    </div>
+                    <p class="collart-hint">Front-facing, full body, unobstructed face gives the cleanest result.</p>
+                  </div>
+                </div>
+              </div>
+
+              <div id="model-grid" class="collart-grid"></div>
+            </div>
+
+            <!-- Create model with an image model (prompt and/or reference image) -->
+            <div id="step2-create-view" class="collart-stepbody hidden">
+              <p class="collart-note">Create a model with an image model — write a prompt, or attach a reference image and let the prompt turn it into a character sheet. Prompt 1 is preloaded below.</p>
+              <div class="collart-card">
+<div class="collart-genpair"><div class="collart-genslot"><label class="collart-label" for="fashion-gen-provider-1">Provider</label><div class="collart-select collart-select-narrow"><select id="fashion-gen-provider-1" aria-label="Generation provider"></select><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></div></div><div class="collart-genslot collart-genslot-wide"><label class="collart-label" for="fashion-gen-model-1">Image model <em>classified</em></label><div class="collart-select collart-genmodel"><select id="fashion-gen-model-1" aria-label="Generation model"></select><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></div></div></div>
+                <div class="collart-prompthead">
+                  <label class="collart-label" for="fashion-create-prompt">Prompt</label>
+                  <button id="fashion-prompt1-seed" type="button" class="collart-btn-soft collart-btn-mini" title="Load Prompt 1">
+                    <i data-lucide="wand-2" class="w-3.5 h-3.5"></i>Use Prompt 1
+                  </button>
+                </div>
+                <textarea id="fashion-create-prompt" class="collart-textarea" rows="4" spellcheck="false"
+                  placeholder="Example: use the attached image to create a character sheet, grey background, 9:16. Do not modify the skin tone and original facial features."></textarea>
+                <div class="collart-create-tools">
+                  <span id="fashion-create-ref" class="collart-createref hidden">
+                    <img id="fashion-create-ref-thumb" alt="Reference image">
+                    <span id="fashion-create-ref-name" class="collart-createref-name"></span>
+                    <button id="fashion-create-ref-clear" type="button" class="collart-mini" title="Remove reference image">×</button>
+                  </span>
+                  <button id="fashion-create-ref-btn" type="button" class="collart-btn-soft">
+                    <i data-lucide="image-plus" class="w-3.5 h-3.5"></i>Add reference image
+                  </button>
+                  <input id="fashion-create-ref-file" type="file" accept="image/*" hidden>
+                  <button id="fashion-create-generate" type="button" class="collart-btn">
+                    <i data-lucide="sparkles" class="w-4 h-4"></i><span>Generate Model</span>
+                  </button>
+                </div>
+                <p class="collart-hint">A size written in the prompt (for example 9:16) is applied when the image model supports it. Generated models are saved to Preset Images after 1 minute — or save them now with the ⋯ menu on the image.</p>
+              </div>
+              <div id="fashion-create-result" class="collart-grid hidden"></div>
+            </div>
+          </section>
+
+          <!-- STEP 2: PRODUCT / PROPS (optional) -->
+          <section id="step-2-content" class="collart-step hidden">
+            <h1 class="collart-h1">Step 2: Product/Props <em class="collart-optional">optional</em></h1>
+            <p class="collart-note">Upload product/props images — or upload raw product photos and prompt the model to build a product/prop sheet. Click any uploaded, generated or preset image to select it for the next steps. Skip this step if your model photos already show the product.</p>
+
+            <div class="collart-productsplit">
+              <!-- Left: upload box -->
+              <div class="collart-card collart-uploadbox">
+                <label class="collart-label">Upload products / props</label>
+                <div id="fashion-product-drop" class="collart-dropzone" tabindex="0" role="button" aria-label="Upload product or props images">
+                  <input id="fashion-product-file" type="file" accept="image/*" multiple hidden>
+                  <div class="collart-dropzone-inner is-empty">
+                    <span class="collart-dropicon"><i data-lucide="package-open" class="w-6 h-6"></i></span>
+                    <p>Click or drag to upload product / props images</p>
+                    <em>JPG / PNG / WebP · multiple files allowed</em>
+                    <span class="collart-btn">Upload Images</span>
+                  </div>
+                </div>
+                <div class="collart-linkrow">
+                  <div class="collart-input-icon">
+                    <i data-lucide="link" class="w-4 h-4"></i>
+                    <input id="fashion-product-url" type="url" spellcheck="false" placeholder="Paste a product image URL">
+                  </div>
+                  <button id="fashion-product-url-apply" type="button" class="collart-btn-soft">Confirm</button>
+                </div>
+                <div id="fashion-product-uploads" class="collart-thumbgrid"></div>
+              </div>
+
+              <!-- Right: prompt chatbox -->
+              <div class="collart-card collart-chatbox">
+<div class="collart-genpair"><div class="collart-genslot"><label class="collart-label" for="fashion-gen-provider-2">Provider</label><div class="collart-select collart-select-narrow"><select id="fashion-gen-provider-2" aria-label="Generation provider"></select><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></div></div><div class="collart-genslot collart-genslot-wide"><label class="collart-label" for="fashion-gen-model-2">Image model <em>classified</em></label><div class="collart-select collart-genmodel"><select id="fashion-gen-model-2" aria-label="Generation model"></select><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></div></div></div>
+                <div class="collart-prompthead">
+                  <label class="collart-label" for="fashion-product-prompt">Product sheet prompt</label>
+                  <button id="fashion-prompt2-seed" type="button" class="collart-btn-soft collart-btn-mini" title="Load Prompt 2">
+                    <i data-lucide="wand-2" class="w-3.5 h-3.5"></i>Use Prompt 2
+                  </button>
+                </div>
+                <textarea id="fashion-product-prompt" class="collart-textarea" rows="7" spellcheck="false"
+                  placeholder="Example: use the attached images to create product sheet"></textarea>
+                <button id="fashion-product-generate" type="button" class="collart-btn">
+                  <i data-lucide="sparkles" class="w-4 h-4"></i><span>Generate Product Sheet</span>
+                </button>
+                <p class="collart-hint">The sheet is built from the uploaded images on the left. Prompt 2: "use the attached images to create product sheet".</p>
+                <div id="fashion-product-results" class="collart-thumbgrid"></div>
+              </div>
+            </div>
+
+            <div class="collart-card collart-presetcard">
+              <div class="collart-filters">
+                <span class="collart-filter-count">Preset Images — uploaded and generated images are stored here after 1 minute. Click any image to select it.</span>
+              </div>
+              <div id="product-preset-grid" class="collart-grid collart-grid-strip"></div>
+            </div>
+          </section>
+
+          <!-- STEP 3: DRESSING (optional) -->
+          <section id="step-3-content" class="collart-step hidden">
+            <h1 class="collart-h1">Step 3: Dressing <em class="collart-optional">optional</em></h1>
+            <p class="collart-note">Dress the Step 1 model in the Step 2 product/props. Prompt 3: "step 1 model dress/wear like step 2." Skip this step to keep the original model look.</p>
+
+            <div class="collart-card">
+<div class="collart-genpair"><div class="collart-genslot"><label class="collart-label" for="fashion-gen-provider-3">Provider</label><div class="collart-select collart-select-narrow"><select id="fashion-gen-provider-3" aria-label="Generation provider"></select><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></div></div><div class="collart-genslot collart-genslot-wide"><label class="collart-label" for="fashion-gen-model-3">Image model <em>classified</em></label><div class="collart-select collart-genmodel"><select id="fashion-gen-model-3" aria-label="Generation model"></select><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></div></div></div>
+              <div class="collart-prompthead">
+                <label class="collart-label" for="fashion-dressing-prompt">Dressing prompt</label>
+                <button id="fashion-prompt3-seed" type="button" class="collart-btn-soft collart-btn-mini" title="Load Prompt 3">
+                  <i data-lucide="wand-2" class="w-3.5 h-3.5"></i>Use Prompt 3
+                </button>
+              </div>
+              <textarea id="fashion-dressing-prompt" class="collart-textarea" rows="3" spellcheck="false"
+                placeholder="Example: step 1 model dress/wear like step 2."></textarea>
+              <button id="fashion-dressing-generate" type="button" class="collart-btn">
+                <i data-lucide="shirt" class="w-4 h-4"></i><span>Generate Dressed Model</span>
+              </button>
+              <p class="collart-hint">Needs a Step 1 model. With Step 2 products selected the model is dressed in them; without products the prompt runs on the model image alone.</p>
+              <div id="fashion-dressing-busy" class="collart-createbusy hidden"><span class="collart-spinner"></span>
+                <div><b>Dressing the model…</b><p>Generating with the image edit model.</p></div>
+              </div>
+              <div id="fashion-dressing-result" class="collart-thumbgrid"></div>
+            </div>
+
+            <div class="collart-skiprow">
+              <button type="button" class="collart-btn-soft" data-dressing-skip>Skip — keep the original model look</button>
+            </div>
+          </section>
+
+          <!-- STEP 4: REFERENCE VIDEO (optional) -->
+          <section id="step-4-content" class="collart-step hidden">
+            <h1 class="collart-h1">Step 4: Reference Video <em class="collart-optional">optional</em></h1>
+            <p class="collart-note">Use a reference video for motion transfer, or skip it and describe the storyboard with the prompt box. If you skip it, Step 5 generates straight from your prompt (text-to-video / image-to-video).</p>
+
+            <div class="collart-subtabs" role="tablist" aria-label="Reference video source">
+              <button id="tab-preset-video" type="button" class="is-active" data-ref-tab="presets">Preset Video</button>
+              <button id="tab-upload-video" type="button" data-ref-tab="upload">Upload Video</button>
+            </div>
+
+            <div id="step1-preset-view" class="collart-stepbody">
+              <div class="collart-filters">
+                <div class="collart-select">
+                  <select id="fashion-filter-engine" aria-label="Filter by engine"><option value="">Engine</option></select>
+                  <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                </div>
+                <div class="collart-select">
+                  <select id="fashion-filter-type" aria-label="Filter by type"><option value="">Type</option></select>
+                  <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                </div>
+                <div class="collart-select">
+                  <select id="fashion-filter-style" aria-label="Filter by style"><option value="">Style</option></select>
+                  <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                </div>
+                <div class="collart-select">
+                  <select id="fashion-filter-model" aria-label="Filter by model"><option value="">Model</option></select>
+                  <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                </div>
+                <span id="fashion-preset-count" class="collart-filter-count"></span>
+              </div>
+              <div id="video-grid" class="collart-grid"></div>
+            </div>
+
+            <div id="step1-upload-view" class="collart-stepbody hidden">
+              <p class="collart-note">If the clip is longer than 15 seconds, tell the model which part to reuse via the prompt in Step 5.</p>
+              <div class="collart-card collart-uploadcard">
+                <label class="collart-label">Reference video link</label>
+                <div class="collart-linkrow">
+                  <div class="collart-input-icon">
+                    <i data-lucide="link" class="w-4 h-4"></i>
+                    <input id="fashion-video-url" type="url" spellcheck="false" placeholder="Paste a public video URL">
+                  </div>
+                  <button id="fashion-video-url-apply" type="button" class="collart-btn-soft">Confirm</button>
+                </div>
+                <div class="collart-divider"><span>or</span></div>
+                <p class="collart-note-center">For the best result, avoid reference videos containing speech or voiceovers.</p>
+                <div id="fashion-video-drop" class="collart-dropzone" tabindex="0" role="button" aria-label="Upload a reference video">
+                  <input id="fashion-video-file" type="file" accept="video/mp4,video/quicktime,video/webm" hidden>
+                  <div id="fashion-video-preview" class="collart-dropzone-inner is-empty">
+                    <span class="collart-dropicon"><i data-lucide="clapperboard" class="w-6 h-6"></i></span>
+                    <p>Click or drag to upload a local reference video</p>
+                    <em>MP4 / MOV / WebM · up to 15 seconds</em>
+                    <span class="collart-btn">Upload Video</span>
+                  </div>
+                </div>
+                <div id="fashion-video-meta" class="collart-meta"></div>
+              </div>
+            </div>
+
+            <!-- Storyboard prompt box (alternative to a reference clip) -->
+            <div class="collart-card">
+              <div class="collart-prompthead">
+                <label class="collart-label" for="fashion-storyboard">Storyboard prompt box</label>
+                <span class="collart-filter-count">Use this instead of a reference video — or leave both empty and prompt directly in Step 5.</span>
+              </div>
+              <textarea id="fashion-storyboard" class="collart-textarea" rows="3" spellcheck="false"
+                placeholder='Example: create a storyboard, 9:16, each scene is 0.3sec, total duration is 15sec'></textarea>
+              <p class="collart-hint">Describe the storyboard in simple language — scenes, seconds per scene, total duration, aspect ratio. It is carried into the Step 5 prompt.</p>
+            </div>
+
+            <div class="collart-skiprow">
+              <button type="button" class="collart-btn-soft" data-ref-skip>Skip — generate without a reference video</button>
+            </div>
+          </section>
+
+          <!-- STEP 5: PRODUCTION -->
+          <section id="step-5-content" class="collart-step hidden">
+            <h1 class="collart-h1">Step 5: Production</h1>
+            <p class="collart-note">The final step. Every media selected in the earlier steps is shown below the steps and used for the generation. Prompt freely — for example "at 0 to 5sec the model showing the product to the camera, at 5sec to 15sec is the motion transfer" — and the two template dropdowns supply the environment and video-generation prompt text.</p>
+
+            <div class="collart-grid2">
+              <div class="collart-card">
+                <div class="collart-genpair"><div class="collart-genslot"><label class="collart-label" for="fashion-gen-provider-5">Provider</label><div class="collart-select collart-select-narrow"><select id="fashion-gen-provider-5" aria-label="Generation provider"></select><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></div></div><div class="collart-genslot collart-genslot-wide"><label class="collart-label" for="fashion-gen-model-5">Video model <em>classified</em></label><div class="collart-select collart-genmodel"><select id="fashion-gen-model-5" aria-label="Generation model"></select><i data-lucide="chevron-down" class="w-3.5 h-3.5"></i></div></div></div>
+              </div>
+            </div>
+
+            <div class="collart-grid2">
+              <div class="collart-card">
+                <label class="collart-label" for="fashion-env-template">Model Placement & Environment <em>dropdown → prompt text</em></label>
+                <div class="collart-darkselect">
+                  <select id="fashion-env-template"><option value="">None — keep the current environment</option></select>
+                  <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                </div>
+                <p class="collart-hint">Picks the placement/environment direction that is appended to the prompt.</p>
+              </div>
+              <div class="collart-card">
+                <label class="collart-label" for="fashion-video-template">Video Generation Templates <em>dropdown → prompt text</em></label>
+                <div class="collart-darkselect">
+                  <select id="fashion-video-template"><option value="">None — use your own direction</option></select>
+                  <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                </div>
+                <p class="collart-hint">Picks the on-camera movement direction that is appended to the prompt.</p>
+              </div>
+            </div>
+
+            <div class="collart-card">
+              <label class="collart-label" for="fashion-final-prompt">Final prompt</label>
+              <textarea id="fashion-final-prompt" class="collart-textarea" rows="4" spellcheck="false"
+                placeholder='Example: create a UGC Cinematic Video for Professional Video according to the storyboard sequence. At 0 to 5sec the model shows the product to the camera, at 5sec to 15sec is the motion transfer.'></textarea>
+              <p class="collart-hint">Dropdown selections are appended here as "Environment" and "Video direction" lines — you can still edit everything before generating.</p>
+            </div>
+
+            <div class="collart-card collart-settings">
+              <div class="collart-settingcol">
+                <label class="collart-label">Quick Configuration Bar</label>
+                <div class="collart-darkbar">
+                  <div class="collart-darkfield">
+                    <label>Model</label>
+                    <div class="collart-darkselect">
+                      <select id="fashion-model-select"></select>
+                      <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                    </div>
+                  </div>
+                  <div class="collart-darkfield">
+                    <label>Resolution</label>
+                    <div class="collart-darkselect">
+                      <select id="fashion-resolution"></select>
+                      <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                    </div>
+                  </div>
+                  <div class="collart-darkfield">
+                    <label>Duration</label>
+                    <div class="collart-darkselect">
+                      <select id="fashion-duration"></select>
+                      <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                    </div>
+                  </div>
+                  <div class="collart-darkfield">
+                    <label>Aspect</label>
+                    <div class="collart-darkselect">
+                      <select id="fashion-aspect"></select>
+                      <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+                    </div>
+                  </div>
+                  <label class="collart-darkcheck">
+                    <input id="fashion-audio" type="checkbox" checked>
+                    <span>Background audio</span>
+                  </label>
+                </div>
+              </div>
+
+              <div class="collart-settingcol">
+                <label class="collart-label">Model Engine <em id="fashion-engine-mode"></em></label>
+                <div id="fashion-engines" class="collart-engines"></div>
+              </div>
+
+              <div id="fashion-status" class="collart-meta" hidden></div>
+            </div>
+
+            <div id="fashion-result" class="collart-result hidden">
+              <div class="collart-result-head">
+                <div>
+                  <span class="collart-kicker">Generated Video</span>
+                  <h2 id="fashion-result-title">Queued</h2>
+                </div>
+                <button id="fashion-result-open" type="button" class="collart-btn-soft">Open in History</button>
+              </div>
+              <div id="fashion-result-body" class="collart-result-body"></div>
+              <div id="fashion-result-actions" class="collart-resultactions hidden">
+                <button type="button" class="collart-btn-soft" data-result-action="play"><i data-lucide="play" class="w-3.5 h-3.5"></i>Play</button>
+                <button type="button" class="collart-btn-soft" data-result-action="edit"><i data-lucide="pencil" class="w-3.5 h-3.5"></i>Edit Prompt</button>
+                <button type="button" class="collart-btn-soft" data-result-action="library"><i data-lucide="folder-plus" class="w-3.5 h-3.5"></i>Add to Library</button>
+                <button type="button" class="collart-btn-soft" data-result-action="download"><i data-lucide="download" class="w-3.5 h-3.5"></i>Download</button>
+                <button type="button" class="collart-btn-soft danger" data-result-action="delete"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i>Delete</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- Floating per-image action menu (⋯ on preset / generated model cards) -->
+          <div id="fashion-kebab-menu" class="collart-kebabmenu hidden" role="menu"></div>
+
+          <!-- Confirmation modal for model actions (select / delete / add to presets) -->
+          <div id="fashion-modal" class="collart-modal hidden" role="dialog" aria-modal="true" aria-labelledby="fashion-modal-title">
+            <div class="collart-modal-card">
+              <h3 id="fashion-modal-title">Are you sure?</h3>
+              <p id="fashion-modal-message"></p>
+              <div class="collart-modal-actions">
+                <button id="fashion-modal-cancel" type="button" class="collart-btn-soft">Cancel</button>
+                <button id="fashion-modal-confirm" type="button" class="collart-btn">Confirm</button>
+              </div>
+            </div>
+          </div>
+        </div>
+        <!-- ============ Assets dashboard (Creations / Uploads) ============ -->
+        <div id="studio-panel-assets" class="studio-panel studio-panel-assets hidden">
+          <div class="collart-assets-tabs">
+            <button type="button" id="assets-tab-creations" class="collart-assetstab is-active" data-assets-tab="creations">Creations</button>
+            <button type="button" id="assets-tab-uploads" class="collart-assetstab" data-assets-tab="uploads">Uploads</button>
+          </div>
+
+          <div class="collart-asset-tags">
+            <button type="button" class="is-active" data-asset-tag="all">All</button>
+            <button type="button" data-asset-tag="models">Models</button>
+            <button type="button" data-asset-tag="clothes">Clothes</button>
+            <button type="button" data-asset-tag="videos">Videos</button>
+            <button type="button" data-asset-tag="scene">Scene Images</button>
+          </div>
+
+          <div id="assets-creations-content" class="collart-assetbody">
+            <div id="assets-creations-empty" class="collart-empty">
+              <div class="collart-emptyicon"><i data-lucide="folder" class="w-9 h-9"></i></div>
+              <h2>Create outfit videos with viral potential</h2>
+              <button type="button" class="collart-btn" data-studio-tab="fashion">Create Your First Video</button>
+            </div>
+            <div id="assets-creations-grid" class="collart-assetgrid hidden"></div>
+          </div>
+
+          <div id="assets-uploads-content" class="collart-assetbody hidden">
+            <div id="assets-uploads-empty" class="collart-empty">
+              <div class="collart-emptyicon"><i data-lucide="folder" class="w-9 h-9"></i></div>
+              <h2>Upload a model photo, clothing or a reference clip</h2>
+              <button type="button" class="collart-btn" data-studio-tab="fashion">Open the Generator</button>
+            </div>
+            <div id="assets-uploads-grid" class="collart-assetgrid hidden"></div>
+          </div>
+        </div>
+
+        <!-- ============ Preset Video browse page ============ -->
+        <div id="studio-panel-preset" class="studio-panel studio-panel-preset hidden">
+          <h1 class="collart-h1">Preset Video</h1>
+          <p class="collart-note">Viral motion presets for the Generate workflow. Pick one to preselect it in Step 1.</p>
+          <div id="preset-page-grid" class="collart-grid"></div>
+        </div>
+
+      </div><!-- /collart-content -->
+
+      <footer class="collart-dock" id="collart-dock">
+        <button id="prev-btn" type="button" class="collart-dockbtn" data-dock="prev" disabled>
+          <i data-lucide="arrow-left" class="w-4 h-4"></i><span>Previous</span>
+        </button>
+
+        <button id="collart-drawer" type="button" class="collart-drawer" data-dock="review" title="Review the first incomplete step">
+          <span id="dock-thumbnails" class="collart-dockthumbs"></span>
+          <span class="collart-dockcopy"><b>Selected assets</b><em>Tap to review</em></span>
+          <span id="ready-badge" class="collart-readybadge">0/3 ready</span>
+        </button>
+
+        <div class="collart-dockcta">
+          <button id="next-btn" type="button" class="collart-dockbtn primary" data-dock="next">
+            <span>Next</span><i data-lucide="arrow-right" class="w-4 h-4"></i>
+          </button>
+          <button id="generate-btn" type="button" class="collart-dockbtn primary hidden" data-dock="generate" disabled>
+            <span>Generate Video</span><i data-lucide="sparkles" class="w-4 h-4"></i>
+          </button>
+        </div>
+      </footer>
+    </main>
+
+          <!-- YouTube Studio main (Stage 2 shell) -->
+          <main class="collart-main yt-main is-hidden" id="studio-youtube-main">
+            <header class="yt-topbar">
+              <div class="yt-topbar-copy">
+                <span class="yt-kicker">YouTube Studio</span>
+                <h1 id="yt-section-title">Overview</h1>
+                <p>Research. Script. Visualize. Animate. Publish.</p>
+              </div>
+              <div class="yt-topbar-actions">
+                <div class="studio-buildagent" title="Build agent — runs Studio tools and workflows (its own provider & model). Generation below uses the Provider + Model dropdowns.">
+              <button id="yt-agent-btn" class="studio-provider-btn" data-agent-menu-btn>
+                <i data-lucide="bot" class="w-3.5 h-3.5 text-cyan-300"></i>
+                <span class="studio-buildagent-label">Build</span>
+                <span id="yt-agent-label" class="truncate">—</span>
+                <i data-lucide="chevron-down" class="w-3 h-3 text-slate-500"></i>
+              </button>
+              <div id="yt-agent-menu" class="ws-menu studio-provider-menu hidden">
+                <div class="ws-menu-title flex items-center justify-between">
+                  <span>Build agents</span>
+                  <span class="studio-mono">own provider · model</span>
+                </div>
+                <div id="yt-agent-options"></div>
+              </div>
+            </div>
+                <button id="yt-new-project" type="button" class="collart-btn">
+                  <i data-lucide="plus" class="w-4 h-4"></i><span>New Video Project</span>
+                </button>
+                <button id="yt-refresh" type="button" class="collart-iconbtn" title="Refresh YouTube Studio">
+                  <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+                </button>
+              </div>
+            </header>
+
+            <div class="yt-content" id="yt-content">
+              <div id="yt-error-banner" class="yt-error-banner is-hidden">
+                <i data-lucide="alert-triangle" class="w-4 h-4"></i><span id="yt-error-text"></span>
+              </div>
+
+              <!-- ============================ OVERVIEW ============================ -->
+              <section class="yt-panel" data-yt-panel="overview">
+                <div class="yt-hero">
+                  <div class="yt-hero-copy">
+                    <span class="yt-hero-kicker">YOUTUBE STUDIO</span>
+                    <h2>Research. Script. Visualize. Animate. Publish.</h2>
+                    <p>An independent workspace for educational long-form and short-form videos. Ads campaigns never appear here, and YouTube publishing never appears in Ads Studio.</p>
+                  </div>
+                  <div class="yt-hero-actions">
+                    <button id="yt-create-video" type="button" class="collart-btn">
+                      <i data-lucide="plus" class="w-4 h-4"></i><span>Create New Video</span>
+                    </button>
+                    <button id="yt-new-research" type="button" class="collart-btn-soft" disabled title="Niche Research arrives in Stage 3">
+                      <i data-lucide="search" class="w-4 h-4"></i><span>New Research Project</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div class="yt-action-grid">
+                  <article class="yt-action-card">
+                    <span class="yt-action-icon"><i data-lucide="youtube" class="w-4 h-4"></i></span>
+                    <div><span class="yt-action-label">Active channel</span>
+                      <b id="yt-active-channel">No channel configured</b>
+                      <em id="yt-active-channel-note">Create a channel profile in Channel Manager (Stage 3).</em>
+                    </div>
+                  </article>
+                  <article class="yt-action-card">
+                    <span class="yt-action-icon"><i data-lucide="list-checks" class="w-4 h-4"></i></span>
+                    <div><span class="yt-action-label">Production Queue</span>
+                      <b><span id="yt-queue-production">0</span> in production</b>
+                      <em>Stages update as projects move through the pipeline.</em>
+                    </div>
+                  </article>
+                  <article class="yt-action-card">
+                    <span class="yt-action-icon"><i data-lucide="calendar-days" class="w-4 h-4"></i></span>
+                    <div><span class="yt-action-label">Publishing Calendar</span>
+                      <b><span id="yt-queue-scheduled">0</span> scheduled</b>
+                      <em>Default strategy: Monday, Wednesday, Friday.</em>
+                    </div>
+                  </article>
+                  <article class="yt-action-card">
+                    <span class="yt-action-icon"><i data-lucide="search" class="w-4 h-4"></i></span>
+                    <div><span class="yt-action-label">Research Queue</span>
+                      <b><span id="yt-queue-research">0</span> waiting</b>
+                      <em>Niche Research and Topic Studio arrive in Stage 3.</em>
+                    </div>
+                  </article>
+                </div>
+
+                <!-- Voiceover workspace (same centralized TTS registry) -->
+                <div id="yt-voiceover" data-voiceover-studio="youtube"></div>
+
+                <div class="yt-stat-grid">
+                  <article class="yt-stat"><span class="yt-stat-icon"><i data-lucide="video" class="w-4 h-4"></i></span><div><span class="yt-stat-value" id="yt-stat-total">0</span><span class="yt-stat-label">Total Projects</span></div></article>
+                  <article class="yt-stat"><span class="yt-stat-icon"><i data-lucide="file-text" class="w-4 h-4"></i></span><div><span class="yt-stat-value" id="yt-stat-scripts">0</span><span class="yt-stat-label">Scripts in Progress</span></div></article>
+                  <article class="yt-stat"><span class="yt-stat-icon"><i data-lucide="clapperboard" class="w-4 h-4"></i></span><div><span class="yt-stat-value" id="yt-stat-production">0</span><span class="yt-stat-label">Videos in Production</span></div></article>
+                  <article class="yt-stat"><span class="yt-stat-icon"><i data-lucide="badge-check" class="w-4 h-4"></i></span><div><span class="yt-stat-value" id="yt-stat-approval">0</span><span class="yt-stat-label">Awaiting Approval</span></div></article>
+                  <article class="yt-stat"><span class="yt-stat-icon"><i data-lucide="check-circle-2" class="w-4 h-4"></i></span><div><span class="yt-stat-value" id="yt-stat-published">0</span><span class="yt-stat-label">Published Videos</span></div></article>
+                  <article class="yt-stat"><span class="yt-stat-icon"><i data-lucide="calendar-clock" class="w-4 h-4"></i></span><div><span class="yt-stat-value" id="yt-stat-scheduled">0</span><span class="yt-stat-label">Scheduled Videos</span></div></article>
+                </div>
+
+                <div class="yt-grid-2">
+                  <section class="yt-card yt-card-wide">
+                    <div class="yt-card-head">
+                      <div><h3>Recent Projects</h3><p>Latest activity in this workspace only.</p></div>
+                      <button type="button" class="yt-link" data-yt-section="projects">View all</button>
+                    </div>
+                    <div id="yt-recent-projects" class="yt-project-list"></div>
+                    <div id="yt-recent-empty" class="yt-empty">
+                      <div class="yt-empty-icon"><i data-lucide="video" class="w-6 h-6"></i></div>
+                      <h3>No YouTube projects yet</h3>
+                      <p>Create your first video project to start the production pipeline.</p>
+                      <button id="yt-overview-create" type="button" class="collart-btn">Create New Video</button>
+                    </div>
+                  </section>
+
+                  <section class="yt-card">
+                    <div class="yt-card-head">
+                      <div><h3>Upcoming Publishing</h3><p>Real scheduled projects only.</p></div>
+                    </div>
+                    <div id="yt-upcoming-schedule"></div>
+                  </section>
+                </div>
+
+                <div class="yt-grid-2">
+                  <section class="yt-card">
+                    <div class="yt-card-head">
+                      <div><h3>Production Pipeline</h3><p>Projects by current stage.</p></div>
+                    </div>
+                    <div id="yt-pipeline"></div>
+                  </section>
+
+                  <section class="yt-card">
+                    <div class="yt-card-head">
+                      <div><h3>Research Queue</h3><p>Projects still in research.</p></div>
+                    </div>
+                    <div id="yt-research-queue"></div>
+                  </section>
+                </div>
+
+                <div class="yt-grid-3">
+                  <section class="yt-card">
+                    <div class="yt-card-head"><div><h3>Recently Generated Assets</h3></div></div>
+                    <p class="yt-panel-note">No YouTube assets yet. Asset Studio arrives in Stage 4.</p>
+                  </section>
+                  <section class="yt-card">
+                    <div class="yt-card-head"><div><h3>Performance Overview</h3></div></div>
+                    <p class="yt-panel-note">No analytics connected. YouTube Analytics integration arrives in Stage 5; no placeholder numbers are shown.</p>
+                  </section>
+                  <section class="yt-card">
+                    <div class="yt-card-head"><div><h3>Channel Health</h3></div></div>
+                    <p class="yt-panel-note">No channel profile configured. Channel Manager arrives in Stage 3.</p>
+                  </section>
+                </div>
+
+                <p id="yt-overview-loading" class="yt-loading"></p>
+              </section>
+
+              <!-- ============================ PROJECTS ============================ -->
+              <section class="yt-panel is-hidden" data-yt-panel="projects">
+                <div class="yt-panel-head">
+                  <div>
+                    <h2>Projects</h2>
+                    <p>Every YouTube project is isolated from Ads Studio and keeps its own production state.</p>
+                  </div>
+                  <button id="yt-projects-create" type="button" class="collart-btn">
+                    <i data-lucide="plus" class="w-4 h-4"></i><span>New Video Project</span>
+                  </button>
+                </div>
+
+                <div class="yt-toolbar">
+                  <label class="yt-search">
+                    <i data-lucide="search" class="w-4 h-4"></i>
+                    <input id="yt-projects-search" type="search" placeholder="Search projects…" aria-label="Search YouTube projects">
+                  </label>
+                  <label class="yt-select">
+                    <select id="yt-projects-status" aria-label="Filter by status">
+                      <option value="">All statuses</option>
+                      <option value="draft">Draft</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="review">Awaiting Approval</option>
+                      <option value="approved">Approved</option>
+                      <option value="scheduled">Scheduled</option>
+                      <option value="published">Published</option>
+                      <option value="archived">Archived</option>
+                    </select>
+                  </label>
+                  <label class="yt-check"><input type="checkbox" id="yt-projects-archived"><span>Show archived</span></label>
+                  <span id="yt-projects-count" class="yt-count"></span>
+                </div>
+
+                <div id="yt-projects-list" class="yt-projects"></div>
+              </section>
+
+              <!-- ========================= PLACEHOLDER ========================== -->
+              <section class="yt-panel is-hidden" data-yt-panel="placeholder">
+                <div class="yt-placeholder">
+                  <span id="yt-placeholder-stage" class="yt-badge yt-badge-stage">Planned</span>
+                  <h2 id="yt-placeholder-title">Coming soon</h2>
+                  <p id="yt-placeholder-note">This section is not available in this build yet.</p>
+                  <div class="yt-placeholder-foot">
+                    <span>Stage 2 ships the workspace shell and isolated projects.</span>
+                    <span>Stages 3–5 add editorial, production and publishing modules.</span>
+                  </div>
+                </div>
+              </section>
+
+              <!-- ======================= CHANNEL MANAGER ======================== -->
+              <section class="yt-panel is-hidden" data-yt-panel="channel-manager">
+                <div class="yt-panel-head">
+                  <div>
+                    <h2>Channel Manager</h2>
+                    <p>Channel profiles, brand identity and the versioned channel master prompt. The master prompt lives in server-side data, never in the page.</p>
+                  </div>
+                  <button id="yt-channel-create" type="button" class="collart-btn"><i data-lucide="plus" class="w-4 h-4"></i><span>New Channel Profile</span></button>
+                </div>
+                <div id="yt-channels-error" class="yt-error-banner is-hidden"><i data-lucide="alert-triangle" class="w-4 h-4"></i><span id="yt-channels-error-text"></span></div>
+                <div class="yt-split">
+                  <aside class="yt-side">
+                    <div id="yt-channel-list" class="yt-channel-list"></div>
+                  </aside>
+                  <div class="yt-side-main" id="yt-channel-editor"></div>
+                </div>
+              </section>
+
+              <!-- ========================= NICHE RESEARCH ======================== -->
+              <section class="yt-panel is-hidden" data-yt-panel="research">
+                <div class="yt-panel-head">
+                  <div>
+                    <h2>Niche Research</h2>
+                    <p>Five-criteria validation (18/25 threshold), sources with provenance, and competitor intelligence. Scores are analyst estimates — never measured platform data.</p>
+                  </div>
+                  <button id="yt-validation-create" type="button" class="collart-btn"><i data-lucide="plus" class="w-4 h-4"></i><span>New Validation</span></button>
+                </div>
+                <div id="yt-research-error" class="yt-error-banner is-hidden"><i data-lucide="alert-triangle" class="w-4 h-4"></i><span id="yt-research-error-text"></span></div>
+                <div class="yt-grid-2">
+                  <section class="yt-card yt-card-wide">
+                    <div class="yt-card-head">
+                      <div><h3>Saved Validations</h3><p id="yt-research-rules"></p></div>
+                    </div>
+                    <div id="yt-research-list" class="yt-research-list"></div>
+                  </section>
+                  <section class="yt-card">
+                    <div class="yt-card-head">
+                      <div><h3>Competitor Intelligence</h3><p>Observations must be marked observed or assumed.</p></div>
+                      <button type="button" class="yt-link" data-yt-action="add-competitor">Add competitor</button>
+                    </div>
+                    <div id="yt-competitor-list" class="yt-competitor-list"></div>
+                  </section>
+                </div>
+              </section>
+
+              <!-- ========================== TOPIC STUDIO ========================= -->
+              <section class="yt-panel is-hidden" data-yt-panel="topics">
+                <div class="yt-panel-head">
+                  <div>
+                    <h2>Topic Studio</h2>
+                    <p>Idea → Researching → Validated → Approved → Scripted → In Production → Published. Approval requires a validation score of at least 18/25.</p>
+                  </div>
+                  <button id="yt-topic-create" type="button" class="collart-btn"><i data-lucide="plus" class="w-4 h-4"></i><span>New Topic</span></button>
+                </div>
+                <div id="yt-topics-error" class="yt-error-banner is-hidden"><i data-lucide="alert-triangle" class="w-4 h-4"></i><span id="yt-topics-error-text"></span></div>
+                <div id="yt-topic-pipeline" class="yt-pipeline-chips"></div>
+                <div class="yt-toolbar">
+                  <label class="yt-search">
+                    <i data-lucide="search" class="w-4 h-4"></i>
+                    <input id="yt-topics-search" type="search" placeholder="Search topics…" aria-label="Search topics">
+                  </label>
+                  <label class="yt-select"><select id="yt-topics-status" aria-label="Filter by status">
+                    <option value="">All statuses</option>
+                  </select></label>
+                  <label class="yt-select"><select id="yt-topics-pillar" aria-label="Filter by pillar">
+                    <option value="">All pillars</option>
+                  </select></label>
+                  <label class="yt-select"><select id="yt-topics-priority" aria-label="Filter by priority">
+                    <option value="">All priorities</option>
+                    <option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option>
+                  </select></label>
+                  <label class="yt-check"><span>Min score</span><input id="yt-topics-min-score" type="number" min="0" max="25" class="yt-number" aria-label="Minimum validation score"></label>
+                  <span id="yt-topics-count" class="yt-count"></span>
+                </div>
+                <div id="yt-topics-list" class="yt-projects"></div>
+              </section>
+
+              <!-- ========================== SCRIPT STUDIO ======================== -->
+              <section class="yt-panel is-hidden" data-yt-panel="scripts">
+                <div class="yt-panel-head">
+                  <div>
+                    <h2>Script Studio</h2>
+                    <p>Versioned long-form scripts with fact-check gating. Approval requires every checklist item verified and at least one recorded source.</p>
+                  </div>
+                  <div class="yt-topbar-actions">
+                    <button id="yt-script-generate" type="button" class="collart-btn-soft"><i data-lucide="sparkles" class="w-4 h-4"></i><span>Generate with AI</span></button>
+                    <button id="yt-script-create" type="button" class="collart-btn"><i data-lucide="plus" class="w-4 h-4"></i><span>New Script</span></button>
+                  </div>
+                </div>
+                <div id="yt-scripts-error" class="yt-error-banner is-hidden"><i data-lucide="alert-triangle" class="w-4 h-4"></i><span id="yt-scripts-error-text"></span></div>
+                <div class="yt-split">
+                  <aside class="yt-side">
+                    <div class="yt-toolbar yt-toolbar-side">
+                      <label class="yt-search">
+                        <i data-lucide="search" class="w-4 h-4"></i>
+                        <input id="yt-scripts-search" type="search" placeholder="Search scripts…" aria-label="Search scripts">
+                      </label>
+                      <label class="yt-select"><select id="yt-scripts-status" aria-label="Filter by status">
+                        <option value="">All</option>
+                        <option value="draft">Draft</option>
+                        <option value="in_review">In Review</option>
+                        <option value="approved">Approved</option>
+                        <option value="needs_revision">Needs Revision</option>
+                      </select></label>
+                    </div>
+                    <div id="yt-script-list" class="yt-script-list"></div>
+                  </aside>
+                  <div class="yt-side-main" id="yt-script-editor"></div>
+                </div>
+              </section>
+
+            </div>
+          </main>
+        </div>
+
         <!-- Studio modal (create playlist, template, history, playlist detail) -->
         <div id="studio-modal" class="studio-modal hidden" role="dialog" aria-modal="true" aria-labelledby="studio-modal-title">
           <div class="studio-modal-card">
@@ -1961,6 +2970,20 @@
             </div>
             <div id="studio-modal-body" class="studio-modal-body"></div>
             <div id="studio-modal-foot" class="studio-modal-foot"></div>
+          </div>
+        </div>
+
+        <!-- YouTube Studio modal (project create/detail, Stage 2) -->
+        <div id="yt-modal" class="yt-modal is-hidden" role="dialog" aria-modal="true" aria-labelledby="yt-modal-title">
+          <div class="yt-modal-card">
+            <div class="yt-modal-head">
+              <h3 id="yt-modal-title">YouTube Studio</h3>
+              <button id="yt-modal-close" type="button" class="collart-iconbtn" title="Close" data-yt-close>
+                <i data-lucide="x" class="w-3.5 h-3.5"></i>
+              </button>
+            </div>
+            <div id="yt-modal-body" class="yt-modal-body"></div>
+            <div id="yt-modal-foot" class="yt-modal-foot"></div>
           </div>
         </div>
       </section>
@@ -1980,9 +3003,9 @@
             </div>
             <div>
               <h2 class="text-sm font-bold text-white flex items-center gap-2">Agent Skill Builder
-                <span class="text-[9px] font-mono uppercase tracking-widest text-emerald-300/80 border border-emerald-700/50 px-1.5 py-0.5 rounded">Source → Skill</span>
+                <span class="text-[9px] font-mono uppercase tracking-widest text-emerald-300/80 border border-emerald-700/50 px-1.5 py-0.5 rounded">Evidence → Skill</span>
               </h2>
-              <p class="text-[11px] text-slate-400">YouTube / repository tutorials + Claude Code Templates repository → reviewed, Vault-approved skills</p>
+              <p class="text-[11px] text-slate-400">Source tutorials, reference videos and the Claude Code Templates repository → evidence-grounded, reviewed, Vault-approved skills</p>
             </div>
           </div>
           <div class="relative z-10 flex flex-wrap items-center gap-2">
@@ -2005,6 +3028,9 @@
                 <button type="button" class="sb-mode sb-mode-active" data-sb-mode="source" role="tab" aria-selected="true">
                   <i data-lucide="book-open" class="w-3.5 h-3.5"></i><span>Source → Skill</span>
                 </button>
+                <button type="button" class="sb-mode" data-sb-mode="video" role="tab" aria-selected="false">
+                  <i data-lucide="clapperboard" class="w-3.5 h-3.5"></i><span>Video Reverse Engineering</span>
+                </button>
                 <button type="button" class="sb-mode" data-sb-mode="templates" role="tab" aria-selected="false">
                   <i data-lucide="layout-template" class="w-3.5 h-3.5"></i><span>Skill Templates</span>
                 </button>
@@ -2012,15 +3038,37 @@
 
               <!-- Source mode composer fields -->
               <div id="sb-source-fields" class="flex flex-col gap-2.5">
-                <label id="sb-source-label" class="text-[10px] font-mono uppercase tracking-widest text-slate-500" for="sb-urls">YouTube or GitHub URL(s)</label>
+                <label id="sb-source-label" class="text-[10px] font-mono uppercase tracking-widest text-slate-500" for="sb-urls">YouTube, video or GitHub URL(s)</label>
                 <textarea id="sb-urls" rows="2" class="sb-input" placeholder="https://youtu.be/…&#10;https://github.com/owner/repo&#10;one per line"></textarea>
 
-                <div id="sb-video-options" class="flex flex-wrap items-center gap-2 rounded-xl border border-emerald-900/30 bg-[#06120d]/50 p-2 opacity-60 cursor-not-allowed select-none" title="Objective toggle is not configurable (fixed for Source → Skill)">
+                <div id="sb-video-options" class="flex flex-wrap items-center gap-2 rounded-xl border border-emerald-900/30 bg-[#06120d]/50 p-2">
                   <span class="text-[10px] font-mono uppercase tracking-widest text-slate-500">Objective</span>
-                  <label class="sb-radio pointer-events-none opacity-70"><input type="radio" name="sb-objective" value="tutorial" checked disabled><span>Source → Skill (Fixed)</span></label>
-                  <label class="sb-radio pointer-events-none opacity-40"><input type="radio" name="sb-objective" value="reference" disabled><span>Reference Video</span></label>
-                  <span class="text-[9px] font-mono text-slate-500 italic ml-auto">(Not configurable)</span>
+                  <label class="sb-radio"><input type="radio" name="sb-objective" value="tutorial" checked><span>Tutorial → Skill</span></label>
+                  <label class="sb-radio"><input type="radio" name="sb-objective" value="reference"><span>Reference Video → Skill</span></label>
+                  <span id="sb-objective-note" class="text-[9px] font-mono text-slate-500 italic ml-auto"></span>
                 </div>
+
+                <div id="sb-character-field" class="hidden flex flex-col gap-1">
+                  <label for="sb-character-url" class="text-[10px] font-mono uppercase tracking-widest text-slate-500">Character reference image URL (optional)</label>
+                  <input id="sb-character-url" type="url" class="sb-input" placeholder="https://…/character.png" autocomplete="off" spellcheck="false">
+                  <p class="text-[9px] text-slate-500">Used only to keep a supplied character consistent in rendered frames. The reference video is never copied.</p>
+                </div>
+              </div>
+
+              <!-- Video-mode options: frame extraction and replication test are opt-in. -->
+              <div id="sb-frame-options" class="hidden flex flex-col gap-2 rounded-xl border border-emerald-900/30 bg-[#06120d]/50 p-2">
+                <div class="flex flex-wrap items-center gap-3">
+                  <label class="flex items-center gap-1.5 text-[10.5px] text-slate-300 select-none cursor-pointer" title="Extract representative still frames with ffmpeg for multimodal analysis">
+                    <input id="sb-frames" type="checkbox" class="accent-emerald-500">
+                    <span>Extract representative frames</span>
+                  </label>
+                  <label class="flex items-center gap-1.5 text-[10.5px] text-slate-300 select-none cursor-pointer" title="Ask the authoring agent to rebuild the skill on a brand-new topic, then test independence">
+                    <input id="sb-replicate" type="checkbox" class="accent-emerald-500">
+                    <span>Run replication test</span>
+                  </label>
+                </div>
+                <input id="sb-replication-topic" type="text" class="sb-input text-xs hidden" placeholder="New topic for the replication test (never the reference topic)" autocomplete="off">
+                <p class="text-[9px] text-slate-500">Frames are extracted only for this job. Nothing is installed and no generated script is executed.</p>
               </div>
 
               <!-- Skill Templates view (Claude Code Templates repo) -->
@@ -2109,10 +3157,9 @@
                 <button id="sb-build" class="sb-btn sb-btn-primary" title="Extract, generate, then review before publishing">
                   <i data-lucide="wand-sparkles" class="w-3.5 h-3.5"></i><span>Generate skill</span>
                 </button>
-                <label class="ml-auto flex items-center gap-1.5 text-[10.5px] text-slate-500 opacity-60 cursor-not-allowed select-none" title="Visual analysis toggle is not configurable">
-                  <input id="sb-eyes" type="checkbox" class="accent-emerald-500" disabled>
-                  <span>Visual analysis</span>
-                  <span class="text-[9px] font-mono text-slate-500">(Not configurable)</span>
+                <label class="ml-auto flex items-center gap-1.5 text-[10.5px] text-slate-400 cursor-pointer select-none" title="Ask Gemini to read on-screen frames, slides, code and diagrams">
+                  <input id="sb-eyes" type="checkbox" class="accent-emerald-500">
+                  <span>Visual analysis (eyes)</span>
                 </label>
               </div>
               <p class="text-[10px] text-slate-500">Nothing is saved until you approve it in <b>Review Generated Skill</b>. Approved skills are written to the Obsidian Vault under <span class="font-mono">Skills/</span>.</p>
@@ -2154,6 +3201,15 @@
                 <button id="sb-skills-refresh" class="sb-icon-btn ml-auto" title="Refresh"><i data-lucide="refresh-cw" class="w-3 h-3"></i></button>
               </div>
               <div id="sb-skills" class="overflow-y-auto p-1.5 space-y-1.5"></div>
+            </div>
+
+            <div class="glass-panel rounded-2xl border border-emerald-900/40 bg-[#07110d]/80 flex flex-col shrink-0 max-h-[210px]">
+              <div class="sb-rail-head">
+                <i data-lucide="history" class="w-3.5 h-3.5 text-amber-300"></i>
+                <span>Recent jobs</span>
+                <button id="sb-jobs-refresh" class="sb-icon-btn ml-auto" title="Refresh jobs"><i data-lucide="refresh-cw" class="w-3 h-3"></i></button>
+              </div>
+              <div id="sb-jobs" class="overflow-y-auto p-1.5 space-y-1.5"></div>
             </div>
 
             <div class="glass-panel rounded-2xl border border-emerald-900/40 bg-[#07110d]/80 p-3 flex flex-col gap-1.5 shrink-0">
@@ -2202,10 +3258,49 @@
               </div>
 
               <div class="sb-review-right">
-                <div class="sb-field flex-1 min-h-0 flex flex-col">
-                  <label for="sb-review-content">Generated skill / prompt</label>
-                  <textarea id="sb-review-content" class="sb-input sb-review-content" spellcheck="false"></textarea>
-                  <p class="sb-field-hint">The complete SKILL.md. Your latest edits are what gets saved.</p>
+                <div class="sb-review-tabs" role="tablist" aria-label="Review sections">
+                  <button type="button" class="sb-review-tab sb-review-tab-active" data-sb-rtab="skill" role="tab" aria-selected="true">Skill</button>
+                  <button type="button" class="sb-review-tab" data-sb-rtab="analysis" role="tab" aria-selected="false">Analysis</button>
+                  <button type="button" class="sb-review-tab" data-sb-rtab="style" role="tab" aria-selected="false">Style</button>
+                  <button type="button" class="sb-review-tab" data-sb-rtab="format" role="tab" aria-selected="false">Format</button>
+                  <button type="button" class="sb-review-tab" data-sb-rtab="production" role="tab" aria-selected="false">Production</button>
+                  <button type="button" class="sb-review-tab" data-sb-rtab="dependencies" role="tab" aria-selected="false">Dependencies</button>
+                  <button type="button" class="sb-review-tab" data-sb-rtab="tests" role="tab" aria-selected="false">Tests</button>
+                  <button type="button" class="sb-review-tab" data-sb-rtab="package" role="tab" aria-selected="false">Package</button>
+                </div>
+
+                <div class="sb-review-panels">
+                  <div class="sb-review-panel active" data-sb-rpanel="skill">
+                    <div class="sb-field flex-1 min-h-0 flex flex-col">
+                      <label for="sb-review-content">Generated skill / prompt</label>
+                      <textarea id="sb-review-content" class="sb-input sb-review-content" spellcheck="false"></textarea>
+                      <p class="sb-field-hint">The complete SKILL.md. Your latest edits are what gets saved.</p>
+                    </div>
+                  </div>
+                  <div class="sb-review-panel" data-sb-rpanel="analysis">
+                    <pre id="sb-review-analysis" class="sb-review-pre">No structured analysis — this is a source-mode draft.</pre>
+                  </div>
+                  <div class="sb-review-panel" data-sb-rpanel="style">
+                    <pre id="sb-review-style" class="sb-review-pre">No separate style profile was produced.</pre>
+                  </div>
+                  <div class="sb-review-panel" data-sb-rpanel="format">
+                    <pre id="sb-review-format" class="sb-review-pre">No separate format profile was produced.</pre>
+                  </div>
+                  <div class="sb-review-panel" data-sb-rpanel="production">
+                    <pre id="sb-review-production" class="sb-review-pre">No production plan was produced.</pre>
+                  </div>
+                  <div class="sb-review-panel" data-sb-rpanel="dependencies">
+                    <pre id="sb-review-dependencies" class="sb-review-pre">No dependency manifest was produced.</pre>
+                  </div>
+                  <div class="sb-review-panel" data-sb-rpanel="tests">
+                    <div id="sb-review-tests" class="sb-review-tests"></div>
+                  </div>
+                  <div class="sb-review-panel" data-sb-rpanel="package">
+                    <div class="sb-package-wrap">
+                      <div id="sb-package-list" class="sb-package-list"><div class="sb-rail-empty">No compiled package.</div></div>
+                      <pre id="sb-package-preview" class="sb-review-pre sb-package-preview">Select a package file to preview it.</pre>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -2321,6 +3416,7 @@
               </div>
               <div class="flex flex-wrap items-center gap-1.5">
                 <a id="cp-native-dashboard" href="https://dashboard.composio.dev" target="_blank" rel="noopener noreferrer" class="sb-btn sb-btn-primary"><i data-lucide="external-link" class="w-3.5 h-3.5"></i><span>Open native dashboard</span></a>
+                <a id="cp-connect-apps" href="https://dashboard.composio.dev/~/connect" target="_blank" rel="noopener noreferrer" class="sb-btn sb-btn-ghost"><i data-lucide="link" class="w-3.5 h-3.5"></i><span>Connect apps</span></a>
                 <a id="cp-docs" href="https://docs.composio.dev" target="_blank" rel="noopener noreferrer" class="sb-btn sb-btn-ghost"><i data-lucide="book-open" class="w-3.5 h-3.5"></i><span>Docs</span></a>
               </div>
             </div>
@@ -2364,12 +3460,35 @@
             </section>
 
             <section id="cp-panel-toolkits" class="composio-panel glass-panel rounded-2xl border border-purple-900/40 bg-[#0b0712]/80 hidden" data-composio-panel="toolkits">
-              <div class="composio-panel-head"><div><h3>Toolkits</h3><p>Browse the curated, cached, or live Composio toolkit catalog.</p></div><span id="cp-count" class="composio-count">0</span></div>
-              <input id="cp-search" type="search" autocomplete="off" spellcheck="false" placeholder="Search Gmail, Slack, GitHub…" class="composio-input">
-              <div class="composio-toolkit-layout">
-                <div id="cp-list" class="composio-list"><div class="sb-rail-empty">Loading Composio…</div></div>
-                <div id="cp-detail" class="composio-detail"><div class="sb-rail-empty">Select a toolkit to inspect its tools.</div></div>
+              <div class="composio-dash-head">
+                <div class="composio-dash-tabs" role="tablist">
+                  <button type="button" id="cp-tab-all" class="composio-dash-tab composio-dash-tab-active" data-composio-tab="all">All <small id="cp-tab-all-count">0</small></button>
+                  <button type="button" id="cp-tab-connected" class="composio-dash-tab" data-composio-tab="connected">Connected <small id="cp-tab-connected-count">0</small></button>
+                </div>
+                <div class="composio-dash-search"><i data-lucide="search" class="w-3.5 h-3.5"></i><input id="cp-search" type="search" autocomplete="off" spellcheck="false" placeholder="Search Gmail, Slack, GitHub…" class="composio-input"></div>
+                <button type="button" id="cp-add-mcp" class="sb-btn sb-btn-primary"><i data-lucide="plus" class="w-3.5 h-3.5"></i><span>Add Custom MCP</span></button>
               </div>
+              <div class="composio-dash-layout">
+                <div class="composio-dash-main">
+                  <div id="cp-dash-cat" class="composio-dash-cat hidden">
+                    <button type="button" id="cp-dash-back" class="composio-dash-back" title="Back to all apps"><i data-lucide="chevron-left" class="w-4 h-4"></i></button>
+                    <h3 id="cp-dash-cat-name">All apps</h3>
+                    <span id="cp-dash-cat-count"></span>
+                  </div>
+                  <div id="cp-grid" class="composio-app-grid"><div class="sb-rail-empty">Loading Composio…</div></div>
+                </div>
+                <aside class="composio-dash-rail">
+                  <div class="composio-dash-rail-head"><span>Filter & Sort</span><i data-lucide="sliders-horizontal" class="w-3.5 h-3.5"></i></div>
+                  <label class="composio-label" for="cp-sort">Sort</label>
+                  <select id="cp-sort" class="composio-select">
+                    <option value="popular">Popular</option>
+                    <option value="az">A–Z</option>
+                  </select>
+                  <div class="composio-section-title"><span>Categories</span></div>
+                  <div id="cp-cats" class="composio-cat-list"><div class="sb-rail-empty">Loading…</div></div>
+                </aside>
+              </div>
+              <div id="cp-detail" class="composio-detail composio-detail-flat"><div class="sb-rail-empty">Select an app to inspect its tools.</div></div>
             </section>
 
             <section id="cp-panel-connections" class="composio-panel glass-panel rounded-2xl border border-purple-900/40 bg-[#0b0712]/80 hidden" data-composio-panel="connections">
@@ -2396,6 +3515,184 @@
           </div>
         </div><!-- /#composio-workspace -->
 
+      </section>
+
+      <!-- INSTALLED PLUGINS VIEW (apps, skill packs and GitHub repos) -->
+      <section id="installed-plugins-view" class="hidden flex-1 flex flex-col gap-3.5 min-h-0 pb-6">
+
+        <div class="ip-hero glass-panel rounded-2xl border border-cyan-900/50 bg-gradient-to-r from-[#07131c] via-[#081a24] to-[#060d16] p-4 flex flex-wrap items-center justify-between gap-3 shrink-0">
+          <div class="relative z-10 flex items-center gap-3">
+            <div class="ip-logo"><i data-lucide="package-check" class="w-5 h-5"></i></div>
+            <div>
+              <h2 class="text-sm font-bold text-white flex flex-wrap items-center gap-2">Installed Plugins
+                <span id="ip-total-badge" class="ip-badge">Registry</span>
+              </h2>
+              <p class="text-[11px] text-slate-400">
+                Every installed app, agent skill pack and GitHub repo in one rail, each with its short tag.
+                <span id="ip-root-meta" class="text-slate-500"></span>
+              </p>
+            </div>
+          </div>
+          <div class="relative z-10 flex flex-wrap items-center gap-2">
+            <button id="ip-install-toggle" type="button" class="sb-btn sb-btn-primary"><i data-lucide="github" class="w-3.5 h-3.5"></i><span>Install from GitHub</span></button>
+            <button id="ip-refresh" type="button" class="sb-btn sb-btn-ghost"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i><span>Refresh</span></button>
+            <span id="ip-status-pill" class="sb-pill"><span class="sb-pill-dot"></span><span id="ip-status-text">Loading…</span></span>
+          </div>
+          <div id="ip-tag-cloud" class="relative z-10 flex flex-wrap items-center gap-1.5 w-full mt-1 text-[10px]"></div>
+        </div>
+
+        <div class="ip-summary-grid shrink-0">
+          <div class="ip-summary-card"><span>Installed</span><strong id="ip-count-installed">—</strong><small id="ip-count-disabled">0 disabled</small></div>
+          <div class="ip-summary-card"><span>Bundled &amp; core</span><strong id="ip-count-bundled">—</strong><small id="ip-count-core">0 built-in apps</small></div>
+          <div class="ip-summary-card"><span>Skills available</span><strong id="ip-count-skills">—</strong><small>Across installed packs</small></div>
+          <div class="ip-summary-card"><span>Target agents</span><strong id="ip-count-agents">—</strong><small>Claude Code · Codex · OpenCode</small></div>
+        </div>
+
+        <div id="ip-install-panel" class="ip-install-panel glass-panel hidden">
+          <form id="ip-install-form" class="ip-install-form" autocomplete="off">
+            <div class="ip-form-field ip-form-grow">
+              <label for="ip-source">Git repository or local folder</label>
+              <input id="ip-source" type="text" spellcheck="false" placeholder="https://github.com/owner/repo.git" required>
+            </div>
+            <div class="ip-form-field">
+              <label for="ip-name">Install as (optional)</label>
+              <input id="ip-name" type="text" spellcheck="false" placeholder="repo-name" pattern="[a-z0-9][a-z0-9._-]{0,63}">
+            </div>
+            <div class="ip-form-actions">
+              <button id="ip-install-submit" type="submit" class="sb-btn sb-btn-primary"><i data-lucide="download" class="w-3.5 h-3.5"></i><span>Install</span></button>
+              <button id="ip-install-cancel" type="button" class="sb-btn sb-btn-ghost"><span>Cancel</span></button>
+            </div>
+          </form>
+          <p class="ip-form-note">The repository is cloned with <code>git clone --depth 1</code> into <code id="ip-root-path">~/.agents/plugins</code>. A root <code>plugin.json</code> or <code>skills/*/SKILL.md</code> is detected automatically.</p>
+        </div>
+
+        <div class="ip-toolbar glass-panel rounded-2xl border border-slate-800/80 bg-[#080d18]/80 shrink-0">
+          <div class="ip-search">
+            <i data-lucide="search" class="w-3.5 h-3.5"></i>
+            <input id="ip-search" type="search" spellcheck="false" autocomplete="off" placeholder="Search apps, plugins or tags…" aria-label="Search installed plugins">
+          </div>
+          <div class="ip-seg" id="ip-filter" role="tablist">
+            <button type="button" class="ip-seg-btn ip-seg-btn-active" data-ip-filter="all">All</button>
+            <button type="button" class="ip-seg-btn" data-ip-filter="installed">Installed</button>
+            <button type="button" class="ip-seg-btn" data-ip-filter="bundled">Bundled</button>
+          </div>
+          <span id="ip-result-count" class="ip-result-count">0 items</span>
+        </div>
+
+        <div id="ip-grid" class="ip-grid">
+          <div class="sb-rail-empty">Loading installed plugins…</div>
+        </div>
+
+        <div id="ip-modal" class="ip-modal hidden" role="dialog" aria-modal="true" aria-labelledby="ip-modal-title">
+          <div class="ip-modal-card glass-panel">
+            <div class="ip-modal-head">
+              <div>
+                <h3 id="ip-modal-title">Link skills</h3>
+                <p id="ip-modal-subtitle">Choose the agents that should discover these skills.</p>
+              </div>
+              <button id="ip-modal-close" type="button" class="ip-icon-btn" title="Close"><i data-lucide="x" class="w-4 h-4"></i></button>
+            </div>
+            <div id="ip-modal-agents" class="ip-agent-list"></div>
+            <div class="ip-modal-foot">
+              <span id="ip-modal-status" class="text-[10px] text-slate-500"></span>
+              <button id="ip-modal-link" type="button" class="sb-btn sb-btn-primary"><i data-lucide="link" class="w-3.5 h-3.5"></i><span>Link skills</span></button>
+            </div>
+          </div>
+        </div>
+
+        <div id="ip-toast" class="ip-toast"></div>
+      </section>
+
+      <!-- FREELLMAPI VIEW (free LLM API catalog + per-agent connections) -->
+      <section id="freellm-view" class="hidden flex-1 flex flex-col gap-3.5 min-h-0 pb-6">
+
+        <div class="fl-hero glass-panel rounded-2xl border border-emerald-900/50 bg-gradient-to-r from-[#061512] via-[#071c18] to-[#05100d] p-4 flex flex-wrap items-center justify-between gap-3 shrink-0">
+          <div class="flex items-center gap-3">
+            <div class="fl-logo"><i data-lucide="zap" class="w-5 h-5"></i></div>
+            <div>
+              <h2 class="text-sm font-bold text-white flex flex-wrap items-center gap-2">FreeLLMAPI
+                <span id="fl-total-badge" class="fl-badge">Catalog</span>
+              </h2>
+              <p class="text-[11px] text-slate-400">
+                505+ free models from 30 providers ·
+                <a id="fl-open-site" href="https://freellm.net" target="_blank" rel="noopener" class="text-emerald-300 hover:underline">freellm.net</a>
+                <span id="fl-source-meta" class="text-slate-500"></span>
+              </p>
+            </div>
+          </div>
+          <div class="flex flex-wrap items-center gap-2">
+            <a id="fl-open-repo" href="https://github.com/open-free-llm-api/awesome-freellm-apis" target="_blank" rel="noopener" class="sb-btn sb-btn-ghost"><i data-lucide="github" class="w-3.5 h-3.5"></i><span>Source repo</span></a>
+            <button id="fl-refresh" type="button" class="sb-btn sb-btn-primary"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i><span>Refresh</span></button>
+            <span id="fl-status-pill" class="sb-pill"><span class="sb-pill-dot"></span><span id="fl-status-text">Loading…</span></span>
+          </div>
+          <div id="fl-stats" class="flex flex-wrap items-center gap-1.5 w-full mt-1 text-[10px]"></div>
+        </div>
+
+        <div class="fl-summary-grid shrink-0">
+          <div class="fl-summary-card"><span>Providers</span><strong id="fl-count-providers">—</strong><small>Permanent + renewable</small></div>
+          <div class="fl-summary-card"><span>Free models</span><strong id="fl-count-models">—</strong><small>Across the catalog</small></div>
+          <div class="fl-summary-card"><span>No credit card</span><strong id="fl-count-nocard">—</strong><small>Providers with no card</small></div>
+          <div class="fl-summary-card"><span>Connected agents</span><strong id="fl-count-agents">—</strong><small>Claude Code · Codex CLI</small></div>
+        </div>
+
+        <div class="fl-layout">
+          <aside class="fl-pane">
+            <div class="fl-pane-head"><i data-lucide="server" class="w-3.5 h-3.5 text-emerald-300"></i><span>Providers</span><span id="fl-results" class="fl-results"></span></div>
+            <div class="fl-pane-body">
+              <div class="fl-toolbar">
+                <input id="fl-search" class="fl-search" type="search" placeholder="Search providers or models…" aria-label="Search the FreeLLMAPI catalog">
+                <div class="fl-seg" id="fl-tier">
+                  <button type="button" class="fl-seg-btn fl-seg-btn-active" data-fl-tier="all">All</button>
+                  <button type="button" class="fl-seg-btn" data-fl-tier="permanent">Free</button>
+                  <button type="button" class="fl-seg-btn" data-fl-tier="renewable">Credits</button>
+                </div>
+                <select id="fl-card" class="fl-select" aria-label="Credit card requirement">
+                  <option value="all">Any card rule</option>
+                  <option value="no">No card</option>
+                  <option value="registration">Registration</option>
+                  <option value="phone">Phone verification</option>
+                  <option value="other">Other</option>
+                </select>
+                <select id="fl-modality" class="fl-select" aria-label="Modality"></select>
+              </div>
+              <div id="fl-providers"><div class="sb-rail-empty">Loading the catalog…</div></div>
+            </div>
+          </aside>
+
+          <div class="fl-pane">
+            <div class="fl-pane-head"><i data-lucide="layout-grid" class="w-3.5 h-3.5 text-emerald-300"></i><span>Provider detail</span></div>
+            <div id="fl-detail" class="fl-pane-body"><div class="sb-rail-empty">Loading the catalog…</div></div>
+          </div>
+
+          <!-- FL_CONFIG -->
+          <aside id="fl-config-pane" class="fl-pane fl-config-pane">
+            <div class="fl-pane-head"><i data-lucide="plug-zap" class="w-3.5 h-3.5 text-emerald-300"></i><span>Connect an agent</span></div>
+            <div class="fl-pane-body">
+              <div class="fl-config">
+                <div class="fl-agent-tabs">
+                  <button type="button" class="fl-agent-tab fl-agent-tab-active" data-fl-agent="claude-code">Claude Code</button>
+                  <button type="button" class="fl-agent-tab" data-fl-agent="codex">Codex CLI</button>
+                </div>
+                <form id="fl-config-form" class="fl-config">
+                  <div class="fl-field"><label class="fl-label" for="fl-base">Base URL</label><input id="fl-base" class="fl-input" type="url" placeholder="https://api.groq.com/openai/v1" autocomplete="off"></div>
+                  <div class="fl-field"><label class="fl-label" for="fl-model">Model ID</label><input id="fl-model" class="fl-input" type="text" placeholder="llama-3.3-70b-versatile" autocomplete="off"></div>
+                  <div class="fl-field"><label class="fl-label" for="fl-key">API key</label><input id="fl-key" class="fl-input" type="password" placeholder="Paste the provider API key" autocomplete="off"></div>
+                  <div id="fl-config-status" class="fl-config-status">Not connected.</div>
+                  <div class="fl-config-actions">
+                    <button id="fl-save" type="submit" class="sb-btn sb-btn-primary"><i data-lucide="save" class="w-3.5 h-3.5"></i><span>Save connection</span></button>
+                    <button id="fl-clear" type="button" class="sb-btn sb-btn-ghost"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i><span>Clear</span></button>
+                  </div>
+                </form>
+                <div class="fl-section-title"><i data-lucide="activity" class="w-3 h-3"></i>Agent status</div>
+                <div id="fl-agent-states" class="flex flex-col gap-1.5"></div>
+                <p class="fl-note">Saving writes the endpoint to the existing per-agent FreeLLMAPI settings. After connecting, choose the FreeLLMAPI model in the agent's model menu to run it. Keys stay in <code>data/freellmapi.json</code> with owner-only permissions.</p>
+              </div>
+            </div>
+          </aside>
+
+        </div>
+
+        <div id="fl-toast" class="fl-toast"></div>
       </section>
 
     </main>
@@ -2846,21 +4143,32 @@
   <script defer src="vendor/codemirror/addon/edit/matchbrackets.js"></script>
   <script defer src="vendor/codemirror/addon/selection/active-line.js"></script>
   <script defer src="js/cosmos.js"></script>
-  <script defer src="js/galaxy.js?v=20261017-apollo-voice"></script>
+  <script defer src="js/tts.js?v=20261110-tts-router"></script>
+  <script defer src="js/voiceRegistry.js?v=20261110-voice-registry"></script>
+  <script defer src="js/galaxy.js?v=20261110-apollo-kokoro"></script>
   <script defer src="js/panelState.js"></script>
   <script defer src="js/agentDashboards.js"></script>
   <!-- DeepSeek Harness uses its official native Web UI; no OS-recreated chat bundle. -->
-  <script defer src="js/app.js?v=20261020-hermes-setup"></script>
-  <script defer src="js/workspace.js?v=20261029-cursor-openclaw"></script>
+  <script defer src="js/app.js?v=20261112-jarvis-home"></script>
+  <script defer src="js/jarvisDashboard.js?v=20261112-jarvis-home"></script>
+  <script defer src="js/memoryGalaxy.js?v=20261112-galaxy1"></script>
+  <script defer src="js/workspace.js?v=20261112-customprov"></script>
   <script defer src="js/vault.js?v=20261018-vault"></script>
   <script defer src="js/kanbanState.js?v=20261018-hermes3"></script>
   <script defer src="js/kanban.js?v=20261018-hermes3"></script>
   <script defer src="js/hermes.js?v=20261018-hermes3"></script>
   <script defer src="js/studioState.js?v=20261023-studio6"></script>
-  <script defer src="js/studio.js?v=20261029-cursor-openclaw"></script>
-  <script defer src="js/skill-builder.js?v=20261029-cursor-openclaw"></script>
+  <script defer src="js/studioTemplates.js?v=20261112-registry"></script>
+  <script defer src="js/studio.js?v=20261112-registry"></script>
+  <script defer src="js/studioFashion.js?v=20261112-registry"></script>
+  <script defer src="js/studioWorkspaceState.js?v=20261109-yt-stage2"></script>
+  <script defer src="js/studioYoutube.js?v=20261109-yt-stage2"></script>
+  <script defer src="js/studioWorkspaces.js?v=20261109-yt-stage2"></script>
+  <script defer src="js/skill-builder.js?v=20261112-video-reverse"></script>
   <script defer src="vendor/marked.min.js"></script>
   <script defer src="js/plugins.js?v=20261023-repo1"></script>
-  <script defer src="js/composio.js?v=20261029-native-shell1"></script>
+  <script defer src="js/installedPlugins.js?v=20261112-ip1"></script>
+  <script defer src="js/composio.js?v=20261109-connect4"></script>
+  <script defer src="js/freellmapi.js?v=20261030-freellm1"></script>
 </body>
 </html>

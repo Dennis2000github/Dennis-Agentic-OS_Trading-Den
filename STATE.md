@@ -1,6 +1,6 @@
 # STATE
 
-_Last updated: 2026-10-27_
+_Last updated: 2026-11-12_
 
 ## Root causes of the reported problems (Phase 1, verified 2026-10-16 before edits)
 
@@ -1153,6 +1153,33 @@ prompt toy:
   route and save-skill round trip; `tests/test_skill_builder_pipeline.py`
   covers TikTok/Instagram/X URL classification.
 
+## FreeLLMAPI dashboard (2026-10-30)
+
+A standalone **FreeLLMAPI** sidebar section turns the
+`open-free-llm-api/awesome-freellm-apis` directory (the data behind
+`freellm.net`) into a local catalog and connection surface.
+
+- **Snapshot:** `public-plugins/free-llm-apis/` holds the upstream READMEs,
+  code examples, assets and `SNAPSHOT.json` (source commit + sync time).
+  `scripts/sync_free_llm_apis.py [--source …]` refreshes it atomically and
+  normalises file modes; `DENNIS_FREELLM_REPO` selects a checkout.
+- **Parser:** `backend/freellm_catalog.py` reads only `README.md`, extracts the
+  four marker-delimited tables (directory, quick reference, featured models,
+  top models), and caches by mtime. It never executes repository code and never
+  makes a network request.
+- **API:** owner-gated `GET /api/freellmapi/catalog` returns the structured
+  catalog plus `freellmapi.status()` for `claude-code` and `codex`.
+- **UI:** `index.html#freellm-view` + `js/freellmapi.js` + `css/freellmapi.css`
+  provide search, tier/card/modality filters, provider detail, featured and top
+  models, and a connection form. **Use** prefills base URL + model ID; **Save**
+  writes the existing per-agent FreeLLMAPI settings through `POST /api/freellmapi`.
+- **Key safety:** a blank key is reused only when the base URL is unchanged, so
+  switching providers cannot silently reuse the previous provider's key.
+- **Tests:** `tests/test_freellm_catalog.py` (parser, cache, missing snapshot)
+  and `tests/test_freellm_routes.py` (owner gate, catalog payload, connect /
+  clear, key reuse rule). 9 tests pass; existing 107 backend/security tests and
+  the JS suites remain green.
+
 ## Security notes
 
 - `~/.claude/settings.json` holds a live `ANTHROPIC_AUTH_TOKEN`; it is never sent
@@ -1176,6 +1203,55 @@ prompt toy:
 - `~/.claude.json` was modified to trust the project folder; a timestamped backup
   (`~/.claude.json.dennis-backup-*`) was written first.
 
+## Studio workspaces: Ads Studio + YouTube Studio (2026-11-09)
+
+Stage 2 of the YouTube Studio build landed. The full audit and integration plan
+is in `docs/YOUTUBE_STUDIO_AUDIT.md`; the two remaining pre-existing test
+failures (`test_studio_routes` credential descriptor keys, `test_plugins`
+`rea` pack expectation) are documented there and were not introduced here.
+
+### What changed
+
+| File | Change |
+| --- | --- |
+| `backend/studio_workspaces.py` | NEW - workspace registry (Ads, YouTube), per-workspace settings, creative project store with soft delete/archive, activity log. JSON stores under `data/studio/workspaces/` (atomic, `0600`). |
+| `app.py` | NEW routes: `GET /api/studio/workspaces[/...]`, `POST /api/studio/workspaces/active`, `POST .../projects`, `PATCH .../settings|projects/<id>` (new `do_PATCH`), `DELETE .../projects/<id>`. Also added the missing `GET /api/studio/fashion/model-library` handler (the Fashion "Create Model" library list 404'd before). |
+| `js/studioWorkspaceState.js` | NEW - pure hash/section helpers (`#studio/<workspace>/<section>`), node-tested. |
+| `js/studioYoutube.js` | NEW - YouTube Studio shell: overview dashboard (real counts, honest empty states), projects CRUD, explicit "arrives in Stage N" placeholders. |
+| `js/studioWorkspaces.js` | NEW - workspace selector state, shell switching without reload, hash deep links, back/forward support. |
+| `index.html` | Workspace switcher in the Studio header; YouTube sidebar + main panels + modal (hidden by default); new script/CSS tags. All existing Ads tab keys and panels untouched. |
+| `css/studio-youtube.css` | NEW - YouTube skin scoped to `#studio-view`; hides Ads provider status while YouTube is active. |
+| `tests/test_studio_workspaces.py`, `tests/test_studio_workspace_routes.py`, `tests/studioWorkspaceState.test.js` | NEW - 21 + 12 unit/route tests and 11 node checks. |
+
+### Behaviour
+
+- `STUDIO [ Ads Studio ] [ YouTube Studio ]` selector in the Studio header.
+  The active workspace is highlighted, remembered in `localStorage` and mirrored
+  to `POST /api/studio/workspaces/active`.
+- Deep links: `#studio/ads/history`, `#studio/youtube/projects`, etc. Back and
+  forward work; the page never reloads.
+- Ads keeps every existing tab (`fashion`, `assets`, `library`, `playlists`,
+  `preset`, `history`, `setup`) and its data stores untouched; switching
+  workspaces preserves the Ads tab you were on.
+- YouTube projects live only in `data/studio/workspaces/youtube/projects.json`;
+  Ads projects live only in `data/studio/workspaces/ads/projects.json`. The API
+  rejects cross-workspace reads (404) and the UI never mixes them.
+- Later-stage sections (Channel Manager, Research, Topics, Scripts, Storyboard,
+  Assets, Voice, Animation, Thumbnails, Publishing, Analytics, Calendar) render
+  an explicit placeholder with their stage; no fake data anywhere.
+- Deleting a project is a soft delete (`deleted_at`); media files are never
+  touched.
+
+### Verification
+
+- `python3 -m unittest discover -s tests -p 'test_*.py'`: 348 tests, 2
+  pre-existing failures (see audit §13), no new failures.
+- `node tests/*.test.js`: all pass (studioState 19, studioWorkspaceState 11,
+  panelState, kanbanState, agentDashboards).
+- Headless Chrome (Playwright, real server): deep link opens YouTube Studio,
+  project create/list/detail works, workspace switching preserves Ads tab
+  state and Ads panels render, no console errors, no 404s.
+
 ## Next steps
 
 1. If Docker becomes available, run `scripts/build_agent_images.sh` and
@@ -1185,3 +1261,493 @@ prompt toy:
 3. Persist the last selected agent per owner for CLI agents with no session too
    (the DeepSeek chat agent already records its selection this way); add WS
    auto-reconnect with backoff if the backend restarts while a session is open.
+
+## Centralized TTS Router — Kokoro default voice (2026-11-10)
+
+Hermes Apollo (Jarvis) now speaks through a centralized Kokoro voice engine
+instead of browser `speechSynthesis`; the same engine serves Ads Studio and
+YouTube Studio. ElevenLabs remains an optional alternative.
+
+### Runtime (Intel macOS, 8 GB, no Docker/Homebrew, no sudo)
+
+- `tts_service/` — isolated CPython 3.12 venv (via the uv binary already on
+  disk at `~/.hermes/tools/uv-0.13.5-darwin-x64`), `kokoro-onnx` 0.6.1 +
+  `onnxruntime` 1.23.2 CPU (no torch — no cp314/x86_64 wheels exist for the
+  system Python 3.14). Official Kokoro v1.0 weights in
+  `tts_service/models/` (git-ignored, 325 MB + 28 MB, downloaded by
+  `tts_service/setup.sh`).
+- `tts_service/server.py` — OpenAI-compatible serving layer, loopback only
+  (`127.0.0.1:8880`): `GET /health`, `POST /warmup`, `GET /v1/models`,
+  `GET /v1/audio/voices`, `POST /v1/audio/speech` (pcm | wav | mp3 via the
+  bundled ffmpeg), 24 kHz mono s16le PCM with `X-Audio-Sample-Rate`.
+- `scripts/kokoro_service.py start|stop|restart|status|health` — PID file +
+  port probe guarantee exactly ONE shared inference process; `start` no-ops
+  when a healthy service already answers (any schema variant).
+
+### Centralized router (`backend/tts.py` + routes in `app.py`)
+
+- Owner-gated: `GET /api/tts/status|config|voices|audio/<file>`,
+  `POST /api/tts/config|speech|secret|service(/start|/stop)`.
+- Provider registry: **kokoro** (default, local), **elevenlabs** (optional
+  cloud; key stored 0600 backend-side via `/api/tts/secret`, quota read from
+  the subscription endpoint, never echoed), **browser** (fallback only).
+- Three-level selection: global default → per-studio preference
+  (apollo/ads/youtube, independent) → voice-preset override (a preset pins
+  its provider). **JARVIS — BRITISH MALE** preset is persistent:
+  `bm_george` (alt `bm_lewis`), en-GB, speed 1.03, PCM output.
+- Speech route relays the Kokoro chunked PCM stream when `stream: true`
+  (first sentence starts playing before the full reply is synthesized) and
+  returns buffered WAV otherwise; `save: true` persists voiceovers under
+  `data/tts/audio` and returns a descriptor + URL.
+
+### Apollo / Jarvis frontend
+
+- `js/tts.js` (DennisTTS): queue, PCM WebAudio streaming, WAV decode,
+  cancellation, no-overlap, browser speechSynthesis as explicit fallback
+  (configurable per studio), no credentials in the frontend.
+- `js/galaxy.js`: `speak(text, onDone)` signature preserved; routes through
+  DennisTTS; mic recognition is suspended while Jarvis speaks and resumed
+  after; equalizer/toasts/shockwaves/wake-chime behavior unchanged.
+- General conversational voice commands no longer produce a fake
+  acknowledgement: `submitToSelectedAgent` → `window.DennisAgentBridge`
+  (`js/app.js`) → existing `/api/chat` pipeline with the currently selected
+  agent + model → the REAL agent reply is trimmed and spoken by Kokoro;
+  failures are reported honestly.
+- Apollo voice panel (provider, preset, speed, preview, test, service
+  start/stop, browser-fallback toggle, live status) + Voice Provider
+  Registry card in the workspace registry section + voiceover panels in Ads
+  Studio and YouTube Studio (`js/voiceRegistry.js`).
+
+### Installed Hermes Agent (v0.22.2) native TTS
+
+- `~/.hermes/config.yaml` backed up to
+  `backups/20261110-tts-integration/hermes-config.yaml.pre-tts.bak`, then
+  `tts.provider: openai` with `base_url: http://127.0.0.1:8880/v1`,
+  `model: kokoro`, `voice: bm_george`, `api_key: local-kokoro` (placeholder;
+  the local service does not validate credentials), `pcm_sample_rate: 24000`.
+  STT, voice, model, Telegram/Discord and all other sections untouched.
+- Verified against the installed version: `tools.tts_tool.text_to_speech_tool`
+  produced a real MP3 through Kokoro (MPEG-1 L3, 24 kHz, 4.08 s), and
+  `tools.tts_streaming.OpenAIStreamer` streamed PCM chunks honoring the
+  configured sample rate (`available() == True`).
+
+### Measured performance (i5-7360U, 2C/4T, 8 GB)
+
+- Model load 6–17 s once at service start; warm-up synthesis after load.
+- Steady-state synthesis: ~2–5× realtime (a 4.6 s Jarvis reply in 9–22 s);
+  under thermal/load pressure up to ~8–15× (36 s+). This is the measured
+  limit of this CPU — reported, not worked around silently.
+- Repeated phrases are instant (disk cache, ~0.02 s).
+- Known failure mode fixed relative to earlier local builds: client
+  disconnects mid-stream no longer wedge the engine (abandon-aware bounded
+  queue; verified by curl -m abort followed by an immediate successful
+  request).
+
+### Verification
+
+- `python3 -m unittest tests.test_tts tests.test_tts_routes` — 32 tests OK
+  (preset persistence, studio independence, provider pinning, validation,
+  secrets never echoed, status/config shapes, audio persistence).
+- `python3 tests/e2e_tts_kokoro.py` — PASS: real routes → live Kokoro →
+  valid 5.33 s WAV + PCM stream.
+- Headless Chrome (real server): all Apollo voice controls render and bind,
+  status shows "Kokoro connected • kokoro-v1.0 loaded • 54 voices", Ads/YT
+  voiceover panels mount, per-studio presets independent (Apollo=jarvis,
+  YouTube=narrator), zero console errors.
+- Part 5 pipeline (headless Chrome, real /api/chat): bridge context returns
+  the selected agent/model; a submitted question invoked the real agent CLI
+  and returned its actual response (honest error text when the agent's own
+  upstream is unavailable — no fabricated acknowledgements).
+- Full suite: 380 tests; the only 2 failures are pre-existing in
+  `test_plugins` and `test_studio_routes` (unrelated modules under active
+  edit in this working tree; untouched by the TTS change set).
+
+## Ads Studio: five-step workflow (Model → Product/Props → Dressing → Reference Video → Production) — 2026-11-11
+
+The old four-step Collart flow (Select Reference Video → Pick a Model →
+Add Clothing → Output Settings) is rebuilt as a five-step, skip-anywhere
+workflow:
+
+1. **Model** — preset / upload / generate (Prompt 1 seeded: character sheet,
+   grey background, 9:16, skin tone + facial features preserved). Free image
+   tools (Google Flow, ChatGPT, Gemini, Claude, Grok) noted in the copy.
+2. **Product/Props** *(optional, renamed from Add Clothing)* — upload box on
+   the LEFT, prompt chatbox on the RIGHT (Prompt 2 seeded: "use the attached
+   images to create product sheet"); generated product sheets render under the
+   chatbox; Preset Images grid below (catalog garments + library entries).
+3. **Dressing** *(optional)* — carried strip shows the Step 1 model + Step 2
+   products; Prompt 3 seeded ("step 1 model dress/wear like step 2."); image
+   edit job dresses the model; results are click-to-select; skip keeps the
+   original model look.
+4. **Reference Video** *(optional)* — old preset/upload picker plus a new
+   storyboard prompt box ("create a storyboard, 9:16, each scene is 0.3sec,
+   total duration is 15sec"); Skip jumps to Production and marks the step done.
+5. **Production** — every selected medium is displayed in a carried strip;
+   two new dropdowns supply prompt text (Model Placement & Environment:
+   10 groups × 30 entries; Video Generation Templates: 5 groups × 10 entries,
+   in `js/studioTemplates.js`); final prompt box composes
+   final + storyboard + environment + video direction; the generated video
+   shows with Play / Edit Prompt / Add to Library / Download / Delete.
+
+Cross-cutting behavior:
+
+- **Skipping**: every step except the model identity is optional. Without a
+  reference clip the backend plans image-to-video (identity available) or
+  text-to-video (prompt only); the engine grid relabels and switches pools
+  (`fashion_models` vs new `production_models`).
+- **Preset Images auto-save**: uploaded and generated images are saved into
+  the preset library after 1 minute (`schedulePresetSave`, 60 s timer). The
+  library entries now carry a `kind` (`model` / `product` / `dressed`) so each
+  step's preset grid filters its own images; old entries default to `model`.
+- **Click-to-select**: any generated, preset or uploaded image in a step is
+  click-to-select (products multi-select, dressed single-select); each step
+  shows the media selected in earlier steps below it (carried strips), and the
+  dock badge counts 5 slots.
+- **Preset Video** remains the default preview page; the Assets page and the
+  model-library kebab/confirm flows are unchanged.
+
+### Files
+
+- `index.html` — stepper + five step sections (Model moved to step 1; new
+  Product/Props split panel; new Dressing step; Reference Video + storyboard
+  box; Production with template dropdowns and result actions).
+- `js/studioFashion.js` — full rewrite for the five-step state machine
+  (identity = dressed || model; products multi-select; engine pool switching;
+  composed prompt; carried strips; result actions; 60 s preset auto-save).
+- `js/studioTemplates.js` — new: the two template catalogs + optgroup helpers.
+- `css/studio-v2.css` — styles for the split panel, thumb grids, carried
+  strips, skip rows, result action bar, "optional" step tags.
+- `backend/studio_fashion.py` — outfits and reference video are optional in
+  `normalize_draft`/`resolve_draft`; `build_prompt` handles missing parts;
+  new `production_models` pool; `plan_job`/`prepare_job` pick
+  reference/image/text pools by available inputs.
+- `backend/studio_model_library.py` + `app.py` — library entries carry `kind`.
+- `tests/test_studio_fashion.py` + `tests/test_studio_routes.py` — updated to
+  the skippable contract; new tests for the production pool and
+  no-reference planning.
+- `tests/e2e_ads_studio.py` — new headless-Chrome E2E: 5-step stepper, split
+  panel, prompt seeds, skip flows, 10/5 template groups, result actions,
+  preset page, zero console errors. Run: `python3 tests/e2e_ads_studio.py --serve`.
+
+### Verification
+
+- `python3 -m unittest tests.test_studio_fashion tests.test_studio_model_library
+  tests.test_studio_routes tests.test_studio_contracts tests.test_studio_workspaces
+  tests.test_studio_workspace_routes tests.test_studio_jobs
+  tests.test_studio_collections` — 132 tests; the only failure is the
+  pre-existing `test_providers_are_described_without_secrets`.
+- `node --test tests/studioState.test.js tests/studioWorkspaceState.test.js
+  tests/panelState.test.js` — 3/3 pass.
+- Headless Chrome against the real server: all Ads Studio E2E checks pass,
+  including engine-pool switching (reference → image → text), carried strips
+  with 4 selected media, dock 4/5 badge, composed prompt assembly, and a stubbed
+  submit posting `model`/`outfits`/`reference_video`/`prompt` correctly.
+
+### Follow-up fixes (same day)
+
+1. **Selected media now displays below the steps on EVERY step.** The four
+   per-step carried strips were replaced by one `#fashion-carried` bar placed
+   directly under the stepper (inside `#studio-panel-fashion`, above all step
+   sections). It fills from any step's selection (model / products / dressed /
+   reference), so it is visible on steps 1–5, not just 3 and 5.
+2. **"Invalid credential" popups are now actionable.** The provider's raw 401
+   text (e.g. Higgsfield returning "Invalid credential") was relayed verbatim
+   to toasts. `friendlyError()` now detects auth failures
+   (`authentication_failed` / `credentials_error` / credential-phrased text),
+   names the provider, and explains the fix; the setup banner switches to
+   "the provider rejected your credentials — re-save and press Test", and the
+   status line keeps the warning until the next successful provider call.
+   All 15 error toasts in the Ads Studio module route through it; the flag
+   clears on successful uploads/generations. (Credentials themselves are
+   validated via the existing Test button in Provider Setup —
+   `POST /api/studio/providers/higgsfield/test`.)
+
+E2E (`tests/e2e_ads_studio.py`) gained two phases: credential-error UX
+(stubbed 401 → actionable toast + banner + status) and the carried bar
+(visible with 4 entries, positioned above every step section).
+
+## Ads Studio: free-model engines replace Higgsfield (Pollinations + Google AI) — 2026-11-11 (2)
+
+The user hit "Higgsfield rejected the credentials" on every upload/generation.
+Ads Studio no longer touches any paid provider:
+
+### Engines
+
+- **Pollinations** (keyless, always available) — text → image for Steps 1–2.
+- **Google AI** (free-tier `GEMINI_API_KEY` from aistudio.google.com) —
+  `gemini-2.5-flash-image` for image editing with **inline base64** references
+  (uploads never need a public URL), and **Veo** (`veo-3.0-fast`, `veo-3.0`,
+  `veo-2.0` — the engine behind Google Flow) for Step 5 video, text or image
+  to video, with a built-in "no background music" negative prompt.
+
+### New backend: `backend/studio_free.py` + `/api/studio/free/*` routes
+
+- `GET  /api/studio/free/models` — engine capabilities + whether a Google key
+  is stored (bool only; secrets never reach the browser).
+- `POST /api/studio/free/uploads` — uploads are stored in the local media
+  library (`data/studio/media`), so uploading **cannot** hit provider
+  credentials anymore.
+- `POST /api/studio/free/jobs` + `GET /api/studio/free/jobs/<id>` — background
+  job registry with the same public shape as Studio jobs (state/outputs/
+  terminal); outputs are stored via `studio_media` and served from
+  `/api/studio/media/<id>`.
+- `POST /api/studio/free/credentials` (+ `/delete`, `/test`) — free Google AI
+  key management.
+- Verified live: a keyless Pollinations generation produced a real 580×1015
+  JPEG in ~9 s through the full route → job → media pipeline.
+
+### Frontend rewires
+
+- `js/studioFashion.js` — uploads use `/api/studio/free/uploads`; Steps 1–3
+  generation uses the free pipeline (Google when a key exists, Pollinations
+  otherwise; local-upload editing without a key explains exactly what to add);
+  Step 5 submits free Veo jobs and polls them; engine grid lists the three Veo
+  engines; validation requires the Google key only for video; image defaults
+  (resolution/duration/aspect) fall back to engine options.
+- Provider Setup card swapped from Higgsfield credentials to **"Free models —
+  Google AI (Gemini + Veo)"** with Save/Test/Remove and a Pollinations note;
+  `js/studio.js` bindings rewired to the `/api/studio/free/*` routes.
+- The legacy Higgsfield backend/routes remain only for the separate Studio
+  activity console — the Ads Studio workflow never touches them.
+
+### Verification
+
+- `tests/test_studio_free.py` (15 tests): URL builders, Gemini payload shape
+  (inline base64), Veo submit/poll/download (no-music negative, image frame),
+  job lifecycle (success/missing-key/404), local media references.
+- Ads Studio E2E extended: free engines render (3 Veo cards), key-missing
+  banner, stubbed key-rejection → actionable toast + banner, and a stubbed
+  submit posting kind=video with image_urls/aspect/duration/composed prompt.
+- 128 backend tests + 3 JS suites pass (only the pre-existing
+  `test_providers_are_described_without_secrets` failure remains).
+
+### Follow-up: "404 Endpoint not found" on upload (same day)
+
+The user's running server process predated the free routes, so
+`POST /api/studio/free/uploads` hit the catch-all 404. Hardening:
+
+- `uploadFile` detects a 404 and tells the owner exactly that: "restart the
+  DENNIS server and refresh this page" (a stale build cannot accept the new
+  route).
+- Asset version strings bumped to `?v=20261112-free2` for
+  `studio.js` / `studioFashion.js` / `studioTemplates.js`, so browsers cannot
+  serve stale workflow code.
+- E2E gained a `phase_free_upload` that POSTs a real PNG through the browser
+  (exactly the UI path) and reads it back — proving the no-credential upload
+  pipeline; verified live: POST 200 → media served 200 image/png.
+- E2E flakiness fixed: studio-visibility retries during app boot, and the
+  console check now fails only on JS exceptions (network noise from stubs and
+  external preset images is ignored).
+
+## Ads Studio: image-model dropdown + instant attach previews + upload caching — 2026-11-12
+
+Steps 1–3 image generation got explicit engine selection, visible-in-place
+previews, and caching:
+
+### Image-model dropdown (Steps 1, 2 and 3)
+
+- Each step panel now has an "Image model (free engines)" dropdown, sharing
+  one selection: **Auto (recommended)**, **Gemini 2.5 Flash Image** (labelled
+  "— ready" or "— needs free key" from live capabilities), **Pollinations
+  Flux — no key**, **Pollinations Turbo — no key (fast drafts)**.
+- Explicit selections are honoured and explain themselves immediately:
+  Gemini without a key → "add the free key or switch back to Auto";
+  Pollinations with local uploads → "needs the Google key to edit uploads".
+  (`chooseImageEngine` + backend `_run_image` routing; fixed an old bug where
+  an explicit Pollinations engine could be hijacked to Gemini when a key
+  existed.)
+
+### Instant previews in the attach boxes
+
+- Selecting/dropping a file now renders it **immediately from a local blob
+  URL** with an "Uploading…" badge — model dropzone, product thumbs, Create
+  Model reference chip and the Step 4 video dropzone. The thumb flips to the
+  stored `/api/studio/media` URL when the upload lands; failures revert with
+  the error toast. Multiple product files upload **in parallel**.
+
+### Upload caching
+
+- Server: `upload_once` dedupes by SHA-256 — identical bytes return the
+  stored media instantly (verified live: 12 ms first, 3 ms cached, same id).
+- Client: `S.uploadCache` (name+size+lastModified key) skips the POST
+  entirely for re-selected files.
+- Upload paths no longer trigger the heavy full-panel `syncUI`; they use
+  targeted renders (model grid, thumbs, carried bar, dock).
+
+### Verification
+
+- `tests/test_studio_free.py` grew to 19 tests: turbo/flux/auto routing,
+  explicit-Gemini-without-key hint, upload dedup, plus the previous suite.
+- E2E: dropdowns asserted in Steps 1–3 (classified labels), plus all prior
+  phases. 132 backend tests pass (only the pre-existing unrelated failure).
+- Asset versions bumped to `?v=20261112-free3`.
+
+## Provider registry + per-step Provider/Model dropdowns + Build agents — 2026-11-12
+
+### Provider Setup is now the provider registry
+
+- New `backend/studio_registry.py`: one registry for every generation
+  provider — Auto (free engines), Pollinations (keyless), Google AI
+  (Gemini + Veo), Higgsfield, fal.ai, Runway, Luma, MiniMax, Replicate.
+- `GET /api/studio/registry` — providers, connection status (from stored
+  credentials), credential field labels (never values) and honest notes
+  (providers without a wired engine adapter say so).
+- `GET /api/studio/generation/catalog` — per-provider **classified** models:
+  image (Text → Image / Image Edit) and video (Text → Video, Image → Video,
+  Reference → Video / Motion Transfer, …), each with the input it needs
+  (`needs`: prompt / image / reference_video).
+- `POST /api/studio/registry/credentials` (+ `/delete`, `/test`) — save,
+  remove and validate any provider from Setup.
+- Provider Setup renders the full registry: status dot per provider, expandable
+  credential forms, Save/Test/Remove. Connected providers become selectable in
+  the step dropdowns (verified live: both Google and Higgsfield show
+  Connected from the user's stored keys; 16 image + 67 video Higgsfield
+  models classified).
+
+### Per-step Provider + classified Model dropdowns (Ads Studio)
+
+- Steps 1, 2, 3: **Provider** + **Image model** dropdown pair; Step 5:
+  **Provider** + **Video model** pair. Models render as `<optgroup>`s grouped
+  by mode (the classification), so a Higgsfield video dropdown lists
+  Text → Video / Image → Video / Motion Transfer groups.
+- Routing follows the selection: free providers → `/api/studio/free/jobs`;
+  Higgsfield image models → `/api/studio/jobs` with schema-mapped params;
+  Higgsfield video models → `/api/studio/fashion/jobs` with the full draft.
+- Model needs are validated before submitting: a Motion Transfer model
+  without a Step 4 clip sends the user to Step 4; an Image → Video model
+  without a model image sends them to Step 1. Free-engine constraints
+  (Google key for Gemini/Veo, public refs for Pollinations) still explain
+  themselves up front.
+- The old single image-engine dropdown was replaced by the pair; the Step 5
+  engine grid and Quick-Config model select stay in sync with the Step 5
+  selection.
+
+### Build agents (Ads + YouTube Studio)
+
+- The Build dropdown now exists in **both** headers (Ads header and YouTube
+  topbar) plus the Activity console, all driven by one agent list
+  (`/api/agents/availability`) showing each agent's own provider · model.
+- Separation enforced by design and labeled in the UI: **Build agents run
+  tools/workflows** (their own provider + model); **generation uses the
+  per-step Provider + Model dropdowns**. Choosing an agent syncs across all
+  three hosts (verified live: 8 agents, pick in Ads header updates Activity
+  and YouTube labels).
+
+### Verification
+
+- `tests/test_studio_registry.py` (17 tests): registry completeness, no
+  secret leakage, connected flags, classification (needs per mode), free
+  providers, credential save/delete/test.
+- Ads Studio E2E extended: provider+model pairs in all four generation
+  steps, connected providers listed (Google/Higgsfield/Pollinations), Step 5
+  optgroup classification, and the Setup registry rendering all 9 providers.
+  All checks pass; 149 backend tests (only the pre-existing unrelated
+  failure), 3/3 JS suites.
+- Asset versions bumped to `?v=20261112-registry` — restart the server and
+  hard-refresh to pick everything up.
+
+## 2026-11-12 — Workspace toolbar + Memory Galaxy + JARVIS home
+
+Five user requests, all verified in a real browser
+(`tests/e2e_2026_11_12_requests.py`, 21/21 checks) plus one live PTY E2E:
+
+1. **Provider dropdown gains a Custom provider (FreeLLMAPI).**
+   - `app.py` `/api/agents/<id>/models` now returns `custom_provider`
+     (`dennis_freellmapi.status()` + `supported`).
+   - `js/workspace.js` always appends a "Custom (FreeLLMAPI)" row (id
+     `FreeLLMAPI`, matching the injected model's provider). Selecting it
+     filters the model list to the FreeLLMAPI connection made in the sidebar
+     FreeLLMAPI view; when not configured the menu stays open on the connect
+     form (`renderFreeLLMAPIAuth`), unsupported agents (not claude-code/codex)
+     get an honest note. Disconnect falls back to "All providers".
+
+2. **Model switch actually switches the CLI model.**
+   - Root cause: OpenCode's TUI takes no `--model` flag and its *shared
+     background service* ignores per-client env/config (verified live:
+     `OPENCODE_CONFIG` with `default_agent: plan` only applied with
+     `--standalone`).
+   - New `backend/model_launch.py`: per-agent launch plans. For OpenCode it
+     writes `data/opencode-launch/<session>.json` (user's global opencode
+     config merged + `"model": <id>`) and launches with `--standalone` +
+     `OPENCODE_CONFIG`. For TUI-driven CLIs it generalizes the OpenClaw
+     one-shot `model_input` into staged `model_input_steps`
+     (`{at, text}` writes).
+   - `AgentSession.start/stop` apply/cleanup the plan; openclaw migrated to
+     steps. Live-verified: OpenCode footer shows "Build · Qwen3.8 27B Groq"
+     after a switch (`tests/manual_opencode_e2e_model.py`).
+
+3. **"New window +" sits beside the window session tabs.**
+   - `#ws-windows` is now `flex: 0 1 auto` (shrinks to tabs, scrolls on
+     overflow) with the button directly after it and a spacer after the
+     button; menu opens `left-0`.
+
+4. **Memory Galaxy is its own page** (sidebar entry under Vault).
+   - `#memory-galaxy-view` + `js/memoryGalaxy.js`: vault graph
+     (`/api/vault/graph`) as a cosmic force-layout canvas (pan/zoom/filter/
+     re-spin), colors per folder, star size = link count.
+   - **Preview bar sits ABOVE the workspace bar**: selected star's title,
+     path, link count and a note excerpt (`/api/vault/note`), one-tap
+     "Open in Vault" (`Vault.openPath`, new public API).
+   - Workspace bar: Re-center, Re-spin, filter input, star/link stats.
+
+5. **JARVIS is the default dashboard** (full home view).
+   - `#jarvis-view` + `js/jarvisDashboard.js`: arc-reactor core canvas (tap =
+     wake `window.hermesApollo`), voice-engine/agents/notes/sessions status
+     cards, recent-memory list (opens notes in Vault), quick commands.
+   - `switchMainView` fallback is now `jarvis`; `DOMContentLoaded` lands on
+     it; sidebar has "JARVIS" (top) and "Memory Galaxy".
+   - `docs/JARVIS_V2_AUDIT.md` records the Hermes Apollo audit (reuse/fix/
+     remove) awaiting the user's pasted V2 guide.
+
+### Audit fixes inside the Jarvis stack (same session)
+
+- Removed dead `triggerHeaderTab` voice commands (`.header-nav-tab` no longer
+  exists) and added jarvis/memory-galaxy/skill/plugins/freellm navigation
+  commands.
+- `DennisAgentBridge` now follows the live Workspace toolbar via
+  `window.Workspace.voiceContext()` instead of the removed DENEVO chat panel's
+  static state.
+- Deleted repo-root TTS test leftovers (`jarvis_test.wav`, `s1/s3.pcm/.txt`,
+  `s2.wav`, `st.txt`).
+- `/favicon.ico` answers 204 (was 404 console noise in every session).
+
+### Verification
+
+- `tests/e2e_2026_11_12_requests.py --serve`: 21/21 (default view, preview
+  bar placement + content, new-window geometry, Custom provider + connect
+  form, no JS errors, no failed resources).
+- `tests/manual_opencode_e2e_model.py`: model switch reaches the real CLI.
+- `tests/test_backend.py` 82 tests OK; freellm/project-session route tests OK;
+  `node --check` clean on all touched JS; asset versions bumped
+  (`?v=20261112-jarvis-home`, `?v=20261112-customprov`, `?v=20261112-galaxy1`).
+
+## Installed Plugins rail - 2026-11-12
+
+New sidebar view **Installed Plugins** (`#installed-plugins-view`) lists every
+installed app, agent skill pack and GitHub repo with a short tag and lifecycle
+status. It is separate from the **Plugins** tab (API Mega List / Composio).
+
+- **Backend `backend/plugins.py`:** `installed_apps()` merges live
+  `~/.agents/plugins` folders, the bundled `_CATALOG`, and `_BUILTIN_APPS`
+  (API Mega List, FreeLLMAPI). `_plugin_summary` now exposes `title`, `tag`,
+  `icon`, `category`, `license`, `source_url`, `installed_at` and `skill_count`.
+  `KNOWN_TAGS` + manifest `tag` / `x-dennis.tag` feed the short tags.
+- **Endpoint:** owner-gated `GET /api/plugins/installed`; writes reuse
+  `/api/plugins/install|toggle|install-skills|uninstall`.
+- **Install from GitHub:** `_read_manifest` also accepts
+  `.claude-plugin/plugin.json`; `_manifest_skills` understands string skill
+  paths, `.claude/skills/` trees and `skills/` parents. Verified by installing
+  the upstream `ui-ux-pro-max-skill` clone directly (7 skills detected).
+- **Bundled pack:** `public-plugins/ui-ux-pro-max/` (10 MB) mirrors the upstream
+  `.claude/skills/` tree at commit `6ae86f61f520` / version `2.15.0`; portable
+  `plugin.json` declares 7 skills and `SOURCE.json` records provenance. The
+  pack is installed in `~/.agents/plugins/ui-ux-pro-max` and appears as `UX`.
+- **Frontend:** `js/installedPlugins.js` + `css/installed-plugins.css`:
+  searchable tag-filtered card grid, summary counts, install-from-GitHub form,
+  enable/disable, link-skills modal (per-agent checkboxes), uninstall, native
+  app links and GitHub links. `js/app.js` routes `installed-plugins`; sidebar
+  item carries a live installed count badge.
+- **Tests:** `tests/test_plugins.py` updated for the bundled public catalog and
+  `installed_apps()` tags/statuses — 10 tests OK. Playwright (installed Chrome)
+  confirms 7 cards render, search/filter, install panel, and the link-skills
+  modal (7 agent targets) with no JS errors.

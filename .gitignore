@@ -41,6 +41,10 @@ Thumbs.db
 # Local clones used by maintenance scripts
 .cache/
 
+# Kokoro TTS model weights (325 MB download, never commit)
+tts_service/models/
+tts_service/models/*.part
+
 # Electron desktop build
 node_modules/
 dist/

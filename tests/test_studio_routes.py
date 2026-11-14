@@ -671,5 +671,150 @@ class StudioRouteTests(unittest.TestCase):
         self.assertEqual(status, 400)
 
 
+    def test_fashion_config_lists_reference_models_without_credentials(self):
+        status, data, _ = self.json("GET", "/api/studio/fashion/config")
+        self.assertEqual(status, 200)
+        self.assertEqual(data["workflow"], "fashion_video")
+        self.assertTrue(data["models"])
+        ids = [item["id"] for item in data["models"]]
+        self.assertIn("bytedance/seedance-2.0/reference-to-video", ids)
+        self.assertTrue(data["defaults"]["model_id"])
+        self.assertEqual(data["limits"]["outfits"], 5)
+        self.assertEqual(data["limits"]["outfit_images"], 5)
+        self.assertFalse(data["configured"])
+        self.assertTrue(data["presets"])
+        self.assertTrue(data["model_presets"])
+        self.assertTrue(data["outfit_presets"])
+        self.assertIn("type", data["preset_filters"])
+        self.assertIn("style", data["preset_filters"])
+        self.assertIn("model", data["preset_filters"])
+        self.assertIn("engine", data["preset_filters"])
+
+    def test_fashion_job_validates_the_draft_before_submitting(self):
+        status, data, _ = self.json(
+            "POST", "/api/studio/fashion/jobs",
+            {"draft": {
+                "outfits": [{"images": ["https://example.com/top.jpg"]}],
+                "reference_video": "https://example.com/ref.mp4",
+            }},
+        )
+        self.assertEqual(status, 400)
+        self.assertEqual(data["code"], "missing_asset")
+
+    def test_fashion_job_accepts_a_skipped_reference_video(self):
+        # Step 4 is skippable: without a reference clip the plan moves to an
+        # image-to-video model and still submits.
+        fake_job = {"id": "job-i2v", "state": "queued"}
+        body = {
+            "provider": "higgsfield",
+            "draft": {
+                "model": "https://example.com/model.jpg",
+                "prompt": "slow turn toward camera",
+            },
+        }
+        with mock.patch.object(
+                server.STUDIO_RUNNER, "submit", return_value=(fake_job, False)
+        ) as submit:
+            status, data, _ = self.json("POST", "/api/studio/fashion/jobs", body)
+        self.assertEqual(status, 200)
+        self.assertEqual(data["job"]["id"], "job-i2v")
+        provider_id, model_id, params = submit.call_args[0][:3]
+        self.assertEqual(provider_id, "higgsfield")
+        self.assertTrue(model_id.endswith("/image-to-video"))
+        self.assertNotIn("video_urls", params)
+        self.assertNotIn("video_url", params)
+
+    def test_fashion_job_maps_the_three_step_draft_to_provider_params(self):
+        fake_job = {"id": "job-fashion", "state": "queued"}
+        body = {
+            "provider": "higgsfield",
+            "model_id": "bytedance/seedance-2.0/reference-to-video",
+            "draft": {
+                "model": "https://example.com/model.jpg",
+                "scene_image": "https://example.com/scene.jpg",
+                "outfits": [
+                    {"name": "Day", "images": ["https://example.com/top.jpg"]},
+                    {"name": "Night", "images": ["https://example.com/dress.jpg"]},
+                ],
+                "reference_video": "https://example.com/ref.mp4",
+                "template": "try_on",
+                "prompt": "end with a slow turn",
+                "resolution": "720p",
+                "duration": 6,
+                "aspect_ratio": "9:16",
+                "generate_audio": False,
+            },
+        }
+        with mock.patch.object(
+                server.STUDIO_RUNNER, "submit", return_value=(fake_job, False)
+        ) as submit:
+            status, data, _ = self.json("POST", "/api/studio/fashion/jobs", body)
+        self.assertEqual(status, 200)
+        self.assertEqual(data["job"]["id"], "job-fashion")
+        self.assertEqual(data["plan"]["model_id"], body["model_id"])
+        self.assertEqual(data["plan"]["image_count"], 4)
+        provider_id, model_id, params = submit.call_args[0][:3]
+        self.assertEqual(provider_id, "higgsfield")
+        self.assertEqual(model_id, body["model_id"])
+        self.assertEqual(params["image_urls"], [
+            "https://example.com/model.jpg",
+            "https://example.com/scene.jpg",
+            "https://example.com/top.jpg",
+            "https://example.com/dress.jpg",
+        ])
+        self.assertEqual(params["video_urls"], ["https://example.com/ref.mp4"])
+        self.assertEqual(params["resolution"], "720p")
+        self.assertEqual(params["duration"], 6)
+        self.assertFalse(params["generate_audio"])
+        self.assertIn("@Image2 is a SCENE REFERENCE ONLY", params["prompt"])
+        self.assertIn("@Image3 is outfit 1", params["prompt"])
+        self.assertIn("@Image4 is outfit 2", params["prompt"])
+        self.assertIn("end with a slow turn", params["prompt"])
+
+    def test_fashion_job_resolves_preset_backed_drafts(self):
+        config_status, config, _ = self.json("GET", "/api/studio/fashion/config")
+        self.assertEqual(config_status, 200)
+        preset = next(item for item in config["presets"]
+                      if item["outfits"] == 1 and item.get("suggested_model_id"))
+        garment = config["outfit_presets"][0]
+        fake_job = {"id": "job-preset", "state": "queued"}
+        with mock.patch.object(
+                server.STUDIO_RUNNER, "submit", return_value=(fake_job, False)
+        ) as submit:
+            status, data, _ = self.json(
+                "POST", "/api/studio/fashion/jobs",
+                {
+                    "provider": "higgsfield",
+                    "draft": {
+                        "preset": preset["id"],
+                        "model_preset": config["model_presets"][0]["id"],
+                        "outfits": [{"preset": garment["id"]}],
+                    },
+                },
+            )
+        self.assertEqual(status, 200)
+        self.assertEqual(data["job"]["id"], "job-preset")
+        provider_id, model_id, params = submit.call_args[0][:3]
+        self.assertEqual(model_id, preset["suggested_model_id"])
+        self.assertEqual(params["video_urls"], [preset["video"]])
+        self.assertEqual(params["image_urls"][0], config["model_presets"][0]["cover"])
+        self.assertEqual(params["image_urls"][1], garment["cover"])
+
+    def test_fashion_job_rejects_models_outside_the_workflow(self):
+        status, data, _ = self.json(
+            "POST", "/api/studio/fashion/jobs",
+            {
+                "model_id": "bytedance/seedance-2.0/text-to-video",
+                "draft": {
+                    "model": "https://example.com/model.jpg",
+                    "outfits": [{"images": ["https://example.com/top.jpg"]}],
+                    "reference_video": "https://example.com/ref.mp4",
+                },
+            },
+        )
+        self.assertEqual(status, 400)
+        self.assertEqual(data["code"], "unknown_model")
+
+
 if __name__ == "__main__":
     unittest.main()
