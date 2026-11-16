@@ -60,6 +60,30 @@ The existing **Agent Skill Builder** tab turns sources into reviewable
   atomically to `vault/Skills/<name>/SKILL.md`, verifies the file and reports the
   actual path.
 
+### Universal Skill Registry
+
+One canonical source per skill, every compatible agent, on-demand load —
+`Tools → Connected Skills → Universal Skill Registry`:
+
+- **Install once, register centrally** — the Vault stays the canonical
+  source; agents reach it by symlink or instruction injection, never by
+  per-agent copies. External skills (first: **img2threejs**,
+  `https://github.com/img2threejs/img2threejs`) register with capability
+  tags, I/O spec, dependencies and compatible agents.
+- **Progressive loading** — metadata at discovery, `SKILL.md` when selected,
+  references/scripts only when required.
+- **Honest compatibility** — the adapter matrix reports `executable`,
+  `instructions` or `none` per agent; an instruction-only agent is never
+  told it can run scripts.
+- **Guarded execution** — path confinement, dependency gate, owner approval
+  for risky runs, bounded env/timeout, captured logs, cancel, secret scan
+  of instructions and artifacts, optional deps never auto-installed.
+- **Router integration** — Hermes surfaces registry skills while planning;
+  model/provider routing is unchanged.
+- Backed by `backend/skill_access.py` (+ `skill_capabilities`,
+  `skill_execution`, `skill_sources_registry`) and `/api/skills*`; see
+  `docs/UNIVERSAL_SKILL_REGISTRY_IMPLEMENTATION.md`.
+
 See [`SKILL_BUILDER_AUDIT.md`](SKILL_BUILDER_AUDIT.md) for the audit, baseline
 and post-optimization measurements, test results and remaining limitations.
 
@@ -118,8 +142,8 @@ The test suite uses mocks and a pinned catalog; it never spends credits.
 
 ### AI Connections (providers, gateways, free/paid routing)
 
-The **AI Connections** sidebar view is the single manager for how the OS
-reaches models:
+The **AI Connections** panel (Plugins hub → FreeLLMAPI tab → Connections
+sub-tab) is the single manager for how the OS reaches models:
 
 - **Two connection routes, one active at a time.** Official *Provider*
   APIs (OpenAI, Anthropic, Google Gemini, Groq, Cerebras, NVIDIA, DeepSeek
@@ -255,8 +279,11 @@ DENNIS Agentic OS/
 │   ├── kanbanState.js       # Pure Kanban column/status logic (node-testable)
 │   ├── kanban.js            # Hermes board renderer + orchestrator API client
 │   ├── hermes.js            # In-OS Hermes orchestrator panel
-│   ├── plugins.js           # Plugins view: upstream API Mega List repository workspace
+│   ├── plugins.js           # API Mega List repository workspace (Plugins hub tab)
+│   ├── pluginsHub.js        # Plugins hub controller: tabs, sub-tabs, refresh dispatch
 │   ├── installedPlugins.js  # Installed Plugins rail: apps, packs, tags, GitHub install
+│   ├── connectedApps.js     # Tools → Connected Apps: Composio + saved Mega List APIs
+│   ├── connectedSkills.js   # Tools → Connected Skills: all skill sources, one list
 │   ├── composio.js          # Local Composio Dashboard shell and native API controls
 │   ├── studio.js            # Studio generation console controller
 │   ├── studioState.js       # Pure Studio helpers (node-testable)
@@ -381,12 +408,24 @@ service; the OS owns the mic, wake word and voice and consumes the results:
 - Weekly briefings: an OS-side scheduler auto-generates a weekly digest
   (default Monday 08:00 local; `DENNIS_WEEKLY_BRIEFING=0` to disable).
 
-### Plugins (API Mega List + Composio Dashboard)
+### Plugins hub (API Mega List · Composio · FreeLLMAPI · Tools)
 
-The **Plugins** sidebar section has two tabs: the real
-[`cporter202/API-mega-list`](https://github.com/cporter202/API-mega-list)
-repository workspace and a local Composio Dashboard shell backed by the
-existing owner-gated Composio adapter.
+The **Plugins** sidebar item is one hub with four tabs; the former
+**Installed Plugins**, **FreeLLMAPI** and **AI Connections** sidebar items
+live inside it (routing `switchMainView('freellm'|'connections'|
+'installed-plugins')` still works — `js/app.js` maps those legacy names onto
+the matching hub tab via `js/pluginsHub.js`).
+
+- **API Mega List tab:** the real
+  [`cporter202/API-mega-list`](https://github.com/cporter202/API-mega-list)
+  repository workspace.
+- **Composio tab:** the local Composio Dashboard shell backed by the
+  existing owner-gated Composio adapter (unchanged functionally).
+- **FreeLLMAPI tab:** sub-tabs **Catalog** (the free model dashboard) and
+  **AI Connections** (providers, gateways, routing policy) with a simple
+  pipeline strip: Connect → Test → Discover models → Assign to agent.
+- **Tools tab:** three sub-tabs — **Installed Plugins** (the registry rail),
+  **Connected Apps** and **Connected Skills** (both new dashboards, below).
 
 The API Mega List tab is not a separate API catalog. It renders the
 repository's own READMEs and files, including the output of its `settings/`
@@ -418,12 +457,11 @@ pipeline.
   `~/.agents/plugins_backup_2026-10-23`; the old first-party catalog entry and
   its installed skill links were removed.
 
-### Installed Plugins (apps, skill packs and GitHub repos)
+### Tools → Installed Plugins (apps, skill packs and GitHub repos)
 
-The **Installed Plugins** sidebar rail is the registry view for everything the
-OS has installed or bundled. It is separate from the **Plugins** tab (the API
-Mega List / Composio console) and from **FreeLLMAPI**; each card links back to
-its native app when one exists.
+The **Installed Plugins** panel lives inside **Plugins → Tools** and is the
+registry view for everything the OS has installed or bundled. Each card links
+back to its native app when one exists.
 
 - **One list, short tags:** every app, skill pack and GitHub repo carries a
   short tag (`UX`, `MCP`, `API`, `LLM`, `REV`, …) plus a lifecycle status:
@@ -432,11 +470,24 @@ its native app when one exists.
   `~/.agents/plugins`, the bundled catalog in `public-plugins/`, and the apps
   shipped with the OS (API Mega List, FreeLLMAPI). Installed packs are read
   from their manifest, so new folders appear without a code change.
-- **Install from GitHub:** paste a repository URL (or a local folder) in the
-  rail. The backend clones with `git clone --depth 1`, detects a root
-  `plugin.json`, a Claude `.claude-plugin/plugin.json`, `skills/*/SKILL.md` or
-  `.claude/skills/*/SKILL.md`, then installs the pack under
-  `~/.agents/plugins/<name>`.
+- **Install from GitHub (report-first examiner):** paste a repository URL
+  (or a local folder) in the rail and press **Examine repo**. The backend
+  clones with `git clone --depth 1` into a scratch exam dir, runs a
+  deterministic scan (manifest, README, `skills/*/SKILL.md`, file inventory,
+  runtime markers, risk flags such as `curl|sh` patterns or install hooks)
+  and asks the OS model (`studio_llm` routing) for a capability report —
+  never executing repository code. The inline report shows: capability,
+  usefulness inside this OS, markdown installation docs, a skill verdict
+  and risks. Only then can you approve:
+  - **Run the Installation** — installs from the already-examined clone (no
+    second `git clone`) under `~/.agents/plugins/<name>`.
+  - **Connect the skill** — offered only when a `SKILL.md` exists; copies
+    that skill folder into `vault/Skills/<name>/` so it becomes Vault
+    knowledge without installing any runtime.
+  Examinations expire after 24 h and can be discarded. Without a configured
+  model the report falls back to the deterministic scan. Endpoints:
+  `POST /api/plugins/examine`, `POST /api/plugins/install` (`exam_id`),
+  `POST /api/plugins/connect-skill`.
 - **Actions:** install a bundled pack, enable/disable, link its skills into
   selected agents (Claude Code, Codex, Cursor, Gemini CLI, OpenCode, Hermes,
   generic `~/.agents/skills`), open the native app, open the GitHub repo, or
@@ -452,9 +503,9 @@ its native app when one exists.
   `POST /api/plugins/install {"catalog_id":"ui-ux-pro-max"}`.
 - **Endpoints:** `GET /api/plugins/installed`; the install/toggle/link/uninstall
   actions reuse the owner-gated `POST /api/plugins/*` routes.
-- **Frontend:** `js/installedPlugins.js` + `#installed-plugins-view`, styled by
-  `css/installed-plugins.css`; `js/app.js` routes the
-  `installed-plugins` view and sidebar label.
+- **Frontend:** `js/installedPlugins.js` + `#tools-panel-plugins`, styled by
+  `css/installed-plugins.css`; `js/pluginsHub.js` routes the Tools sub-tabs
+  and `js/app.js` maps the legacy `installed-plugins` view onto them.
 
 #### Composio
 
@@ -473,7 +524,7 @@ installation and MCP configuration outside the Dashboard.
 
 ### FreeLLMAPI (free model catalog + per-agent connections)
 
-The **FreeLLMAPI** sidebar section is a local dashboard over
+The **FreeLLMAPI** tab (Plugins hub) is a local dashboard over
 [`open-free-llm-api/awesome-freellm-apis`](https://github.com/open-free-llm-api/awesome-freellm-apis),
 the directory behind [`freellm.net`](https://freellm.net). It lists 505 free
 models from 30 providers with search, tier/credit-card/modality filters, base

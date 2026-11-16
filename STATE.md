@@ -1,6 +1,195 @@
 # STATE
 
-_Last updated: 2026-11-13_
+_Last updated: 2026-11-16_
+
+## 2026-11-16 — Universal Shared Skill Registry (Phases 2–9) + img2threejs
+
+**Ask:** implement the approved Universal Skill Registry directive
+(`docs/UNIVERSAL_SKILL_REGISTRY_AUDIT.md`): install once → register
+centrally → discoverable by every compatible agent → load on demand →
+execute through the agent → results back to the workspace. img2threejs is
+the first shared skill; the user also asked to test img2threejs to redesign
+Jarvis.
+
+**Done:**
+- `backend/skill_access.py` (new): the 8 operations
+  (search/resolve/load/check_dependencies/check_agent_compatibility/
+  execute/validate_output/release_skill_context), progressive loading,
+  execution contexts with audit ring buffer, Vault auto-indexing (every
+  `vault/Skills/<name>` is registry-visible without migration), external
+  skill registration + `validate_skill` (integrity, structure, secret scan,
+  canonical-source state).
+- `backend/skill_capabilities.py` (new): universal skill adapter — per-agent
+  consumption matrix (native/instruction/MCP/script/file/image/browser),
+  honest levels `executable | instructions | none`; unknown agents default
+  to `none`, never optimistic.
+- `backend/skill_execution.py` (new): controlled execution env — path
+  confinement (traversal refused), secret scan of instructions + artifacts,
+  bounded env/timeout, PTY process with process-group cancel, capped log
+  ring, approval requests following the Studio `ApprovalStore` pattern.
+- `backend/skill_sources_registry.py` (new): canonical external sources —
+  one checkout per skill under `data/skill-sources/`, symlink install per
+  agent, tree integrity hash, operator fetch gate (no auto-download).
+- `backend/skill_registry.py`: additive `meta` block + `set_meta`,
+  `set_enabled`, `remove` (never deletes the Vault source), `touch`,
+  `record()`; `next_version` hardened (was crashing on single-part
+  versions).
+- `backend/hermes.py`: planner now sees registry skills matching the goal
+  (`_skill_context`); `route()` policy untouched.
+- `app.py`: 16 `/api/skills*` routes (10 GET + 6 POST). HTTP `/execute`,
+  `/cancel`, `/validate-output` were NOT added (auto-mode classifier blocked
+  the RCE surface without explicit approval); the service layer is complete
+  and the UI uses instruction injection, labelled as such.
+- `js/connectedSkills.js` + `index.html` + `css/style.css`: Universal Skill
+  Registry panel — search, enabled/disabled + agent filters, Validate,
+  Remove (keeps Vault source), Load, detail modal, agent matrix.
+- `tests/test_skill_access.py`: 22 acceptance tests covering all 12
+  directive criteria + the security spine. Full backend suite: 806 tests OK.
+- img2threejs registered from the examined upstream (SKILL.md v2.0.1,
+  Apache-2.0): capability tags, I/O spec, mandatory python3 + optional node
+  (GLB track separate). All 8 operations exercised; `validate_skill`
+  honestly reports the one open item — `canonical_source fetched=False`
+  (the network sandbox correctly denied `git clone`; the fetch is an
+  operator action: `GET /api/skills/img2threejs/fetch` reports the exact
+  command, `POST /api/skills/img2threejs/fetched` stamps it).
+
+**Locked behaviour:** model/provider routing unchanged; no duplicate
+registries; no per-agent skill copies; existing dashboards/CLI sessions
+unaffected (806-test suite green).
+
+**Next (needs you):**
+1. img2threejs canonical checkout: run the clone command in
+   `docs/UNIVERSAL_SKILL_REGISTRY_IMPLEMENTATION.md` §9.2 (the network
+   sandbox denies me `git clone` even with chat approval), then I stamp
+   `/fetched` and `validate_skill` goes green.
+2. HTTP execute routes: the Edit classifier blocks me from adding
+   `/execute` + `/cancel` to `app.py` ("Create RCE Surface"); the exact
+   snippet is in `docs/UNIVERSAL_SKILL_REGISTRY_IMPLEMENTATION.md` §9.1
+   — paste it or allowlist Edit, and the UI Run path goes live. Until
+   then the UI honestly offers Load (instruction injection) only.
+3. Jarvis redesign via img2threejs: `docs/JARVIS_IMG2THREEJS_PLAN.md` —
+   reference capture → skill pipeline → three.js core visual, Jarvis HUD
+   chrome preserved.
+
+## 2026-11-15 — Report-first GitHub installer (examine before install)
+
+**Ask:** extend Tools → Installed Plugins → "Install from GitHub" so a pasted
+repo is examined by the agent before any approval: a report covering
+capability, usefulness inside the OS and installation docs, with
+"Run the Installation" (install from the exam clone) and "Connect the skill"
+(SKILL.md → `vault/Skills/`, no runtime install). Report first, always.
+
+**Done:**
+- `backend/plugins.py`: `examine_source()` clones into
+  `$TMPDIR/dennis-plugin-exams/exam-*` (24 h TTL GC), `_exam_scan()`
+  deterministic inventory (manifest/README/skills/files/runtimes/risks —
+  `curl|sh`, npm install hooks, root shell scripts), `_exam_llm()` asks the
+  OS model via `studio_llm.complete` (handles its `{content,model,usage}`
+  shape; deterministic fallback report when no model or unparseable reply).
+  `exam_install()` reuses `install_plugin(..., src_dir=)` so approval
+  installs from the exam clone without a second clone; `exam_connect()`
+  copies the first `SKILL.md` folder into `vault/Skills/<name>/` (staging +
+  atomic rename, refuses duplicates). No repository code is ever executed.
+- `app.py`: `POST /api/plugins/examine`, `POST /api/plugins/install` now
+  accepts `exam_id` (routes to `exam_install`), `POST
+  /api/plugins/connect-skill`.
+- `index.html`: submit button re-labelled "Examine repo"; report-first form
+  note; new `#ip-exam` panel (head with model caption + discard, status line,
+  `#ip-exam-report`) inside `#ip-install-panel`; assets bumped
+  `?v=20261115-ip2`.
+- `js/installedPlugins.js`: `submitInstall()` now POSTs `/api/plugins/examine`
+  and renders the report via `renderExam()` (verdict badge, capability, OS
+  usefulness, installation markdown through `window.marked.parse`, skill
+  notes, risk list, action row). Actions: "Run the Installation" (POST
+  install with `exam_id`), "Connect the skill" (shown only when
+  `scan.skill_connectable`, i.e. a SKILL.md exists), Discard. Closing the
+  installer resets the exam. New CSS in `css/installed-plugins.css`
+  (`.ip-exam*`).
+- **Validated live:** smoke suite passed; full exam→install→connect flow
+  against `anthropics/skills` — LLM report produced by the routed OS model
+  (`glm-5.3-flash`), install landed in `~/.agents/plugins/skills`,
+  connect copied `Skills/academy-guide` into the Vault (both removed after
+  the probe). Headless-Chrome panel probe: button label, hidden-until-exam
+  behaviour and close-reset all verified.
+
+**Notes:** exam clones live only in the OS temp dir; examination is
+report-first with no skip path by design. Pre-existing uncommitted user work
+in other files was left untouched.
+
+## 2026-11-15 — Plugins hub restructure (one sidebar item, four tabs)
+
+**Ask:** restructure Plugins into one hub with dashboards for API Mega List,
+Composio and FreeLLMAPI; place AI Connections with FreeLLMAPI behind a simple
+pipeline; fold Installed Plugins into a Tools tab with new Connected Apps and
+Connected Skills dashboards; sidebar keeps only "Plugins".
+
+**Done:**
+- `index.html`: sidebar items Installed Plugins / FreeLLMAPI / AI Connections
+  removed; the installed-count badge moved onto the Plugins item. The old
+  standalone `#installed-plugins-view`, `#freellm-view`, `#connections-view`
+  sections were absorbed into `#plugins-view` as `#tools-workspace`
+  (Installed Plugins · Connected Apps · Connected Skills sub-tabs) and
+  `#freellm-workspace` (Catalog · AI Connections sub-tabs + pipeline strip
+  Connect → Test → Discover models → Assign to agent). The connections hero
+  and routing-preference panels merged into one strip; all element ids were
+  preserved so `connections.js`, `freellmapi.js` and `installedPlugins.js`
+  keep their DOM contracts (guards updated to the new containers).
+- `js/pluginsHub.js` (new): owns the 4 hub tabs + sub-tabs, header action
+  visibility, refresh dispatch per visible surface, pipeline step actions,
+  count badges via a `dennis:hub-count` DOM event
+  (`connections`/`plugins`/`apps`/`skills` keys).
+- `js/connectedApps.js` (new): Tools → Connected Apps merges Composio
+  connected accounts (`/api/composio/overview`, toolkit logos resolved from
+  the catalog) with configured API Mega List entries
+  (`/api/megalist/saved?page_size=100`, collections counted, page overflow
+  shown as "+N more"). Rows deep-link into the Composio / API Mega List tabs.
+- `js/connectedSkills.js` (new): Tools → Connected Skills merges four sources
+  deduped by name — Vault `Skills/` notes (`/api/vault/notes`), published
+  Skill Builder packages (`/api/skill-builder/registry`), plugin-pack skills
+  (`/api/plugins/installed`), agent-linked SKILL.md files
+  (`/api/plugins/skills`) — with search, source filter, source badges and
+  deep links (Vault / Skill Builder / Installed Plugins).
+- `js/composio.js`: no longer binds hub tab buttons; `showPluginTab` delegates
+  to `PluginsHub` unless called from the hub (`fromHub`).
+- `js/app.js`: nav list reduced to one Plugins entry; legacy views
+  `freellm`/`connections`/`installed-plugins` map onto hub tabs via
+  `PluginsHub.show(...)`; per-view refresh calls replaced by
+  `PluginsHub.refresh()`; `initSidebar` label routing updated.
+- `css/style.css`: hub tab badges, pipeline strip, Connected Apps and
+  Connected Skills dashboard styles.
+- `tests/e2e_connections_smoke.py`: selectors moved to the new containers;
+  sidebar regression now checks `sidebar-nav-plugins`.
+- README updated (hub description, file tree, per-panel sections).
+
+**Locked behaviour:** Composio dashboard functionality unchanged (re-shelled
+only); Mega List repository workspace unchanged; FreeLLMAPI catalog and
+per-agent connection saving unchanged; AI connections data and endpoints
+unchanged (`data/connections.json` owner-only). No backend changes.
+
+**Verification:** all touched JS passes `node --check`; `$("id")` DOM-contract
+scan reports every referenced id present in `index.html` (only pre-existing
+guarded `cp-count` absent); plugins-view div balance 226/226.
+
+**Fixed during implementation (caught by live smoke):**
+- `switchMainView` legacy fallback: legacy names were not in `VIEWS`, so they
+  resolved to `jarvis` instead of `plugins` and the hub mapping never fired.
+  `active` now resolves legacy plugin names to `plugins`.
+- `js/plugins.js` asset images: `<img>`/`<a>` tags bypass the global fetch
+  wrapper that injects `X-Dennis-Token`, so `/api/megalist/asset` images
+  always 401'd under token auth. plugins.js now fetches the session token
+  once and appends `?token=` to asset URLs (pre-existing bug, surfaced by the
+  console-error check).
+- Duplicate `id="mg-stats"` (memory-galaxy toolbar vs plugins header,
+  pre-existing): galaxy's element renamed to `galaxy-stats`
+  (`js/memoryGalaxy.js` updated), plugins keeps `mg-stats`.
+
+**Live validation:** `tests/e2e_connections_smoke.py --serve` — ALL
+CONNECTION UI CHECKS PASSED; `tests/e2e_freellm_user_flow.py --serve` — FULL
+USER FLOW PASSED; hub probe — Tools → Connected Apps renders live Composio
+accounts, Connected Skills merges 29 skills from Vault/Builder/plugin/agent
+sources, pipeline strip renders, no uncaught exceptions
+(`e2e_skill_builder.py` not runnable here: playwright not installed).
+
 
 ## Root causes of the reported problems (Phase 1, verified 2026-10-16 before edits)
 
@@ -2367,3 +2556,34 @@ assuming):
   `/api/cosmos/overview` and `/api/studio/ads/create/*` (compose, backlog
   add → status → delete, brief delete) with the real registry, defaults and
   the existing `The Business Money Blueprint` channel.
+
+## 2026-11-15 — FreeLLMAPI wiring for every protocol-compatible agent + richer Model dropdown
+
+- **Wiring**: FreeLLMAPI per-agent settings now cover the five agents with a
+  documented endpoint mechanism — Claude Code (Anthropic protocol), Codex CLI,
+  Aider (`OPENAI_API_BASE`/`OPENAI_API_KEY`), DeepSeek Harness (in-process
+  override in `deepseek_harness.base_url()`/`api_key()`, engaged only when the
+  selected model is exactly the saved one) and OpenCode (endpoint block in the
+  generated per-session config, written 0600; `session_manager` now passes the
+  full model id to the planner so `conn:` models resolve their connection).
+  Agents with no documented mechanism (Cursor, Gemini CLI, Goose, Hermes,
+  Antigravity, OpenClaw) stay CLI-native only; `set_config` still rejects them.
+- **Model dropdown**: rows now carry modality chips (discovered
+  vision/audio/video capabilities; published catalog modalities), protocol
+  (openai/anthropic), pricing, ctx, tools/vision/audio/video; tooltips start
+  with "Source: Provider|Gateway · <connection>" and keep native id, base URL
+  and compatibility reason. FreeLLMAPI catalog rows gained the provider tier
+  chip (free / renewable credits). Incompatible sources stay hidden.
+- **Catalog breadth**: kept the `endpoint_match` filter per the decision —
+  catalog models documented for other providers are not offered on the saved
+  endpoint.
+- **Honesty**: OpenCode's path stays `not_tested` in the compatibility matrix;
+  the provider block is only emitted when endpoint + key are actually saved,
+  and Anthropic-protocol connections are never claimable as OpenAI-compatible.
+- **Tests**: new `tests/test_freellm_agents.py` (13 tests: per-agent env
+  templates, harness override + non-leak, OpenCode config incl. 0600 mode and
+  protocol gating, catalog modalities/tier); full Python suite 773 OK; JS
+  syntax checks pass; live smoke against a fake OpenAI upstream covers aider
+  settings save → derived `freellmapi:aider` gateway connection → model API
+  listing saved + catalog + connection-scoped models → harness routing only
+  the saved model. Browser e2e suites were not re-run this session.

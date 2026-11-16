@@ -46,7 +46,7 @@
   <!-- Custom Cyber Theme CSS -->
   <link rel="stylesheet" href="css/style.css?v=20261113-jarvis-mode">
   <!-- Installed Plugins rail -->
-  <link rel="stylesheet" href="css/installed-plugins.css?v=20261112-ip1">
+  <link rel="stylesheet" href="css/installed-plugins.css?v=20261115-ip2">
   <!-- FreeLLMAPI catalog dashboard -->
   <link rel="stylesheet" href="css/freellmapi.css?v=20261030-freellm1">
   <link rel="stylesheet" href="css/connections.css?v=20261114-connections">
@@ -164,22 +164,7 @@
         <button id="sidebar-nav-plugins" class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 font-medium text-xs transition">
           <i data-lucide="puzzle" class="w-4 h-4"></i>
           <span>Plugins</span>
-        </button>
-
-        <button id="sidebar-nav-installed-plugins" class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 font-medium text-xs transition">
-          <i data-lucide="package-check" class="w-4 h-4"></i>
-          <span>Installed Plugins</span>
           <span id="sidebar-installed-count" class="ml-auto text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-slate-800/80 border border-slate-700 text-slate-400">0</span>
-        </button>
-
-        <button id="sidebar-nav-freellm" class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 font-medium text-xs transition">
-          <i data-lucide="zap" class="w-4 h-4"></i>
-          <span>FreeLLMAPI</span>
-        </button>
-
-        <button id="sidebar-nav-connections" class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 font-medium text-xs transition">
-          <i data-lucide="route" class="w-4 h-4"></i>
-          <span>AI Connections</span>
         </button>
 
         <button class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 font-medium text-xs transition">
@@ -1470,7 +1455,7 @@
                    class="w-44 pl-8 pr-2.5 py-1.5 rounded-lg bg-[#0b1226] border border-[#22304f] text-[11px] text-slate-200 placeholder-slate-600 outline-none focus:border-indigo-500/60">
           </div>
           <div class="ws-windows-spacer" aria-hidden="true"></div>
-          <span id="mg-stats" class="text-[10px] font-mono text-slate-500 shrink-0 px-1"></span>
+          <span id="galaxy-stats" class="text-[10px] font-mono text-slate-500 shrink-0 px-1"></span>
         </div>
 
         <!-- Galaxy canvas -->
@@ -3540,37 +3525,46 @@
       <!-- ================================================================= -->
       <section id="plugins-view" class="hidden flex-1 flex flex-col gap-3.5 min-h-0 pb-6">
 
-        <!-- Header -->
+        <!-- Header: Plugins hub (API Mega List · Composio · FreeLLMAPI · Tools) -->
         <div class="relative overflow-hidden glass-panel rounded-2xl border border-purple-900/50 bg-gradient-to-r from-[#120a1c] via-[#170f22] to-[#0b0712] p-4 flex flex-wrap items-center justify-between gap-3 shrink-0">
           <div class="relative z-10 flex items-center gap-3">
             <div class="w-10 h-10 rounded-xl bg-purple-600/20 border border-purple-500/40 flex items-center justify-center text-purple-300">
-              <i data-lucide="github" class="w-5 h-5"></i>
+              <i data-lucide="puzzle" class="w-5 h-5"></i>
             </div>
             <div>
-              <h2 class="text-sm font-bold text-white flex flex-wrap items-center gap-2">API Mega List
-                <span id="mg-total-badge" class="text-[9px] font-mono uppercase tracking-widest text-purple-300/80 border border-purple-700/50 px-1.5 py-0.5 rounded">Repository</span>
+              <h2 class="text-sm font-bold text-white flex flex-wrap items-center gap-2">Plugins
+                <span id="plugins-hub-badge" class="text-[9px] font-mono uppercase tracking-widest text-purple-300/80 border border-purple-700/50 px-1.5 py-0.5 rounded">API &amp; Tools Hub</span>
               </h2>
               <p class="text-[11px] text-slate-400">
-                Upstream repository workspace ·
-                <a id="mg-source" href="https://github.com/cporter202/API-mega-list" target="_blank" rel="noopener" class="text-purple-300 hover:underline">cporter202/API-mega-list</a>
-                <span id="mg-source-meta" class="text-slate-500"></span>
+                One hub for every API surface — the upstream repository, connected apps, free LLM routes and the tools they power.
               </p>
-              <div class="mt-2 inline-flex items-center gap-1 rounded-xl border border-purple-900/50 bg-[#0b0712]/80 p-1">
-                <button id="plugins-tab-megalist" type="button" class="plugins-tab plugins-tab-active">
+              <div id="plugins-tabs" class="mt-2 inline-flex flex-wrap items-center gap-1 rounded-xl border border-purple-900/50 bg-[#0b0712]/80 p-1">
+                <button id="plugins-tab-megalist" type="button" class="plugins-tab plugins-tab-active" data-plugins-tab="megalist">
                   <i data-lucide="github" class="w-3.5 h-3.5"></i><span>API Mega List</span>
                 </button>
                 <button id="plugins-tab-composio" type="button" class="plugins-tab" data-plugins-tab="composio">
-                  <i data-lucide="plug-zap" class="w-3.5 h-3.5"></i><span>Composio Dashboard</span>
+                  <i data-lucide="plug-zap" class="w-3.5 h-3.5"></i><span>Composio</span>
+                </button>
+                <button id="plugins-tab-freellm" type="button" class="plugins-tab" data-plugins-tab="freellm">
+                  <i data-lucide="zap" class="w-3.5 h-3.5"></i><span>FreeLLMAPI</span>
+                </button>
+                <button id="plugins-tab-tools" type="button" class="plugins-tab" data-plugins-tab="tools">
+                  <i data-lucide="package-check" class="w-3.5 h-3.5"></i><span>Tools</span>
                 </button>
               </div>
             </div>
           </div>
           <div class="relative z-10 flex flex-wrap items-center gap-2">
-            <a id="mg-github" href="https://github.com/cporter202/API-mega-list" target="_blank" rel="noopener" class="sb-btn sb-btn-ghost"><i data-lucide="external-link" class="w-3.5 h-3.5"></i><span>Open repo</span></a>
-            <button id="mg-sync" type="button" class="sb-btn sb-btn-primary" title="Download the latest upstream repository snapshot"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i><span>Sync upstream</span></button>
-            <span id="mg-status-pill" class="sb-pill"><span class="sb-pill-dot"></span><span id="mg-status-text">Loading…</span></span>
+            <div id="plugins-actions-megalist" class="flex flex-wrap items-center gap-2">
+              <span id="mg-total-badge" class="text-[9px] font-mono uppercase tracking-widest text-purple-300/80 border border-purple-700/50 px-1.5 py-0.5 rounded">Repository</span>
+              <a id="mg-github" href="https://github.com/cporter202/API-mega-list" target="_blank" rel="noopener" class="sb-btn sb-btn-ghost"><i data-lucide="external-link" class="w-3.5 h-3.5"></i><span>Open repo</span></a>
+              <button id="mg-sync" type="button" class="sb-btn sb-btn-primary" title="Download the latest upstream repository snapshot"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i><span>Sync upstream</span></button>
+              <span id="mg-status-pill" class="sb-pill"><span class="sb-pill-dot"></span><span id="mg-status-text">Loading…</span></span>
+            </div>
           </div>
           <div id="mg-stats" class="relative z-10 flex flex-wrap items-center gap-1.5 w-full mt-1 text-[10px]"></div>
+          <a id="mg-source" href="https://github.com/cporter202/API-mega-list" target="_blank" rel="noopener" class="hidden"></a>
+          <span id="mg-source-meta" class="hidden"></span>
         </div>
 
         <!-- Repository workspace (API Mega List tab) -->
@@ -3736,10 +3730,21 @@
           </div>
         </div><!-- /#composio-workspace -->
 
-      </section>
+        <!-- Tools workspace: Installed Plugins · Connected Apps · Connected Skills -->
+        <div id="tools-workspace" class="hidden flex-1 min-h-0 flex flex-col gap-3.5">
+          <div id="tools-subtabs" class="glass-panel rounded-2xl border border-purple-900/40 bg-[#0b0712]/80 px-3 py-2 flex flex-wrap items-center gap-2 shrink-0">
+            <button type="button" id="tools-subtab-plugins" class="plugins-tab plugins-tab-active" data-tools-subtab="plugins">
+              <i data-lucide="package-check" class="w-3.5 h-3.5"></i><span>Installed Plugins</span><b id="tools-nav-plugin-count">0</b>
+            </button>
+            <button type="button" id="tools-subtab-apps" class="plugins-tab" data-tools-subtab="apps">
+              <i data-lucide="app-window" class="w-3.5 h-3.5"></i><span>Connected Apps</span><b id="tools-nav-app-count">0</b>
+            </button>
+            <button type="button" id="tools-subtab-skills" class="plugins-tab" data-tools-subtab="skills">
+              <i data-lucide="graduation-cap" class="w-3.5 h-3.5"></i><span>Connected Skills</span><b id="tools-nav-skill-count">0</b>
+            </button>
+          </div>
 
-      <!-- INSTALLED PLUGINS VIEW (apps, skill packs and GitHub repos) -->
-      <section id="installed-plugins-view" class="hidden flex-1 flex flex-col gap-3.5 min-h-0 pb-6">
+          <div id="tools-panel-plugins" class="flex-1 min-h-0 flex flex-col gap-3.5">
 
         <div class="ip-hero glass-panel rounded-2xl border border-cyan-900/50 bg-gradient-to-r from-[#07131c] via-[#081a24] to-[#060d16] p-4 flex flex-wrap items-center justify-between gap-3 shrink-0">
           <div class="relative z-10 flex items-center gap-3">
@@ -3780,11 +3785,25 @@
               <input id="ip-name" type="text" spellcheck="false" placeholder="repo-name" pattern="[a-z0-9][a-z0-9._-]{0,63}">
             </div>
             <div class="ip-form-actions">
-              <button id="ip-install-submit" type="submit" class="sb-btn sb-btn-primary"><i data-lucide="download" class="w-3.5 h-3.5"></i><span>Install</span></button>
+              <button id="ip-install-submit" type="submit" class="sb-btn sb-btn-primary"><i data-lucide="search-check" class="w-3.5 h-3.5"></i><span>Examine repo</span></button>
               <button id="ip-install-cancel" type="button" class="sb-btn sb-btn-ghost"><span>Cancel</span></button>
             </div>
           </form>
-          <p class="ip-form-note">The repository is cloned with <code>git clone --depth 1</code> into <code id="ip-root-path">~/.agents/plugins</code>. A root <code>plugin.json</code> or <code>skills/*/SKILL.md</code> is detected automatically.</p>
+          <p class="ip-form-note">Every install is report-first: the repository is cloned with <code>git clone --depth 1</code>, examined (capability, usefulness for this OS, install steps, skill verdict, risks), and only then do you approve <em>Run the Installation</em> into <code id="ip-root-path">~/.agents/plugins</code> — or <em>Connect the skill</em> into the Vault when a <code>SKILL.md</code> exists.</p>
+          <div id="ip-exam" class="ip-exam hidden">
+            <div class="ip-exam-head">
+              <div class="ip-exam-title">
+                <i data-lucide="scan-search" class="w-4 h-4 text-cyan-400"></i>
+                <div>
+                  <h4 id="ip-exam-name">Examination report</h4>
+                  <span id="ip-exam-model" class="ip-exam-model"></span>
+                </div>
+              </div>
+              <button id="ip-exam-discard" type="button" class="ip-icon-btn" title="Discard examination"><i data-lucide="trash-2" class="w-4 h-4"></i></button>
+            </div>
+            <div id="ip-exam-status" class="ip-exam-status"></div>
+            <div id="ip-exam-report" class="ip-exam-report"></div>
+          </div>
         </div>
 
         <div class="ip-toolbar glass-panel rounded-2xl border border-slate-800/80 bg-[#080d18]/80 shrink-0">
@@ -3822,10 +3841,188 @@
         </div>
 
         <div id="ip-toast" class="ip-toast"></div>
-      </section>
+          </div><!-- /#tools-panel-plugins -->
 
-      <!-- FREELLMAPI VIEW (free LLM API catalog + per-agent connections) -->
-      <section id="freellm-view" class="hidden flex-1 flex flex-col gap-3.5 min-h-0 pb-6">
+          <!-- Connected Apps: Composio accounts + configured API Mega List entries -->
+          <div id="tools-panel-apps" class="hidden flex-1 min-h-0 flex flex-col gap-3.5">
+            <div class="glass-panel rounded-2xl border border-purple-900/50 bg-gradient-to-r from-[#120a1c] via-[#170f22] to-[#0b0712] p-4 flex flex-wrap items-center justify-between gap-3 shrink-0">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-purple-600/20 border border-purple-500/40 flex items-center justify-center text-purple-300">
+                  <i data-lucide="app-window" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <h3 class="text-sm font-bold text-white">Connected Apps</h3>
+                  <p class="text-[11px] text-slate-400">Composio accounts and configured API Mega List entries, in one place.</p>
+                </div>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <button id="ca-refresh" type="button" class="sb-btn sb-btn-ghost"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i><span>Refresh</span></button>
+                <button id="ca-open-composio" type="button" class="sb-btn sb-btn-primary"><i data-lucide="plug-zap" class="w-3.5 h-3.5"></i><span>Connect in Composio</span></button>
+                <span id="ca-status-pill" class="sb-pill"><span class="sb-pill-dot"></span><span id="ca-status-text">Loading…</span></span>
+              </div>
+            </div>
+
+            <div class="ca-summary-grid shrink-0">
+              <div class="ca-summary-card"><span>Composio accounts</span><strong id="ca-count-composio">—</strong><small>Live OAuth / API connections</small></div>
+              <div class="ca-summary-card"><span>Saved Mega List APIs</span><strong id="ca-count-megalist">—</strong><small>Configured from the catalog</small></div>
+              <div class="ca-summary-card"><span>Total apps</span><strong id="ca-count-total">—</strong><small>Across both sources</small></div>
+              <div class="ca-summary-card"><span>Collections</span><strong id="ca-count-collections">—</strong><small>Mega List saved collections</small></div>
+            </div>
+
+            <div class="ca-layout flex-1 min-h-0">
+              <div class="ca-pane glass-panel rounded-2xl border border-purple-900/40 bg-[#0b0712]/80 flex flex-col min-h-0 overflow-hidden">
+                <div class="ca-pane-head">
+                  <i data-lucide="plug-zap" class="w-3.5 h-3.5 text-purple-300"></i>
+                  <span>Composio accounts</span>
+                  <span id="ca-composio-sub" class="ml-auto text-[10px] font-mono text-slate-500"></span>
+                </div>
+                <div id="ca-composio-list" class="ca-pane-body"><div class="sb-rail-empty">Loading connections…</div></div>
+              </div>
+              <div class="ca-pane glass-panel rounded-2xl border border-purple-900/40 bg-[#0b0712]/80 flex flex-col min-h-0 overflow-hidden">
+                <div class="ca-pane-head">
+                  <i data-lucide="github" class="w-3.5 h-3.5 text-emerald-300"></i>
+                  <span>Configured Mega List APIs</span>
+                  <span id="ca-megalist-sub" class="ml-auto text-[10px] font-mono text-slate-500"></span>
+                </div>
+                <div id="ca-megalist-list" class="ca-pane-body"><div class="sb-rail-empty">Loading saved APIs…</div></div>
+              </div>
+            </div>
+
+            <div id="ca-toast" class="fl-toast"></div>
+          </div><!-- /#tools-panel-apps -->
+
+          <!-- Connected Skills: every skill the OS can see, one list -->
+          <div id="tools-panel-skills" class="hidden flex-1 min-h-0 flex flex-col gap-3.5">
+            <div class="glass-panel rounded-2xl border border-purple-900/50 bg-gradient-to-r from-[#0d0a1c] via-[#140f26] to-[#0a0712] p-4 flex flex-wrap items-center justify-between gap-3 shrink-0">
+              <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-300">
+                  <i data-lucide="graduation-cap" class="w-4 h-4"></i>
+                </div>
+                <div>
+                  <h3 class="text-sm font-bold text-white">Connected Skills</h3>
+                  <p class="text-[11px] text-slate-400">Every connected or generated skill in the OS — Vault, Skill Builder, plugin packs and agent-linked SKILL.md files.</p>
+                </div>
+              </div>
+              <div class="flex flex-wrap items-center gap-2">
+                <button id="cs-refresh" type="button" class="sb-btn sb-btn-ghost"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i><span>Refresh</span></button>
+                <button id="cs-open-skillbuilder" type="button" class="sb-btn sb-btn-primary"><i data-lucide="wrench" class="w-3.5 h-3.5"></i><span>Open Skill Builder</span></button>
+                <span id="cs-status-pill" class="sb-pill"><span class="sb-pill-dot"></span><span id="cs-status-text">Loading…</span></span>
+              </div>
+            </div>
+
+            <div class="cs-summary-grid shrink-0">
+              <div class="cs-summary-card"><span>Skills</span><strong id="cs-count-total">—</strong><small>After dedupe</small></div>
+              <div class="cs-summary-card"><span>Vault</span><strong id="cs-count-vault">—</strong><small>vault/Skills folder</small></div>
+              <div class="cs-summary-card"><span>Skill Builder</span><strong id="cs-count-builder">—</strong><small>Published packages</small></div>
+              <div class="cs-summary-card"><span>Agent-linked</span><strong id="cs-count-agents">—</strong><small>SKILL.md in agent dirs</small></div>
+            </div>
+
+            <div class="glass-panel rounded-2xl border border-purple-900/40 bg-[#0b0712]/80 flex-1 min-h-0 flex flex-col overflow-hidden">
+              <div class="cs-toolbar">
+                <div class="cs-search">
+                  <i data-lucide="search" class="w-3.5 h-3.5"></i>
+                  <input id="cs-search" type="search" spellcheck="false" autocomplete="off" placeholder="Search skills by name, tag or source…" aria-label="Search connected skills">
+                </div>
+                <div class="cs-seg" id="cs-source-filter" role="tablist">
+                  <button type="button" class="cs-seg-btn cs-seg-btn-active" data-cs-source="all">All</button>
+                  <button type="button" class="cs-seg-btn" data-cs-source="vault">Vault</button>
+                  <button type="button" class="cs-seg-btn" data-cs-source="builder">Skill Builder</button>
+                  <button type="button" class="cs-seg-btn" data-cs-source="plugin">Plugin pack</button>
+                  <button type="button" class="cs-seg-btn" data-cs-source="agent">Agent-linked</button>
+                </div>
+                <span id="cs-result-count" class="cs-result-count">0 skills</span>
+              </div>
+              <div id="cs-list" class="cs-list"><div class="sb-rail-empty">Loading skills…</div></div>
+            </div>
+
+            <!-- Universal Shared Skill Registry: one canonical source, every
+                 compatible agent, on-demand load (backend/skill_access.py). -->
+            <div id="cs-registry" class="flex flex-col gap-3.5 shrink-0">
+              <div class="glass-panel rounded-2xl border border-indigo-900/50 bg-gradient-to-r from-[#0d0a1c] via-[#12102a] to-[#0a0712] p-4 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                  <div class="w-9 h-9 rounded-xl bg-indigo-600/20 border border-indigo-500/40 flex items-center justify-center text-indigo-300">
+                    <i data-lucide="package-open" class="w-4 h-4"></i>
+                  </div>
+                  <div>
+                    <h3 class="text-sm font-bold text-white">Universal Skill Registry</h3>
+                    <p class="text-[11px] text-slate-400">Install once &rarr; register centrally &rarr; discover by every compatible agent &rarr; load on demand &rarr; execute through the agent &rarr; results return to the workspace.</p>
+                  </div>
+                </div>
+                <div class="flex flex-wrap items-center gap-2">
+                  <button id="cs-reg-matrix-toggle" type="button" class="sb-btn sb-btn-ghost"><i data-lucide="grid-2x2" class="w-3.5 h-3.5"></i><span>Agent matrix</span></button>
+                  <button id="cs-reg-refresh" type="button" class="sb-btn sb-btn-ghost"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i><span>Refresh</span></button>
+                  <span id="cs-reg-count" class="cs-result-count">0 registered</span>
+                </div>
+              </div>
+
+              <div class="glass-panel rounded-2xl border border-indigo-900/40 bg-[#0b0712]/80 flex-1 min-h-0 flex flex-col overflow-hidden">
+                <div class="cs-toolbar">
+                  <div class="cs-search">
+                    <i data-lucide="search" class="w-3.5 h-3.5"></i>
+                    <input id="cs-reg-search" type="search" spellcheck="false" autocomplete="off" placeholder="Search registry by name, tag or category…" aria-label="Search universal skill registry">
+                  </div>
+                  <div class="cs-seg" id="cs-reg-filter" role="tablist">
+                    <button type="button" class="cs-seg-btn cs-seg-btn-active" data-reg-tab="all">All</button>
+                    <button type="button" class="cs-seg-btn" data-reg-tab="enabled">Enabled</button>
+                    <button type="button" class="cs-seg-btn" data-reg-tab="disabled">Disabled</button>
+                  </div>
+                  <select id="cs-reg-agent" class="w-auto rounded-md bg-[#111a30] border border-slate-800 text-[10px] text-slate-200 px-1.5 py-1 outline-none" aria-label="Filter by compatible agent">
+                    <option value="">All agents</option>
+                    <option value="claude-code">Claude Code</option>
+                    <option value="cursor">Cursor</option>
+                    <option value="codex">Codex</option>
+                    <option value="gemini-cli">Gemini CLI</option>
+                    <option value="opencode">OpenCode</option>
+                    <option value="hermes-cli">Hermes CLI</option>
+                    <option value="deepseek-harness">DeepSeek Harness</option>
+                    <option value="antigravity">Antigravity</option>
+                    <option value="openclaw">OpenClaw</option>
+                  </select>
+                </div>
+                <div id="cs-reg-list" class="cs-list"><div class="sb-rail-empty">Loading registry…</div></div>
+                <div id="cs-reg-matrix-panel" class="hidden border-t border-indigo-900/30 p-3 max-h-48 overflow-y-auto">
+                  <div id="cs-reg-matrix" class="flex flex-col gap-1"><div class="sb-rail-empty">Loading agent matrix…</div></div>
+                </div>
+              </div>
+
+              <div id="cs-reg-modal" class="cs-reg-modal" role="dialog" aria-modal="true" aria-label="Skill detail">
+                <div class="cs-reg-modal-card glass-panel">
+                  <div class="flex items-center justify-between gap-3 px-4 py-3 border-b border-indigo-900/30">
+                    <h4 class="text-xs font-bold text-indigo-200 uppercase tracking-wider">Skill detail</h4>
+                    <button id="cs-reg-modal-close" type="button" class="sb-btn sb-btn-ghost"><i data-lucide="x" class="w-3.5 h-3.5"></i><span>Close</span></button>
+                  </div>
+                  <div id="cs-reg-modal-body" class="p-4 overflow-y-auto max-h-[70vh]"></div>
+                </div>
+              </div>
+            </div>
+
+            <div id="cs-toast" class="fl-toast"></div>
+          </div><!-- /#tools-panel-skills -->
+        </div><!-- /#tools-workspace -->
+
+        <!-- FreeLLMAPI workspace: Catalog + AI Connections under one pipeline -->
+        <div id="freellm-workspace" class="hidden flex-1 min-h-0 flex flex-col gap-3.5">
+          <div class="glass-panel rounded-2xl border border-emerald-900/40 bg-[#0b0712]/80 px-3 py-2 flex flex-wrap items-center gap-2 shrink-0">
+            <div id="freellm-subtabs" class="inline-flex flex-wrap items-center gap-1 rounded-xl border border-emerald-900/50 bg-[#07130f]/80 p-1">
+              <button type="button" id="freellm-subtab-catalog" class="plugins-tab plugins-tab-active" data-freellm-subtab="catalog">
+                <i data-lucide="zap" class="w-3.5 h-3.5"></i><span>Catalog</span>
+              </button>
+              <button type="button" id="freellm-subtab-connections" class="plugins-tab" data-freellm-subtab="connections">
+                <i data-lucide="route" class="w-3.5 h-3.5"></i><span>AI Connections</span><b id="cn-nav-count">0</b>
+              </button>
+            </div>
+            <div id="fl-pipeline" class="flex flex-wrap items-center gap-1.5 ml-auto text-[10px] font-mono uppercase tracking-widest text-slate-500" title="Connect → Test → Discover models → Assign to agent">
+              <button type="button" class="fl-pipe-step" data-fl-pipe="connect"><i data-lucide="plus" class="w-3 h-3"></i>1 · Connect</button>
+              <i data-lucide="chevron-right" class="w-3 h-3 opacity-40"></i>
+              <button type="button" class="fl-pipe-step" data-fl-pipe="test"><i data-lucide="activity" class="w-3 h-3"></i>2 · Test</button>
+              <i data-lucide="chevron-right" class="w-3 h-3 opacity-40"></i>
+              <button type="button" class="fl-pipe-step" data-fl-pipe="discover"><i data-lucide="list-tree" class="w-3 h-3"></i>3 · Discover models</button>
+              <i data-lucide="chevron-right" class="w-3 h-3 opacity-40"></i>
+              <button type="button" class="fl-pipe-step" data-fl-pipe="assign"><i data-lucide="user-check" class="w-3 h-3"></i>4 · Assign to agent</button>
+            </div>
+          </div>
+
+          <div id="freellm-panel-catalog" class="flex-1 min-h-0 flex flex-col gap-3.5">
 
         <div class="fl-hero glass-panel rounded-2xl border border-emerald-900/50 bg-gradient-to-r from-[#061512] via-[#071c18] to-[#05100d] p-4 flex flex-wrap items-center justify-between gap-3 shrink-0">
           <div class="flex items-center gap-3">
@@ -3893,6 +4090,9 @@
                 <div class="fl-agent-tabs">
                   <button type="button" class="fl-agent-tab fl-agent-tab-active" data-fl-agent="claude-code">Claude Code</button>
                   <button type="button" class="fl-agent-tab" data-fl-agent="codex">Codex CLI</button>
+                  <button type="button" class="fl-agent-tab" data-fl-agent="deepseek-harness">DeepSeek Harness</button>
+                  <button type="button" class="fl-agent-tab" data-fl-agent="opencode">OpenCode</button>
+                  <button type="button" class="fl-agent-tab" data-fl-agent="aider">Aider</button>
                 </div>
                 <form id="fl-config-form" class="fl-config">
                   <div class="fl-field"><label class="fl-label" for="fl-base">Base URL</label><input id="fl-base" class="fl-input" type="url" placeholder="https://api.groq.com/openai/v1" autocomplete="off"></div>
@@ -3914,52 +4114,33 @@
         </div>
 
         <div id="fl-toast" class="fl-toast"></div>
-      </section>
+          </div><!-- /#freellm-panel-catalog -->
 
-      <!-- ================================================================= -->
-      <!--  AI CONNECTIONS MANAGER (providers, gateways, routing policy)     -->
-      <!-- ================================================================= -->
-      <section id="connections-view" class="hidden flex-1 flex flex-col gap-3.5 min-h-0 pb-6">
+          <div id="freellm-panel-connections" class="hidden flex-1 min-h-0 flex flex-col gap-3.5">
 
+        <!-- AI Connections: merged routing strip (policy + actions, no hero duplication) -->
         <div class="cn-hero glass-panel rounded-2xl border border-emerald-900/40 bg-gradient-to-r from-[#04120c] via-[#07170f] to-[#050d16] p-4 flex flex-wrap items-center justify-between gap-3 shrink-0">
           <div class="flex items-center gap-3">
             <div class="cn-logo"><i data-lucide="route" class="w-5 h-5"></i></div>
             <div>
-              <h2 class="text-sm font-bold text-white flex flex-wrap items-center gap-2">AI Connections
+              <h3 class="text-[12px] font-semibold text-white flex flex-wrap items-center gap-2">AI Connections
                 <span id="cn-count-badge" class="cn-badge">0</span>
-              </h2>
-              <p class="text-[11px] text-slate-400">
-                Official providers and gateway/proxy routes · one source active at a time ·
-                health from real endpoint tests, never from saved keys
-              </p>
+              </h3>
+              <p class="text-[10.5px] text-slate-500 mt-0.5">Official providers and gateway/proxy routes · one source active at a time · health from real endpoint tests, never from saved keys.</p>
             </div>
           </div>
-          <div class="flex flex-wrap items-center gap-2">
+          <div class="flex items-center gap-2">
+            <div class="cn-seg" id="cn-mode-seg">
+              <button type="button" class="cn-seg-btn" data-cn-mode="free_first" title="Prefer Free / Free Tier / Local connections; ask before paid fallback">Free First</button>
+              <button type="button" class="cn-seg-btn" data-cn-mode="paid_first" title="Prefer official provider connections; free as fallback">Paid First</button>
+              <button type="button" class="cn-seg-btn" data-cn-mode="manual" title="Only use the connection explicitly selected in the Workspace">Manual</button>
+            </div>
+            <label class="cn-check" title="When allowed, routing may use a paid connection as a fallback without asking again (per 24h grant)">
+              <input id="cn-allow-paid" type="checkbox">
+              <span>Allow paid fallback</span>
+            </label>
             <button id="cn-refresh" type="button" class="sb-btn sb-btn-ghost"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i><span>Refresh</span></button>
             <button id="cn-add" type="button" class="sb-btn sb-btn-primary"><i data-lucide="plus" class="w-3.5 h-3.5"></i><span>Add connection</span></button>
-          </div>
-        </div>
-
-        <!-- Routing preference (free/paid policy) -->
-        <div class="glass-panel rounded-2xl border border-[#1b2544] bg-[#080d1b]/80 p-4 shrink-0">
-          <div class="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <h3 class="text-[12px] font-semibold text-slate-100 flex items-center gap-2">
-                <i data-lucide="git-fork" class="w-3.5 h-3.5 text-cyan-400"></i>AI access preference
-              </h3>
-              <p class="text-[10.5px] text-slate-500 mt-0.5">Free First never spends paid credits without your explicit approval.</p>
-            </div>
-            <div class="flex items-center gap-2">
-              <div class="cn-seg" id="cn-mode-seg">
-                <button type="button" class="cn-seg-btn" data-cn-mode="free_first" title="Prefer Free / Free Tier / Local connections; ask before paid fallback">Free First</button>
-                <button type="button" class="cn-seg-btn" data-cn-mode="paid_first" title="Prefer official provider connections; free as fallback">Paid First</button>
-                <button type="button" class="cn-seg-btn" data-cn-mode="manual" title="Only use the connection explicitly selected in the Workspace">Manual</button>
-              </div>
-              <label class="cn-check" title="When allowed, routing may use a paid connection as a fallback without asking again (per 24h grant)">
-                <input id="cn-allow-paid" type="checkbox">
-                <span>Allow paid fallback</span>
-              </label>
-            </div>
           </div>
           <div id="cn-override-note" class="hidden mt-2 text-[10.5px] text-amber-300/90"></div>
         </div>
@@ -4049,6 +4230,9 @@
         </div>
 
         <div id="cn-toast" class="fl-toast"></div>
+          </div><!-- /#freellm-panel-connections -->
+        </div><!-- /#freellm-workspace -->
+
       </section>
 
     </main>
@@ -4527,8 +4711,11 @@
   <script defer src="js/skill-builder.js?v=20261112-video-reverse"></script>
   <script defer src="vendor/marked.min.js"></script>
   <script defer src="js/plugins.js?v=20261023-repo1"></script>
-  <script defer src="js/installedPlugins.js?v=20261112-ip1"></script>
-  <script defer src="js/composio.js?v=20261109-connect4"></script>
+  <script defer src="js/pluginsHub.js?v=20261115-hub1"></script>
+  <script defer src="js/installedPlugins.js?v=20261115-ip2"></script>
+  <script defer src="js/composio.js?v=20261115-hub1"></script>
   <script defer src="js/freellmapi.js?v=20261030-freellm1"></script>
+  <script defer src="js/connectedApps.js?v=20261115-hub1"></script>
+  <script defer src="js/connectedSkills.js?v=20261115-hub1"></script>
 </body>
 </html>

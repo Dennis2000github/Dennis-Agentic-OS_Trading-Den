@@ -33,7 +33,7 @@ import select
 import threading
 import queue
 from concurrent.futures import ThreadPoolExecutor
-from urllib.parse import urlparse, parse_qs, quote
+from urllib.parse import urlparse, parse_qs, quote, unquote
 
 # ---------------------------------------------------------------------------
 # Agent-screen backend (project sessions, CLI-native models, sandboxed PTY/Docker)
@@ -63,6 +63,10 @@ from backend import skill_compiler as dennis_skill_compiler
 from backend import skill_jobs as dennis_skill_jobs
 from backend import skill_registry as dennis_skill_registry
 from backend import skill_sources as dennis_skill_sources
+from backend import skill_access as dennis_skill_access
+from backend import skill_capabilities as dennis_skill_caps
+from backend import skill_execution as dennis_skill_exec
+from backend import skill_sources_registry as dennis_skill_sources_registry
 from backend import deepseek_harness as dennis_deepseek
 from backend import deepseek_native as dennis_deepseek_native
 from backend import plugins as dennis_plugins
@@ -88,6 +92,10 @@ from backend import studio_secrets as dennis_studio_secrets
 from backend import studio_tools as dennis_studio_tools
 from backend import studio_videokit as dennis_studio_videokit
 from backend import studio_workspaces as dennis_studio_workspaces
+from backend import upif_contracts as dennis_upif_contracts
+from backend import upif_service as dennis_upif_service
+from backend import upif_tools as dennis_upif_tools
+from backend import upif_websites as dennis_upif_websites
 from backend import tts as dennis_tts
 from backend import digest as dennis_digest
 from backend import youtube_api as dennis_youtube_api
@@ -1228,6 +1236,17 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
         }, status if 400 <= status <= 599 else 500)
         return True
 
+    def _upif_send_error(self, exc):
+        """Normalize any UPIF exception into a stable JSON error."""
+        if isinstance(exc, dennis_upif_contracts.UPIFError):
+            status = exc.status if 400 <= exc.status <= 599 else 500
+            return self.send_json({"error": exc.code, "message": exc.message,
+                                   "detail": exc.detail}, status)
+        text = str(exc)
+        status = 404 if ("not found" in text.lower() or "unknown" in text.lower()) else 400
+        return self.send_json({"error": "upif_error", "message": text[:300]},
+                              status if 400 <= status <= 599 else 500)
+
     def _send_studio_media(self, media_id, parsed):
         try:
             path, record = dennis_studio_media.open_path(media_id)
@@ -1575,6 +1594,75 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
                     dennis_studio_providers.MCP_ID).descriptor(),
             })
 
+        # ==================================================================
+        # UPIF (read): provider registry, model catalog, entitlements, router
+        # dashboard, usage ledger, website-only services, agent tool surface.
+        # ==================================================================
+        qs = parse_qs(parsed.query)
+        if path == '/api/upif/providers':
+            return self.send_json({"providers": dennis_upif_service.SERVICE.registry.providers()})
+
+        if path == '/api/upif/models':
+            provider = (qs.get('provider') or [None])[0]
+            capability = (qs.get('capability') or [None])[0]
+            free_only = (qs.get('free_only') or ['0'])[0] == '1'
+            return self.send_json({
+                "models": dennis_upif_service.SERVICE.discover_generation_models(
+                    provider_id=provider, capability=capability, free_only=free_only)})
+
+        if path.startswith('/api/upif/models/'):
+            model_id = path[len('/api/upif/models/'):]
+            try:
+                return self.send_json(
+                    dennis_upif_service.SERVICE.get_model_capabilities(model_id))
+            except Exception as exc:
+                return self._upif_send_error(exc)
+
+        if path == '/api/upif/entitlements':
+            return self.send_json(dennis_upif_service.SERVICE.ledger.summary())
+
+        if path == '/api/upif/dashboard':
+            return self.send_json(dennis_upif_service.SERVICE.dashboard())
+
+        if path == '/api/upif/jobs':
+            agent = (qs.get('agent') or [None])[0]
+            studio = (qs.get('studio') or [None])[0]
+            status = (qs.get('status') or [None])[0]
+            return self.send_json({
+                "jobs": dennis_upif_service.SERVICE.queue.list(
+                    agent_id=agent or None, studio_id=studio or None,
+                    status=status or None)})
+
+        if path.startswith('/api/upif/jobs/'):
+            job_id = path[len('/api/upif/jobs/'):]
+            job = dennis_upif_service.SERVICE.get_generation_status(job_id)
+            if job is None:
+                return self.send_json({"error": "job_not_found",
+                                       "message": "Unknown UPIF job."}, 404)
+            return self.send_json(job)
+
+        if path == '/api/upif/usage':
+            provider = (qs.get('provider') or [None])[0]
+            model = (qs.get('model') or [None])[0]
+            return self.send_json({
+                "records": dennis_upif_service.SERVICE.usage.records(
+                    provider_id=provider, model_id=model),
+                "total_cost": dennis_upif_service.SERVICE.usage.total_cost(
+                    provider_id=provider, model_id=model)})
+
+        if path == '/api/upif/websites':
+            return self.send_json({"website_only": dennis_upif_websites.list_website_only()})
+
+        if path == '/api/upif/tools':
+            return self.send_json({"tools": dennis_upif_tools.TOOLS,
+                                   "mutating": sorted(dennis_upif_tools.MUTATING)})
+
+        if path == '/api/upif/policy':
+            return self.send_json({
+                "policy": dennis_upif_service.SERVICE.router.policy,
+                "free_only": dennis_upif_service.SERVICE.router.free_only,
+                "policies": dennis_upif_contracts.POLICIES})
+
         # 1. System Health / Status
         if path == '/api/status':
             agents = load_agents()
@@ -1843,6 +1931,89 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
             if not owner:
                 return
             return self.send_json(dennis_skill_registry.list_skills())
+
+        # ================================================================
+        # UNIVERSAL SKILL REGISTRY (reads). Central registry + progressive
+        # skill access. See backend/skill_access.py.
+        # ================================================================
+        if path == '/api/skills':
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            qs = parse_qs(parsed.query)
+            return self.send_json(dennis_skill_access.search_skill(
+                query=(qs.get("q") or qs.get("query") or [""])[0],
+                category=(qs.get("category") or [""])[0],
+                tag=(qs.get("tag") or [""])[0],
+                agent_id=(qs.get("agent") or [""])[0],
+                enabled_only=(qs.get("enabled_only") or ["1"])[0] not in ("0", "false", "no"),
+                limit=int((qs.get("limit") or ["50"])[0] or 50)))
+
+        if path == '/api/skills/capabilities':
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            return self.send_json({"agents": dennis_skill_caps.matrix()})
+
+        if path.startswith('/api/skills/') and path.endswith('/compatibility'):
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            skill_id = unquote(path[len('/api/skills/'):-len('/compatibility')])
+            agent_id = (parse_qs(parsed.query).get("agent") or [None])[0]
+            if not agent_id:
+                return self.send_json({"error": "agent query param is required"}, 400)
+            image = (parse_qs(parsed.query).get("image") or ["0"])[0] in ("1", "true")
+            browser = (parse_qs(parsed.query).get("browser") or ["0"])[0] in ("1", "true")
+            return self.send_json(dennis_skill_access.check_agent_compatibility(
+                skill_id, agent_id, image=image, browser=browser))
+
+        if path.startswith('/api/skills/') and path.endswith('/dependencies'):
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            skill_id = unquote(path[len('/api/skills/'):-len('/dependencies')])
+            return self.send_json(dennis_skill_access.check_dependencies(skill_id))
+
+        if path.startswith('/api/skills/') and path.endswith('/load'):
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            skill_id = unquote(path[len('/api/skills/'):-len('/load')])
+            agent_id = (parse_qs(parsed.query).get("agent") or [""])[0]
+            include_refs = (parse_qs(parsed.query).get("references") or ["0"])[0] in ("1", "true")
+            include_scripts = (parse_qs(parsed.query).get("scripts") or ["0"])[0] in ("1", "true")
+            try:
+                return self.send_json(dennis_skill_access.load_skill(
+                    skill_id, agent_id=agent_id,
+                    include_references=include_refs, include_scripts=include_scripts,
+                    request={"via": "api"}))
+            except dennis_skill_access.SkillAccessError as e:
+                return self.send_json({"error": e.message, "code": e.code}, e.status)
+
+        if path.startswith('/api/skills/') and path.endswith('/validate'):
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            skill_id = unquote(path[len('/api/skills/'):-len('/validate')])
+            try:
+                return self.send_json(dennis_skill_access.validate_skill(skill_id))
+            except dennis_skill_access.SkillAccessError as e:
+                return self.send_json({"error": e.message, "code": e.code}, e.status)
+
+        if path.startswith('/api/skills/'):
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            skill_id = unquote(path[len('/api/skills/'):])
+            if skill_id.endswith('/context'):
+                skill_id = skill_id[:-len('/context')]
+            try:
+                resolved = dennis_skill_access.resolve_skill(skill_id)
+                resolved["dependencies"] = dennis_skill_access.check_dependencies(skill_id)
+                return self.send_json(resolved)
+            except dennis_skill_access.SkillAccessError as e:
+                return self.send_json({"error": e.message, "code": e.code}, e.status)
 
         if path == '/api/skill-builder/package':
             owner = self._require_owner(parsed)
@@ -3238,6 +3409,77 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
             except Exception as exc:
                 return self._studio_send_error(exc)
 
+        # ==================================================================
+        # UPIF (write): generation ops, entitlement probes, policy control.
+        # All generation goes through the shared service; FREE ONLY is enforced
+        # inside the router, never bypassed by a Studio or an agent.
+        # ==================================================================
+        if path == '/api/upif/generate':
+            try:
+                result = dennis_upif_service.SERVICE._submit(
+                    body.get("operation") or "generate_image",
+                    body.get("prompt") or "",
+                    params=body.get("params") or {},
+                    reference_urls=body.get("reference_urls") or [],
+                    provider_id=body.get("provider_id"),
+                    model_id=body.get("model_id"),
+                    policy=body.get("policy"),
+                    free_only=body.get("free_only"),
+                    agent_id=body.get("agent_id"),
+                    studio_id=body.get("studio_id"),
+                    project_id=body.get("project_id"),
+                    idempotency_key=body.get("idempotency_key"))
+                return self.send_json(result)
+            except Exception as exc:
+                return self._upif_send_error(exc)
+
+        if path == '/api/upif/entitlements/check':
+            try:
+                return self.send_json(
+                    dennis_upif_service.SERVICE.check_model_entitlement(
+                        body.get("model_id") or ""))
+            except Exception as exc:
+                return self._upif_send_error(exc)
+
+        if path == '/api/upif/entitlements/verify':
+            try:
+                return self.send_json(
+                    dennis_upif_service.SERVICE.verify_entitlement(
+                        body.get("model_id") or ""))
+            except Exception as exc:
+                return self._upif_send_error(exc)
+
+        if path == '/api/upif/policy':
+            policy = body.get("policy")
+            free_only = body.get("free_only")
+            try:
+                dennis_upif_service.SERVICE.router.set_policy(
+                    policy or dennis_upif_contracts.POLICY_FREE_FIRST,
+                    free_only=bool(free_only))
+                return self.send_json({
+                    "policy": dennis_upif_service.SERVICE.router.policy,
+                    "free_only": dennis_upif_service.SERVICE.router.free_only})
+            except Exception as exc:
+                return self._upif_send_error(exc)
+
+        if path == '/api/upif/jobs/cancel':
+            try:
+                return self.send_json(
+                    dennis_upif_service.SERVICE.cancel_generation(
+                        body.get("job_id") or ""))
+            except Exception as exc:
+                return self._upif_send_error(exc)
+
+        if path == '/api/upif/tools/run':
+            tool_name = body.get("tool") or ""
+            arguments = body.get("arguments") or {}
+            agent_id = body.get("agent_id") or "agent-router"
+            if tool_name not in dennis_upif_tools.TOOLS:
+                return self.send_json({"error": "unknown_tool",
+                                       "message": "Unknown UPIF tool."}, 404)
+            result = dennis_upif_tools.run_tool(tool_name, arguments, agent_id)
+            return self.send_json(result)
+
         # ------------------------------------------------------------------
         # Provider registry writes: save / test / remove credentials for any
         # provider from the Setup registry.
@@ -3633,6 +3875,134 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
                 return self.send_json(dennis_skill_sources.clear_cache())
             return self.send_json(dennis_skill_sources.cache_stats())
 
+        # ================================================================
+        # UNIVERSAL SKILL REGISTRY (state-only writes). See
+        # backend/skill_access.py.
+        # ================================================================
+        if path == '/api/skills/install':
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            name = str(body.get("name") or "").strip()
+            source_url = str(body.get("source_url") or body.get("url") or "").strip()
+            if not name or not source_url:
+                return self.send_json(
+                    {"error": "name and source_url are required"}, 400)
+            try:
+                return self.send_json(dennis_skill_access.install_external_skill(
+                    name, source_url, meta=body.get("meta") or {},
+                    force=bool(body.get("force"))))
+            except dennis_skill_access.SkillAccessError as e:
+                return self.send_json({"error": e.message, "code": e.code}, e.status)
+
+        if path == '/api/skills/contexts':
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            return self.send_json({
+                "contexts": dennis_skill_access.active_contexts(),
+                "audit": dennis_skill_access.audit_log()[-20:],
+            })
+
+        if path.startswith('/api/skills/') and path.endswith('/release'):
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            context_id = unquote(path[len('/api/skills/'):-len('/release')])
+            try:
+                return self.send_json(dennis_skill_access.release_skill_context(context_id))
+            except dennis_skill_access.SkillAccessError as e:
+                return self.send_json({"error": e.message, "code": e.code}, e.status)
+
+        # Operator fetch gate for external skills (no network here: the owner
+        # clones the canonical source, then stamps it). See Phase 7.
+        if path.startswith('/api/skills/') and path.endswith('/fetch'):
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            skill_id = path[len('/api/skills/'):-len('/fetch')]
+            name = dennis_skill_access._parse_id(skill_id)
+            record = dennis_skill_access.sources_registry.source_record(name)
+            if not record:
+                return self.send_json(
+                    {"error": "Skill source '%s' is not registered." % name,
+                     "hint": "POST /api/skills/install first."}, 404)
+            if record.get("fetched"):
+                return self.send_json({"fetched": True, "already": True, "record": record})
+            return self.send_json({
+                "status": "fetch_required", "skill": name,
+                "source_url": record["source_url"],
+                "canonical_path": record["canonical_path"],
+                "command": "git clone --depth 1 %s %s" % (record["source_url"], record["canonical_path"]),
+                "message": "The canonical checkout is fetched by the operator "
+                           "(network + untrusted-source gate), then stamped with "
+                           "POST /api/skills/<id>/fetched.",
+            })
+
+        if path.startswith('/api/skills/') and path.endswith('/fetched'):
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            skill_id = path[len('/api/skills/'):-len('/fetched')]
+            name = dennis_skill_access._parse_id(skill_id)
+            try:
+                record = dennis_skill_access.sources_registry.mark_fetched(
+                    name, commit=str(body.get("commit") or ""),
+                    integrity=body.get("integrity") or None)
+                return self.send_json({"fetched": True, "record": record})
+            except dennis_skill_access.sources_registry.SourceError as e:
+                return self.send_json({"error": e.message, "code": e.code}, e.status)
+
+        # Read-only run state (no process control here).
+        if path.startswith('/api/skills/') and path.endswith('/status'):
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            context_id = unquote(path[len('/api/skills/'):-len('/status')])
+            ctx = dennis_skill_access.get_context(context_id)
+            if not ctx:
+                return self.send_json({"error": "context not found"}, 404)
+            return self.send_json({
+                "context_id": context_id, "skill_id": ctx["skill_id"],
+                "state": ctx.get("state"), "execution": ctx.get("execution"),
+                "artifacts": ctx.get("artifacts") or [], "log": ctx.get("log") or [],
+            })
+
+        if path.startswith('/api/skills/') and path.endswith('/validate-output'):
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            context_id = unquote(path[len('/api/skills/'):-len('/validate-output')])
+            try:
+                return self.send_json(dennis_skill_access.validate_output(
+                    context_id,
+                    artifact_path=body.get("artifact_path"),
+                    artifact_text=body.get("artifact_text"),
+                    contract=body.get("contract") or None,
+                    workspace=str(body.get("workspace") or "")))
+            except dennis_skill_access.SkillAccessError as e:
+                return self.send_json({"error": e.message, "code": e.code}, e.status)
+
+        if path.startswith('/api/skills/') and path.endswith('/enable'):
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            skill_id = path[len('/api/skills/'):-len('/enable')]
+            name = dennis_skill_access._parse_id(skill_id)
+            try:
+                meta = dennis_skill_registry.set_enabled(name, bool(body.get("enabled", True)))
+                return self.send_json({"name": name, "enabled": meta.get("enabled", True)})
+            except KeyError as e:
+                return self.send_json({"error": str(e)}, 404)
+
+        if path.startswith('/api/skills/') and path.endswith('/remove'):
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            skill_id = path[len('/api/skills/'):-len('/remove')]
+            name = dennis_skill_access._parse_id(skill_id)
+            return self.send_json(dennis_skill_registry.remove(name))
+
         if path == '/api/skill-builder/build':
             # Legacy synchronous endpoint: still never publishes without review.
             owner = self._require_owner(parsed)
@@ -3696,11 +4066,38 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
                 if catalog_id:
                     return self.send_json(dennis_plugins.install_catalog(
                         str(catalog_id), force=bool(body.get("force"))))
+                exam_id = str(body.get("exam_id") or "")
+                if exam_id:
+                    # Approved install reuses the examination clone.
+                    return self.send_json(dennis_plugins.exam_install(
+                        exam_id, name=body.get("name"), force=bool(body.get("force"))))
                 return self.send_json(dennis_plugins.install_plugin(
                     body.get("source") or body.get("path") or "",
                     name=body.get("name"),
                     force=bool(body.get("force")),
                 ))
+            except dennis_plugins.PluginError as e:
+                return self.send_json({"error": str(e)}, 400)
+
+        if path == '/api/plugins/examine':
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            try:
+                return self.send_json(dennis_plugins.examine_source(
+                    str(body.get("source") or "")))
+            except dennis_plugins.PluginError as e:
+                return self.send_json({"error": str(e)}, 400)
+            except Exception as e:  # model/scan failures keep the panel usable
+                return self.send_json({"error": "Examination failed: %s" % e}, 502)
+
+        if path == '/api/plugins/connect-skill':
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            try:
+                return self.send_json(dennis_plugins.exam_connect(
+                    str(body.get("exam_id") or "")))
             except dennis_plugins.PluginError as e:
                 return self.send_json({"error": str(e)}, 400)
 
@@ -5537,6 +5934,16 @@ def run(port=PORT):
     atexit.register(dennis_denma.BACKEND.stop)
     STUDIO_RUNNER.recover()
     atexit.register(STUDIO_RUNNER.shutdown)
+    # UPIF: register provider adapters + discover generation models. Read-only
+    # bootstrap; no credentials required, no generation executed.
+    from backend import upif_bootstrap as dennis_upif_bootstrap
+    try:
+        info = dennis_upif_bootstrap.bootstrap()
+        print(f"  UPIF generation layer: {info['models']} models across "
+              f"{len(info['providers'])} providers "
+              f"({', '.join(info['providers'])})")
+    except Exception as exc:
+        print(f"  UPIF bootstrap skipped: {exc}")
     # Weekly briefing auto-run (OpenJarvis bridge; env-gated, daemon thread).
     if dennis_digest.start_weekly_scheduler():
         print("  Weekly briefing scheduler: on "

@@ -268,7 +268,14 @@ def _installed(name):
 
 
 def _vault_skills_root():
-    return os.path.join(dennis_vault.VAULT_DIR, VAULT_SKILLS_SUBDIR)
+    # skill_access owns the canonical root; skill_builder follows it so the
+    # legacy listing and the universal registry never disagree. Called at
+    # call-time so per-test VAULT_DIR patches keep working.
+    try:
+        from . import skill_access as _sa
+        return _sa.VAULT_SKILLS_ROOT()
+    except Exception:
+        return os.path.join(dennis_vault.VAULT_DIR, VAULT_SKILLS_SUBDIR)
 
 
 def _vault_skill_dirs():

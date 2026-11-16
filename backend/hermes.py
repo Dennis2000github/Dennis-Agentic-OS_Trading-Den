@@ -363,6 +363,31 @@ class HermesOrchestrator:
                 parts.append(f"- {hit.get('path')}: {snippet}")
         return "\n".join(parts)[:max_chars]
 
+    def _skill_context(self, goal, limit=3):
+        """Central-registry skills matching the goal (Phase 5 discovery).
+
+        The planner sees what can be reused before decomposing the work.
+        Discovery is metadata-only; loading/compatibility/execution stay
+        gated in backend/skill_access.py. A broken registry must never block
+        planning, so every failure degrades to an empty block.
+        """
+        try:
+            from . import skill_access as dennis_skill_access
+            found = dennis_skill_access.search_skill(query=goal, limit=limit)
+            items = found.get("skills") or []
+            if not items:
+                return ""
+            lines = []
+            for item in items:
+                agents = ", ".join((item.get("compatible_agents") or [])[:4]) or "unassigned"
+                lines.append(
+                    f"- {item['name']} v{item.get('version') or '?'}: "
+                    f"{item.get('description') or item.get('title')} [agents: {agents}]")
+            return "Reusable skills in the central registry (load via /api/skills):\n" + "\n".join(lines)
+        except Exception as exc:  # registry must never block planning
+            print(f"[hermes] skill discovery skipped ({exc})")
+            return ""
+
     @staticmethod
     def _plan_prompt(goal, context):
         ctx = ("\n\nContext from the second brain:\n" + context) if context else ""
@@ -388,6 +413,9 @@ class HermesOrchestrator:
 
         if not context:
             context = self._context_from_vault(goal)
+        skill_block = self._skill_context(goal)
+        if skill_block:
+            context = (context + "\n\n" + skill_block) if context else skill_block
 
         planner = (self._planner or self._cli_plan) if brain == "cli" else None
         raw, source = None, "vault"
