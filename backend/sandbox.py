@@ -33,7 +33,6 @@ import threading
 import time
 
 from . import config, docker_runtime
-from . import freellmapi
 
 # Minimal ANSI/escape stripper used only for readiness detection here. Keeping a
 # local copy avoids a backend.sandbox -> backend.model_sources import cycle.
@@ -70,8 +69,7 @@ def docker_status():
 
 def secret_env(agent_id=None, model_id=None):
     """Provider credentials from the host env, for container injection only."""
-    env = (freellmapi.apply_agent_env(os.environ, agent_id, model_id)
-           if agent_id else os.environ)
+    env = os.environ
     allowed = SECRET_ENV_ALLOWLIST + (
         "ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL", "OPENAI_BASE_URL",
         "ANTHROPIC_CUSTOM_MODEL_OPTION", "CLAUDE_CODE_MAX_CONTEXT_TOKENS",

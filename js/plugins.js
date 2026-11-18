@@ -21,10 +21,30 @@
     currentData: null,
     raw: false,
     full: false,
-    loading: false
+    loading: false,
+    token: null
   };
 
   function $(id) { return document.getElementById(id); }
+
+  // <img>/<a> tags bypass the window.fetch wrapper that injects the
+  // X-Dennis-Token header, so asset URLs carry the token in the query
+  // string instead (the backend accepts ?token= for exactly this).
+  function ensureToken() {
+    if (state.token) return Promise.resolve(state.token);
+    return fetch("/api/auth/session", { cache: "no-store" })
+      .then(function (res) { return res.json(); })
+      .then(function (data) {
+        state.token = (data && data.token) || null;
+        return state.token;
+      })
+      .catch(function () { return null; });
+  }
+
+  function assetUrl(path) {
+    var url = "/api/megalist/asset?path=" + encodeURIComponent(path);
+    return state.token ? url + "&token=" + encodeURIComponent(state.token) : url;
+  }
 
   function esc(value) {
     return String(value == null ? "" : value).replace(/[&<>"']/g, function (ch) {
@@ -421,7 +441,7 @@
           el.setAttribute("src", "https:" + src);
         } else {
           var image = resolveRelative(basePath, src);
-          el.setAttribute("src", "/api/megalist/asset?path=" + encodeURIComponent(image.path));
+          el.setAttribute("src", assetUrl(image.path));
         }
         el.setAttribute("loading", "lazy");
         el.setAttribute("referrerpolicy", "no-referrer");
@@ -445,7 +465,7 @@
       }
       var target = resolveRelative(basePath, href);
       if (IMAGE_EXT.test(target.path)) {
-        el.setAttribute("href", "/api/megalist/asset?path=" + encodeURIComponent(target.path));
+        el.setAttribute("href", assetUrl(target.path));
         el.setAttribute("target", "_blank");
         el.setAttribute("rel", "noopener noreferrer");
         return;
@@ -533,7 +553,7 @@
       if (host) host.scrollTop = 0;
     });
 
-    refresh();
+    ensureToken().then(function () { refresh(); });
   }
 
   function refresh() {

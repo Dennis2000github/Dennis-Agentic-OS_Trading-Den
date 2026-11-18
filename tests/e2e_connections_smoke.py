@@ -153,10 +153,10 @@ def run(s, base):
             not s.ev("!!document.getElementById('ws-source-btn')"))
     s.check("no Provider dropdown (flattened UI)",
             not s.ev("!!document.getElementById('ws-provider-btn')"))
-    s.check("connections manager view present",
-            s.ev("!!document.getElementById('connections-view')"))
+    s.check("connections manager panel present",
+            s.ev("!!document.getElementById('freellm-panel-connections')"))
     s.check("sidebar nav registered",
-            s.ev("!!document.getElementById('sidebar-nav-connections')"))
+            s.ev("!!document.getElementById('sidebar-nav-plugins')"))
 
     # JARVIS is the landing view; switch to the workspace.
     s.ev("window.switchMainView('workspace')")
@@ -167,20 +167,23 @@ def run(s, base):
             s.ev("!!document.getElementById('ws-model-manage')"))
     s.ev("document.getElementById('ws-model-manage').click()")
     time.sleep(1.0)
-    s.check("Manage connections opens the connections view",
-            s.ev("!document.getElementById('connections-view').classList.contains('hidden')"))
+    s.check("Manage connections opens the connections panel",
+            s.ev("!document.getElementById('plugins-view').classList.contains('hidden') && "
+                 "!document.getElementById('freellm-panel-connections').classList.contains('hidden')"))
 
-    # AI Connections manager view — via the actual sidebar button (regression:
-    # initSidebar() routes clicks by label; 'AI Connections' must open here).
-    s.ev("(function(){var b=document.getElementById('sidebar-nav-connections');"
+    # Plugins hub view — via the actual sidebar button (regression:
+    # initSidebar() routes clicks by label; 'Plugins' must open the hub).
+    s.ev("window.switchMainView('jarvis')")
+    time.sleep(0.4)
+    s.ev("(function(){var b=document.getElementById('sidebar-nav-plugins');"
          "if(b) b.click(); return !!b;})()")
     time.sleep(1.2)
-    s.check("sidebar button opens the connections view",
-            s.ev("!document.getElementById('connections-view').classList.contains('hidden')"))
+    s.check("sidebar button opens the plugins hub",
+            s.ev("!document.getElementById('plugins-view').classList.contains('hidden')"))
     s.check("sidebar button highlights",
-            s.ev("document.getElementById('sidebar-nav-connections').classList.contains('bg-blue-600')"))
-    s.check("connections hero renders",
-            s.ev("!!document.querySelector('#connections-view .cn-hero')"))
+            s.ev("document.getElementById('sidebar-nav-plugins').classList.contains('bg-blue-600')"))
+    s.check("connections strip renders",
+            s.ev("!!document.querySelector('#freellm-panel-connections .cn-hero')"))
     provider_pane = s.ev(
         "(function(){var h=document.getElementById('cn-providers');"
         "return h ? h.children.length : -1;})()")

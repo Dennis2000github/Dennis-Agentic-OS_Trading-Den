@@ -22,7 +22,6 @@ from contextlib import contextmanager
 from . import compatibility
 from . import connections
 from . import deepseek_harness
-from . import freellmapi
 from . import model_catalog
 
 
@@ -84,8 +83,7 @@ def apply_env(env, agent_id, model_id):
         if endpoint.model_env:
             result[endpoint.model_env] = parsed[1]
         return result
-    # Legacy path - unchanged FreeLLMAPI behaviour.
-    return freellmapi.apply_agent_env(env, agent_id, model_id)
+    return env
 
 
 def native_model_id(model_id):
@@ -166,11 +164,10 @@ def api_endpoint_override(model_id):
 def route_summary(agent_id, model_id):
     """Diagnostics for the routing decision (no secrets)."""
     if not model_catalog.is_connection_model(model_id):
-        freellm = freellmapi.status(agent_id) if agent_id else {}
         return {
-            "execution": "cli_native" if not (freellm.get("configured") and freellm.get("model") == model_id) else "api_via_cli",
+            "execution": "cli_native",
             "connection": None,
-            "source": "freellmapi" if (freellm.get("configured") and freellm.get("model") == model_id) else "agent_native",
+            "source": "agent_native",
         }
     _ok, diagnostic = validate_model_for_agent(agent_id, model_id)
     conn = diagnostic.get("connection") or {}

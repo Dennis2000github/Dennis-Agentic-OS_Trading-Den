@@ -21,6 +21,7 @@ the staged inputs to schedule. ``AgentSession.start`` applies it.
 
 import json
 import os
+import re
 
 from . import config
 
@@ -81,18 +82,58 @@ def _opencode_config_path(session_id):
     return os.path.join(directory, f"{session_id}.json")
 
 
+def _opencode_provider_block(model_id):
+    """Endpoint block for the generated OpenCode config, or None.
+
+    Covers connection-scoped models (``conn:<id>:<native>``) on an
+    OpenAI-compatible connection. The block is only produced when the
+    endpoint and key are actually configured - nothing is invented.
+    """
+    from . import connections as _connections
+    from . import model_catalog as _model_catalog
+
+    parsed = _model_catalog.parse_internal_id(model_id)
+    if not parsed:
+        return None
+    connection_id, native = parsed
+    conn = _connections.get_connection(connection_id)
+    if not conn or conn.get("protocol") != _connections.OPENAI_PROTOCOL:
+        return None
+    base = conn.get("base_url") or ""
+    key, _source = _connections.resolve_key(conn)
+    provider_id = re.sub(r"[^a-z0-9]+", "-",
+                         (conn.get("provider_id") or "custom").lower()).strip("-")
+    if not base or not key or not native:
+        return None
+    block = {
+        "api": "openai-compatible",
+        "name": conn.get("name") or "Custom endpoint",
+        "options": {"baseURL": base, "apiKey": key},
+        "models": {native: {"name": native}},
+    }
+    return provider_id or "custom", native, block
+
+
 def _plan_opencode(session_id, model_id):
     launch = ModelLaunch()
     if not model_id:
         return launch
     merged = _read_global_opencode_config()
-    merged["model"] = model_id
+    provider_block = _opencode_provider_block(model_id)
+    if provider_block:
+        provider_id, native, block = provider_block
+        merged.setdefault("provider", {})[provider_id] = block
+        merged["model"] = provider_id + "/" + native
+    else:
+        merged["model"] = model_id
     if "$schema" not in merged:
         merged["$schema"] = "https://opencode.ai/config.json"
     path = _opencode_config_path(session_id)
     try:
         os.makedirs(os.path.dirname(path), mode=0o700, exist_ok=True)
-        with open(path, "w", encoding="utf-8") as fh:
+        # The config can carry an API key; write it owner-only.
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
             json.dump(merged, fh, indent=2)
     except OSError:
         return launch

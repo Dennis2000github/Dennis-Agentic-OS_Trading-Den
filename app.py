@@ -44,8 +44,6 @@ from backend import projects as dennis_projects
 from backend import session_store as dennis_sessions
 from backend import agent_registry as dennis_agents
 from backend import model_sources as dennis_models
-from backend import freellmapi as dennis_freellmapi
-from backend import freellm_catalog as dennis_freellm_catalog
 from backend import connections as dennis_connections
 from backend import model_catalog as dennis_model_catalog
 from backend import compatibility as dennis_compatibility
@@ -2682,27 +2680,12 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
             try:
                 models = dennis_models.list_models(agent_id, ctx, cwd=project_path, refresh=refresh)
             except dennis_models.ModelListError as e:
-                free_model = dennis_freellmapi.model_entry(agent_id)
-                if free_model:
-                    models = [free_model]
-                else:
-                    return self.send_json({
-                        "error": str(e),
-                        "agent_id": agent_id,
-                        "retry": True,
-                        "provider_setup": dennis_agents.provider_setup(agent_id),
-                    }, 502)
-            free_model = dennis_freellmapi.model_entry(agent_id)
-            if free_model:
-                existing = next((i for i, m in enumerate(models)
-                                 if m.get("id") == free_model["id"]), None)
-                if existing is None:
-                    models.append(free_model)
-                else:
-                    models[existing] = free_model
-                # Every catalog model for this provider is switchable too:
-                # appended after the pinned one so the dropdown can list them.
-                models.extend(dennis_freellmapi.catalog_models(agent_id))
+                return self.send_json({
+                    "error": str(e),
+                    "agent_id": agent_id,
+                    "retry": True,
+                    "provider_setup": dennis_agents.provider_setup(agent_id),
+                }, 502)
             current = None
             live = None
             session_id = qs.get('session_id', [None])[0]
@@ -2710,11 +2693,9 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
                 live = dennis_manager.MANAGER.summary(session_id)
                 current = live["current_model"] if live else None
             prof = dennis_agents.profile(agent_id) or {}
-            custom = dennis_freellmapi.status(agent_id)
-            custom["supported"] = agent_id in dennis_freellmapi.SUPPORTED_AGENTS
-            # Unified connection layer (additive): compatible connections
-            # per source type plus their discovered models. The legacy
-            # fields above are unchanged for existing consumers.
+            custom = {"supported": False, "configured": False}
+            # Unified connection layer: compatible connections
+            # per source type plus their discovered models.
             compat_connections = dennis_compatibility.compatible_connections(agent_id)
             connection_models = []
             for entry in compat_connections:
@@ -2733,34 +2714,13 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
                 "session_status": live["status"] if live else None,
                 "supports_live_model_switch": bool(prof.get("supports_live_model_switch")),
                 "backend": dennis_manager.MANAGER.backend_name,
-                # Unified connection architecture (new fields):
+                # Unified connection architecture:
                 "connection_sources": {
                     "provider": [c for c in compat_connections if c.get("type") == dennis_connections.PROVIDER],
                     "gateway": [c for c in compat_connections if c.get("type") == dennis_connections.GATEWAY],
                 },
                 "connection_models": connection_models,
             })
-
-        if path == '/api/freellmapi/catalog':
-            owner = self._require_owner(parsed)
-            if not owner:
-                return
-            try:
-                catalog = dennis_freellm_catalog.catalog()
-            except dennis_freellm_catalog.FreeLLMCatalogError as exc:
-                return self.send_json({"error": str(exc)}, 503)
-            agents = {
-                agent_id: dennis_freellmapi.status(agent_id)
-                for agent_id in dennis_freellmapi.SUPPORTED_AGENTS
-            }
-            return self.send_json({"catalog": catalog, "agents": agents})
-
-        if path == '/api/freellmapi':
-            owner = self._require_owner(parsed)
-            if not owner:
-                return
-            agent_id = parse_qs(parsed.query).get('agent_id', [''])[0]
-            return self.send_json({"settings": dennis_freellmapi.status(agent_id)})
 
         # ==================================================================
         # UNIFIED AI CONNECTIONS: connection sources, model catalog,
@@ -2944,16 +2904,6 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
         # DEEPSEEK HARNESS (native chat agent): key setup, conversations,
         # and the streaming reply endpoint.
         # ==================================================================
-        if path == '/api/freellmapi':
-            owner = self._require_owner(parsed)
-            if not owner:
-                return
-            try:
-                settings = dennis_freellmapi.set_config(body)
-            except dennis_freellmapi.FreeLLMAPIError as exc:
-                return self.send_json({"error": str(exc)}, 400)
-            dennis_models.clear_cache()
-            return self.send_json({"settings": settings})
 
         # ==================================================================
         # UNIFIED AI CONNECTIONS (writes): CRUD, test, discovery, manual
@@ -5297,22 +5247,6 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
                         "error": diagnostic.get("reason") or "Model is not compatible with this agent.",
                         "compatibility": diagnostic.get("status"),
                     }, 400)
-            elif any(m.get("id") == model_id
-                     for m in dennis_freellmapi.catalog_models(rec.get('agent_id'))):
-                # A FreeLLMAPI catalog model: switching to it also becomes the
-                # agent's saved FreeLLMAPI model (endpoint + key unchanged).
-                saved = dennis_freellmapi.status(rec.get('agent_id'))
-                if saved.get("base_url"):
-                    try:
-                        dennis_freellmapi.set_config({
-                            "agent_id": rec.get('agent_id'),
-                            "base_url": saved["base_url"],
-                            "api_key": "",  # blank keeps the saved key
-                            "model": model_id,
-                        })
-                    except dennis_freellmapi.FreeLLMAPIError:
-                        pass  # keep the previous saved model; switch applies
-                dennis_models.clear_cache()
             else:
                 # Validate against a freshly loaded CLI list; reject anything else.
                 ctx = self._exec_ctx(project_path, agent_id=rec.get('agent_id'))
@@ -5320,19 +5254,7 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
                     models = dennis_models.list_models(rec['agent_id'], ctx,
                                                        cwd=project_path, refresh=True)
                 except dennis_models.ModelListError as e:
-                    free_model = dennis_freellmapi.model_entry(rec.get('agent_id'))
-                    if free_model:
-                        models = [free_model]
-                    else:
-                        return self.send_json({"error": str(e), "retry": True}, 502)
-                free_model = dennis_freellmapi.model_entry(rec.get('agent_id'))
-                if free_model:
-                    existing = next((i for i, m in enumerate(models)
-                                     if m.get("id") == free_model["id"]), None)
-                    if existing is None:
-                        models.append(free_model)
-                    else:
-                        models[existing] = free_model
+                    return self.send_json({"error": str(e), "retry": True}, 502)
                 match = next((m for m in models if m['id'] == model_id), None)
                 if not match:
                     return self.send_json({
@@ -5415,8 +5337,7 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
                 return self.send_json({"error": "Session not found"}, 404)
             return self.send_json({"success": True, "session": rec})
 
-        # Unified AI connections: edit a stored connection (never derived
-        # FreeLLMAPI ones - those stay managed by freellmapi).
+        # Unified AI connections: edit a stored connection.
         if path.startswith('/api/connections/'):
             owner = self._require_owner(parsed)
             if not owner:
@@ -5465,17 +5386,7 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
         if not self._require_api_owner(parsed):
             return
 
-        if path == '/api/freellmapi':
-            owner = self._require_owner(parsed)
-            if not owner:
-                return
-            agent_id = query_params.get('agent_id', [''])[0]
-            settings = dennis_freellmapi.clear(agent_id)
-            dennis_models.clear_cache()
-            return self.send_json({"settings": settings})
-
-        # Unified AI connections: remove a connection (deleting a derived
-        # FreeLLMAPI connection clears that agent's FreeLLMAPI settings) or
+        # Unified AI connections: remove a connection or
         # drop one manually-registered model from it.
         if path.startswith('/api/connections/'):
             owner = self._require_owner(parsed)

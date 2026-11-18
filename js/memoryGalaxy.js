@@ -381,7 +381,7 @@
       if (state.selected && !state.byId[state.selected]) clearPreview();
       applyFilter();
 
-      var stats = $("mg-stats");
+      var stats = $("galaxy-stats");
       if (stats) {
         stats.textContent = state.nodes.length + (state.nodes.length === 1 ? " star" : " stars") +
           " · " + state.links.length + (state.links.length === 1 ? " link" : " links");

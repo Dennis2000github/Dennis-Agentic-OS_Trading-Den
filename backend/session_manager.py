@@ -450,7 +450,7 @@ class AgentSession:
         # take models through their TUI are driven with staged input below.
         self._cancel_model_timers()
         model_launch.cleanup(self._model_launch)
-        self._model_launch = model_launch.plan(self.agent_id, runtime_model_id, self.id)
+        self._model_launch = model_launch.plan(self.agent_id, model_id, self.id)
         if self._model_launch.extra_args:
             inner += list(self._model_launch.extra_args)
         # Resume the conversation only when the model is unchanged. Several CLIs

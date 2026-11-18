@@ -110,6 +110,7 @@
   function render() {
     var badge = $("cn-count-badge");
     if (badge) badge.textContent = String(state.connections.length);
+    document.dispatchEvent(new CustomEvent("dennis:hub-count", { detail: { key: "connections", value: state.connections.length } }));
     renderPane("cn-providers", "provider");
     renderPane("cn-gateways", "gateway");
     renderPreferences();
@@ -539,7 +540,7 @@
   }
 
   ready(function () {
-    if (!$("connections-view")) return;  // DOM contract absent: do nothing
+    if (!$("freellm-panel-connections")) return;  // DOM contract absent: do nothing
     bind();
     load();
   });

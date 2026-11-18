@@ -94,9 +94,6 @@ function switchMainView(viewName) {
   const cosmosView = document.getElementById('cosmos-view');
   const skillBuilderView = document.getElementById('skill-builder-view');
   const pluginsView = document.getElementById('plugins-view');
-  const installedPluginsView = document.getElementById('installed-plugins-view');
-  const freellmView = document.getElementById('freellm-view');
-  const connectionsView = document.getElementById('connections-view');
   const galaxyView = document.getElementById('memory-galaxy-view');
   const jarvisNav = document.getElementById('sidebar-nav-jarvis');
   const workspaceNav = document.getElementById('sidebar-nav-workspace');
@@ -105,9 +102,6 @@ function switchMainView(viewName) {
   const hermesNav = document.getElementById('sidebar-nav-hermes');
   const skillBuilderNav = document.getElementById('sidebar-nav-skillbuilder');
   const pluginsNav = document.getElementById('sidebar-nav-plugins');
-  const installedPluginsNav = document.getElementById('sidebar-nav-installed-plugins');
-  const freellmNav = document.getElementById('sidebar-nav-freellm');
-  const connectionsNav = document.getElementById('sidebar-nav-connections');
   const galaxyNav = document.getElementById('sidebar-nav-galaxy');
   const studioNav = document.getElementById('sidebar-nav-studio');
   const cosmosNav = document.getElementById('sidebar-nav-cosmos');
@@ -122,14 +116,16 @@ function switchMainView(viewName) {
     { nav: galaxyNav, view: 'memory-galaxy' },
     { nav: hermesNav, view: 'hermes' },
     { nav: skillBuilderNav, view: 'skill-builder' },
-    { nav: pluginsNav, view: 'plugins' },
-    { nav: installedPluginsNav, view: 'installed-plugins' },
-    { nav: freellmNav, view: 'freellm' },
-    { nav: connectionsNav, view: 'connections' }
+    { nav: pluginsNav, view: 'plugins' }
   ];
-  const VIEWS = ['jarvis', 'workspace', 'trading-den', 'vault', 'memory-galaxy', 'hermes', 'studio', 'cosmos', 'skill-builder', 'plugins', 'installed-plugins', 'freellm', 'connections'];
+  const VIEWS = ['jarvis', 'workspace', 'trading-den', 'vault', 'memory-galaxy', 'hermes', 'studio', 'cosmos', 'skill-builder', 'plugins'];
+  // Legacy view names that now live as tabs inside the Plugins hub.
+  const LEGACY_PLUGIN_VIEWS = { 'installed-plugins': ['tools', 'plugins'], 'freellm': ['freellm', 'catalog'], 'connections': ['freellm', 'connections'] };
   // JARVIS is the default dashboard: unknown names fall back to it.
-  const active = VIEWS.includes(viewName) ? viewName : 'jarvis';
+  // Legacy plugin names (freellm / connections / installed-plugins) land on
+  // the Plugins hub instead of Jarvis.
+  const active = VIEWS.includes(viewName) ? viewName
+    : (LEGACY_PLUGIN_VIEWS[viewName] ? 'plugins' : 'jarvis');
 
   // The fullscreen Jarvis mode hides the OS chrome; leaving Jarvis restores
   // the header/sidebar/footer so navigation stays reachable.
@@ -163,9 +159,11 @@ function switchMainView(viewName) {
   if (osMain) osMain.classList.toggle('os-studio-active', active === 'studio');
   if (skillBuilderView) skillBuilderView.classList.toggle('hidden', active !== 'skill-builder');
   if (pluginsView) pluginsView.classList.toggle('hidden', active !== 'plugins');
-  if (installedPluginsView) installedPluginsView.classList.toggle('hidden', active !== 'installed-plugins');
-  if (freellmView) freellmView.classList.toggle('hidden', active !== 'freellm');
-  if (connectionsView) connectionsView.classList.toggle('hidden', active !== 'connections');
+  // Legacy deep links (freellm / connections / installed-plugins) land on the
+  // matching Plugins hub tab instead of standalone views that no longer exist.
+  if (active === 'plugins' && LEGACY_PLUGIN_VIEWS[viewName] && window.PluginsHub) {
+    window.PluginsHub.show(LEGACY_PLUGIN_VIEWS[viewName][0], LEGACY_PLUGIN_VIEWS[viewName][1]);
+  }
   // Leaving the Studio clears its deep-link hash (#studio/...) so a reload
   // boots to the home screen instead of reopening the last workspace.
   // A deliberately pasted #studio/... link still works: it is only cleared
@@ -187,10 +185,7 @@ function switchMainView(viewName) {
   if (active === 'studio' && window.Studio) window.Studio.refresh();
   if (active === 'skill-builder' && window.SkillBuilder) window.SkillBuilder.refresh();
   if (active === 'plugins' && window.Plugins) window.Plugins.refresh();
-  if (active === 'plugins' && window.Composio) window.Composio.refresh();
-  if (active === 'installed-plugins' && window.InstalledPlugins) window.InstalledPlugins.refresh();
-  if (active === 'freellm' && window.FreeLLMAPI) window.FreeLLMAPI.refresh();
-  if (active === 'connections' && window.AIConnections) window.AIConnections.refresh();
+  if (active === 'plugins' && window.PluginsHub) window.PluginsHub.refresh();
   if (active === 'memory-galaxy' && window.MemoryGalaxy) window.MemoryGalaxy.refresh();
 }
 window.switchMainView = switchMainView;
@@ -253,14 +248,8 @@ function initSidebar() {
         switchMainView('hermes');
       } else if (label.includes('skill builder')) {
         switchMainView('skill-builder');
-      } else if (label.includes('installed plugins')) {
-        switchMainView('installed-plugins');
-      } else if (label.includes('ai connections')) {
-        switchMainView('connections');
       } else if (label.includes('plugins')) {
         switchMainView('plugins');
-      } else if (label.includes('freellm')) {
-        switchMainView('freellm');
       } else if (label.includes('workspace')) {
         switchMainView('workspace');
       }

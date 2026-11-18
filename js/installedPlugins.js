@@ -16,7 +16,8 @@
     query: "",
     filter: "all",
     busy: false,
-    modalItem: null
+    modalItem: null,
+    exam: null
   };
 
   function $(id) { return document.getElementById(id); }
@@ -97,6 +98,7 @@
       badge.textContent = String(counts.installed || 0);
       badge.classList.toggle("is-on", (counts.installed || 0) > 0);
     }
+    document.dispatchEvent(new CustomEvent("dennis:hub-count", { detail: { key: "plugins", value: counts.installed || 0 } }));
   }
 
   function renderSummary(data) {
@@ -427,12 +429,148 @@
     if (!panel) return;
     var next = show == null ? panel.classList.contains("hidden") : !!show;
     panel.classList.toggle("hidden", !next);
+    if (!next) resetExam();
     if (next) {
       var input = $("ip-source");
       if (input) {
         input.focus();
         input.select();
       }
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Repo examination (report-first installer)                           */
+  /* ------------------------------------------------------------------ */
+  function resetExam() {
+    state.exam = null;
+    var panel = $("ip-exam");
+    if (!panel) return;
+    panel.classList.add("hidden");
+    if ($("ip-exam-report")) $("ip-exam-report").innerHTML = "";
+    if ($("ip-exam-name")) $("ip-exam-name").textContent = "Examination report";
+    if ($("ip-exam-model")) $("ip-exam-model").textContent = "";
+    setExamStatus("");
+  }
+
+  function setExamStatus(text, isError) {
+    var el = $("ip-exam-status");
+    if (!el) return;
+    el.textContent = text || "";
+    el.classList.toggle("is-err", !!isError);
+  }
+
+  function markdown(source) {
+    if (window.marked && window.marked.parse) {
+      try {
+        return window.marked.parse(String(source || ""), { gfm: true, breaks: false });
+      } catch (error) { /* fall through to plain text */ }
+    }
+    return "<p>" + esc(source).replace(/\n/g, "<br>") + "</p>";
+  }
+
+  function renderExam() {
+    var exam = state.exam;
+    var panel = $("ip-exam");
+    var report = $("ip-exam-report");
+    if (!panel || !report || !exam) return;
+    panel.classList.remove("hidden");
+
+    var scan = exam.scan || {};
+    var body = exam.report || {};
+    var connectable = scan.skill_connectable === true
+      || body.skill_verdict === "connectable";
+
+    if ($("ip-exam-name")) $("ip-exam-name").textContent = exam.name || scan.name || "Examination report";
+    if ($("ip-exam-model")) {
+      $("ip-exam-model").textContent = (exam.llm && exam.llm.used)
+        ? "examined by " + (exam.llm.model || "the OS model")
+        : "deterministic scan (no model configured)";
+    }
+
+    var verdictLabel = connectable ? "Skill-connectable" : "Install only";
+    var verdictClass = connectable ? "is-ok" : "is-warn";
+    var canConnect = scan.skill_connectable === true;
+    var risks = Array.isArray(body.risks) ? body.risks
+      : String(body.risks || "").split(/\n|;\s*/);
+    risks = risks.filter(function (r) { return r && r.trim(); });
+    var riskList = risks.length
+      ? "<ul>" + risks.map(function (r) { return "<li>" + esc(r) + "</li>"; }).join("") + "</ul>"
+      : "<p class='ip-exam-muted'>No risks flagged by the scan.</p>";
+
+    report.innerHTML = [
+      "<div class='ip-exam-verdict'><span class='ip-exam-badge " + verdictClass + "'>" + esc(verdictLabel) + "</span></div>",
+      "<section class='ip-exam-sec'><h5>Capability</h5><p>" + esc(body.capability || "No capability summary available.") + "</p></section>",
+      "<section class='ip-exam-sec'><h5>Useful in this OS</h5><p>" + esc(body.os_usefulness || "No assessment available.") + "</p></section>",
+      "<section class='ip-exam-sec'><h5>Installation</h5><div class='ip-exam-md'>" + markdown(body.installation) + "</div></section>",
+      "<section class='ip-exam-sec'><h5>As a skill</h5><p>" + esc(body.skill_notes || (connectable
+        ? "SKILL.md found — it can be connected to the Vault without installing the runtime."
+        : "No SKILL.md found — install the runtime instead.")) + "</p></section>",
+      "<section class='ip-exam-sec'><h5>Risks &amp; cautions</h5>" + riskList + "</section>",
+      "<div class='ip-exam-actions'>",
+      "<button type='button' id='ip-exam-action-install' data-exam-action='install' class='sb-btn sb-btn-primary'><i data-lucide='download' class='w-3.5 h-3.5'></i><span>Run the Installation</span></button>",
+      connectable && canConnect ? "<button type='button' id='ip-exam-action-connect' data-exam-action='connect' class='sb-btn sb-btn-ghost'><i data-lucide='book-plus' class='w-3.5 h-3.5'></i><span>Connect the skill</span></button>" : "",
+      "</div>"
+    ].join("");
+
+    icons();
+  }
+
+  function setExamBusy(busy) {
+    ["ip-exam-action-install", "ip-exam-action-connect"].forEach(function (id) {
+      var btn = $(id);
+      if (btn) btn.disabled = !!busy;
+    });
+    var submit = $("ip-install-submit");
+    if (submit) submit.disabled = !!busy;
+  }
+
+  function runExamAction(action) {
+    var exam = state.exam;
+    if (!exam || !exam.exam_id) return;
+    setExamBusy(true);
+    if (action === "install") {
+      setExamStatus("Installing from the examined clone…");
+      var name = ($("ip-name") && $("ip-name").value || "").trim();
+      var body = { exam_id: exam.exam_id };
+      if (name) body.name = name;
+      api("/api/plugins/install", { method: "POST", body: body }).then(function (result) {
+        if (!result.ok) {
+          var message = (result.data && result.data.error) || "Install failed";
+          toast(message, true);
+          setExamStatus(message, true);
+          return;
+        }
+        var installed = result.data || {};
+        toast("Installed " + (installed.title || installed.name || exam.name || "plugin") + ".");
+        if ($("ip-source")) $("ip-source").value = "";
+        if ($("ip-name")) $("ip-name").value = "";
+        resetExam();
+        toggleInstallPanel(false);
+        return load();
+      }).catch(function (error) {
+        toast("Install failed: " + error.message, true);
+        setExamStatus("Install failed: " + error.message, true);
+      }).then(function () { setExamBusy(false); });
+    } else if (action === "connect") {
+      setExamStatus("Connecting the skill into the Vault…");
+      api("/api/plugins/connect-skill", { method: "POST", body: { exam_id: exam.exam_id } }).then(function (result) {
+        if (!result.ok) {
+          var message = (result.data && result.data.error) || "Connect failed";
+          toast(message, true);
+          setExamStatus(message, true);
+          return;
+        }
+        var connected = result.data || {};
+        toast("Connected '" + (connected.name || "skill") + "' into the Vault — no runtime installed.");
+        setExamStatus("Connected into the Vault at " + (connected.path || "Skills/") + ". No runtime was installed.");
+        if (document.dispatchEvent) {
+          document.dispatchEvent(new CustomEvent("dennis:hub-count", { detail: { key: "skills", refresh: true } }));
+        }
+      }).catch(function (error) {
+        toast("Connect failed: " + error.message, true);
+        setExamStatus("Connect failed: " + error.message, true);
+      }).then(function () { setExamBusy(false); });
     }
   }
 
@@ -448,20 +586,24 @@
     if (name) body.name = name;
     var button = $("ip-install-submit");
     if (button) button.disabled = true;
-    toast("Cloning " + source + "…");
-    api("/api/plugins/install", { method: "POST", body: body }).then(function (result) {
+    resetExam();
+    var panel = $("ip-exam");
+    if (panel) panel.classList.remove("hidden");
+    setExamStatus("Cloning and examining " + source + " … (no code is executed)");
+    api("/api/plugins/examine", { method: "POST", body: body }).then(function (result) {
       if (!result.ok) {
-        toast((result.data && result.data.error) || "Install failed", true);
+        var message = (result.data && result.data.error) || "Examination failed";
+        toast(message, true);
+        setExamStatus(message, true);
         return;
       }
-      var installed = result.data || {};
-      toast("Installed " + (installed.title || installed.name || name || "plugin") + ".");
-      if ($("ip-source")) $("ip-source").value = "";
-      if ($("ip-name")) $("ip-name").value = "";
-      toggleInstallPanel(false);
-      return load();
+      state.exam = result.data || {};
+      renderExam();
+      setExamStatus("Review the report — installation only runs once you approve it below.");
+      toast("Examination ready: " + (state.exam.name || "repository"));
     }).catch(function (error) {
-      toast("Install failed: " + error.message, true);
+      toast("Examination failed: " + error.message, true);
+      setExamStatus("Examination failed: " + error.message, true);
     }).then(function () {
       if (button) button.disabled = false;
     });
@@ -471,7 +613,7 @@
   /* Wiring                                                              */
   /* ------------------------------------------------------------------ */
   function init() {
-    state.view = $("installed-plugins-view");
+    state.view = $("tools-panel-plugins");
     if (!state.view || state.initialized) return;
     state.initialized = true;
 
@@ -524,6 +666,20 @@
 
     var cancel = $("ip-install-cancel");
     if (cancel) cancel.addEventListener("click", function () { toggleInstallPanel(false); });
+
+    var examReport = $("ip-exam-report");
+    if (examReport) examReport.addEventListener("click", function (event) {
+      var actionEl = event.target.closest("[data-exam-action]");
+      if (!actionEl) return;
+      event.preventDefault();
+      runExamAction(actionEl.getAttribute("data-exam-action"));
+    });
+
+    var examDiscard = $("ip-exam-discard");
+    if (examDiscard) examDiscard.addEventListener("click", function () {
+      resetExam();
+      toast("Examination discarded — nothing was installed.");
+    });
 
     var modalClose = $("ip-modal-close");
     if (modalClose) modalClose.addEventListener("click", closeLinkModal);

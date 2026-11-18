@@ -170,7 +170,7 @@ def request_override(base_url=None, api_key=None, model=None, record_as=None):
     return _ctx()
 
 
-def base_url():
+def base_url(model_id=None):
     override = _override()
     if override and override.get("base_url"):
         return str(override["base_url"]).rstrip("/")
@@ -184,7 +184,7 @@ def default_model():
     return (os.environ.get("DEEPSEEK_MODEL") or DEFAULT_MODEL).strip() or DEFAULT_MODEL
 
 
-def api_key():
+def api_key(model_id=None):
     """Return ``(key, source)``; environment wins over the stored file."""
     override = _override()
     if override and override.get("api_key"):
@@ -470,8 +470,8 @@ def _set_model(owner, conversation_id, model_id):
 # ---------------------------------------------------------------------------
 # Upstream streaming
 # ---------------------------------------------------------------------------
-def _endpoint():
-    parts = urlsplit(base_url())
+def _endpoint(model_id=None):
+    parts = urlsplit(base_url(model_id))
     if parts.scheme not in ("http", "https") or not parts.hostname:
         raise ChatError("DEEPSEEK_BASE_URL must be an http(s) URL.")
     path = (parts.path or "").rstrip("/")
@@ -519,7 +519,7 @@ def _completion_events(messages, model_id, key):
     :class:`ChatError`. A non-SSE JSON response (some gateways) is accepted and
     yielded whole.
     """
-    parts, endpoint = _endpoint()
+    parts, endpoint = _endpoint(model_id)
     import http.client
 
     cls = http.client.HTTPSConnection if parts.scheme == "https" else http.client.HTTPConnection
@@ -707,10 +707,10 @@ def prepare_exchange(owner, conversation_id, content, model_id=None):
     conv = get_conversation(owner, conversation_id)
     if not conv:
         raise NotFound("Conversation not found.")
-    key, _source = api_key()
+    model_id = (model_id or conv.get("model_id") or default_model()).strip()
+    key, _source = api_key(model_id)
     if not key:
         raise NotConfigured("Add a DeepSeek API key to start chatting.")
-    model_id = (model_id or conv.get("model_id") or default_model()).strip()
     if not has_model(model_id):
         raise ChatError("'%s' is not a DeepSeek model offered here." % model_id)
     token = (owner, conversation_id)

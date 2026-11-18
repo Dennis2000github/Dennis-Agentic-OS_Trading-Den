@@ -13,15 +13,11 @@ Design rules (see docs/AI_CONNECTION_ARCHITECTURE_AUDIT.md):
 
 * Secrets never leave this module redacted. ``public_view()`` returns a key
   hint only; the raw key is injected into agent environments at execution
-  time by ``execution_router`` (mirroring ``freellmapi.apply_agent_env``).
+  time by ``execution_router``.
 * Connection health comes from actual endpoint tests (``test_connection``),
   never from the presence of saved credentials.
-* FreeLLMAPI per-agent settings stay the source of truth for those agents;
-  they are *surfaced* here as derived gateway connections (``freellmapi:*``)
-  so the rest of the OS can treat every connection uniformly.
 * Storage is a flat JSON file (``data/connections.json``) written atomically
-  with owner-only permissions - the same convention as ``freellmapi`` and
-  the DeepSeek credential store. No new infrastructure dependency.
+  with owner-only permissions. No new infrastructure dependency.
 """
 
 from __future__ import annotations
@@ -37,7 +33,6 @@ import uuid
 from urllib.parse import urlsplit
 
 from . import config
-from . import freellmapi
 
 CONNECTIONS_FILE = os.path.join(config.DATA_DIR, "connections.json")
 _STORE_VERSION = 1
@@ -278,50 +273,10 @@ def _new_id():
     return "conn-" + uuid.uuid4().hex[:12]
 
 
-# ---------------------------------------------------------------------------
-# Derived connections: FreeLLMAPI per-agent settings surfaced as gateways.
-# These keep freellmapi.json as the single source of truth.
-# ---------------------------------------------------------------------------
-def _derived_freellmapi_connections():
-    derived = []
-    for agent_id in freellmapi.SUPPORTED_AGENTS:
-        data = freellmapi.get(agent_id)
-        if not data:
-            continue
-        status = freellmapi.status(agent_id)
-        derived.append({
-            "id": "freellmapi:" + agent_id,
-            "type": GATEWAY,
-            "name": "FreeLLMAPI · " + agent_id,
-            "provider_id": "freellmapi",
-            # Claude Code speaks Anthropic on the wire; Codex speaks OpenAI.
-            "protocol": ANTHROPIC_PROTOCOL if agent_id == "claude-code" else OPENAI_PROTOCOL,
-            "base_url": data.get("base_url") or "",
-            "api_key": data.get("api_key") or "",
-            "key_env": None,
-            "pricing": PRICING_UNKNOWN,
-            "docs_url": "https://freellm.net",
-            "key_url": "",
-            "notes": "Derived from the per-agent FreeLLMAPI settings. Edit it "
-                     "there (Workspace provider setup or the FreeLLMAPI view).",
-            "model_ids": [data.get("model")] if data.get("model") else [],
-            "aliases": {},
-            "derived": True,
-            "created_at": "",
-            "updated_at": status.get("updated_at") or "",
-        })
-    return derived
-
-
 def list_connections(include_derived=True):
-    """All configured connections (+ derived FreeLLMAPI ones by default)."""
+    """All configured connections."""
     with _LOCK:
         conns = [_clean_record(c) for c in _read_store()["connections"]]
-    if include_derived:
-        known = {c["id"] for c in conns}
-        for derived in _derived_freellmapi_connections():
-            if derived["id"] not in known:
-                conns.append(_clean_record(derived))
     return conns
 
 
@@ -340,7 +295,7 @@ def require_connection(connection_id):
 
 
 # ---------------------------------------------------------------------------
-# CRUD (stored connections only; derived ones are managed by freellmapi)
+# CRUD operations
 # ---------------------------------------------------------------------------
 def create_connection(payload):
     if (payload.get("type") or "").strip() not in (PROVIDER, GATEWAY):
@@ -410,11 +365,6 @@ def update_connection(connection_id, payload):
 
 
 def delete_connection(connection_id):
-    if connection_id.startswith("freellmapi:"):
-        agent_id = connection_id.split(":", 1)[1]
-        if agent_id in freellmapi.SUPPORTED_AGENTS:
-            return freellmapi.clear(agent_id)
-        raise ConnectionError("Unknown connection: %s" % connection_id, status=404)
     with _LOCK:
         data = _read_store()
         remaining = [c for c in data["connections"] if c.get("id") != connection_id]

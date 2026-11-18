@@ -47,8 +47,6 @@
   <link rel="stylesheet" href="css/style.css?v=20261113-jarvis-mode">
   <!-- Installed Plugins rail -->
   <link rel="stylesheet" href="css/installed-plugins.css?v=20261115-ip2">
-  <!-- FreeLLMAPI catalog dashboard -->
-  <link rel="stylesheet" href="css/freellmapi.css?v=20261030-freellm1">
   <link rel="stylesheet" href="css/connections.css?v=20261114-connections">
   <!-- Studio cinematic workspace skin -->
   <link rel="stylesheet" href="css/studio-v2.css?v=20261028-studio-kit1">
@@ -3545,8 +3543,8 @@
                 <button id="plugins-tab-composio" type="button" class="plugins-tab" data-plugins-tab="composio">
                   <i data-lucide="plug-zap" class="w-3.5 h-3.5"></i><span>Composio</span>
                 </button>
-                <button id="plugins-tab-freellm" type="button" class="plugins-tab" data-plugins-tab="freellm">
-                  <i data-lucide="zap" class="w-3.5 h-3.5"></i><span>FreeLLMAPI</span>
+                <button id="plugins-tab-connections" type="button" class="plugins-tab" data-plugins-tab="connections">
+                  <i data-lucide="route" class="w-3.5 h-3.5"></i><span>AI Connections</span><b id="cn-nav-count" class="ml-1 text-[9px] px-1 py-0.2 rounded bg-purple-500/20 text-purple-300">0</b>
                 </button>
                 <button id="plugins-tab-tools" type="button" class="plugins-tab" data-plugins-tab="tools">
                   <i data-lucide="package-check" class="w-3.5 h-3.5"></i><span>Tools</span>
@@ -4000,123 +3998,8 @@
           </div><!-- /#tools-panel-skills -->
         </div><!-- /#tools-workspace -->
 
-        <!-- FreeLLMAPI workspace: Catalog + AI Connections under one pipeline -->
-        <div id="freellm-workspace" class="hidden flex-1 min-h-0 flex flex-col gap-3.5">
-          <div class="glass-panel rounded-2xl border border-emerald-900/40 bg-[#0b0712]/80 px-3 py-2 flex flex-wrap items-center gap-2 shrink-0">
-            <div id="freellm-subtabs" class="inline-flex flex-wrap items-center gap-1 rounded-xl border border-emerald-900/50 bg-[#07130f]/80 p-1">
-              <button type="button" id="freellm-subtab-catalog" class="plugins-tab plugins-tab-active" data-freellm-subtab="catalog">
-                <i data-lucide="zap" class="w-3.5 h-3.5"></i><span>Catalog</span>
-              </button>
-              <button type="button" id="freellm-subtab-connections" class="plugins-tab" data-freellm-subtab="connections">
-                <i data-lucide="route" class="w-3.5 h-3.5"></i><span>AI Connections</span><b id="cn-nav-count">0</b>
-              </button>
-            </div>
-            <div id="fl-pipeline" class="flex flex-wrap items-center gap-1.5 ml-auto text-[10px] font-mono uppercase tracking-widest text-slate-500" title="Connect → Test → Discover models → Assign to agent">
-              <button type="button" class="fl-pipe-step" data-fl-pipe="connect"><i data-lucide="plus" class="w-3 h-3"></i>1 · Connect</button>
-              <i data-lucide="chevron-right" class="w-3 h-3 opacity-40"></i>
-              <button type="button" class="fl-pipe-step" data-fl-pipe="test"><i data-lucide="activity" class="w-3 h-3"></i>2 · Test</button>
-              <i data-lucide="chevron-right" class="w-3 h-3 opacity-40"></i>
-              <button type="button" class="fl-pipe-step" data-fl-pipe="discover"><i data-lucide="list-tree" class="w-3 h-3"></i>3 · Discover models</button>
-              <i data-lucide="chevron-right" class="w-3 h-3 opacity-40"></i>
-              <button type="button" class="fl-pipe-step" data-fl-pipe="assign"><i data-lucide="user-check" class="w-3 h-3"></i>4 · Assign to agent</button>
-            </div>
-          </div>
-
-          <div id="freellm-panel-catalog" class="flex-1 min-h-0 flex flex-col gap-3.5">
-
-        <div class="fl-hero glass-panel rounded-2xl border border-emerald-900/50 bg-gradient-to-r from-[#061512] via-[#071c18] to-[#05100d] p-4 flex flex-wrap items-center justify-between gap-3 shrink-0">
-          <div class="flex items-center gap-3">
-            <div class="fl-logo"><i data-lucide="zap" class="w-5 h-5"></i></div>
-            <div>
-              <h2 class="text-sm font-bold text-white flex flex-wrap items-center gap-2">FreeLLMAPI
-                <span id="fl-total-badge" class="fl-badge">Catalog</span>
-              </h2>
-              <p class="text-[11px] text-slate-400">
-                505+ free models from 30 providers ·
-                <a id="fl-open-site" href="https://freellm.net" target="_blank" rel="noopener" class="text-emerald-300 hover:underline">freellm.net</a>
-                <span id="fl-source-meta" class="text-slate-500"></span>
-              </p>
-            </div>
-          </div>
-          <div class="flex flex-wrap items-center gap-2">
-            <a id="fl-open-repo" href="https://github.com/open-free-llm-api/awesome-freellm-apis" target="_blank" rel="noopener" class="sb-btn sb-btn-ghost"><i data-lucide="github" class="w-3.5 h-3.5"></i><span>Source repo</span></a>
-            <button id="fl-refresh" type="button" class="sb-btn sb-btn-primary"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i><span>Refresh</span></button>
-            <span id="fl-status-pill" class="sb-pill"><span class="sb-pill-dot"></span><span id="fl-status-text">Loading…</span></span>
-          </div>
-          <div id="fl-stats" class="flex flex-wrap items-center gap-1.5 w-full mt-1 text-[10px]"></div>
-        </div>
-
-        <div class="fl-summary-grid shrink-0">
-          <div class="fl-summary-card"><span>Providers</span><strong id="fl-count-providers">—</strong><small>Permanent + renewable</small></div>
-          <div class="fl-summary-card"><span>Free models</span><strong id="fl-count-models">—</strong><small>Across the catalog</small></div>
-          <div class="fl-summary-card"><span>No credit card</span><strong id="fl-count-nocard">—</strong><small>Providers with no card</small></div>
-          <div class="fl-summary-card"><span>Connected agents</span><strong id="fl-count-agents">—</strong><small>Claude Code · Codex CLI</small></div>
-        </div>
-
-        <div class="fl-layout">
-          <aside class="fl-pane">
-            <div class="fl-pane-head"><i data-lucide="server" class="w-3.5 h-3.5 text-emerald-300"></i><span>Providers</span><span id="fl-results" class="fl-results"></span></div>
-            <div class="fl-pane-body">
-              <div class="fl-toolbar">
-                <input id="fl-search" class="fl-search" type="search" placeholder="Search providers or models…" aria-label="Search the FreeLLMAPI catalog">
-                <div class="fl-seg" id="fl-tier">
-                  <button type="button" class="fl-seg-btn fl-seg-btn-active" data-fl-tier="all">All</button>
-                  <button type="button" class="fl-seg-btn" data-fl-tier="permanent">Free</button>
-                  <button type="button" class="fl-seg-btn" data-fl-tier="renewable">Credits</button>
-                </div>
-                <select id="fl-card" class="fl-select" aria-label="Credit card requirement">
-                  <option value="all">Any card rule</option>
-                  <option value="no">No card</option>
-                  <option value="registration">Registration</option>
-                  <option value="phone">Phone verification</option>
-                  <option value="other">Other</option>
-                </select>
-                <select id="fl-modality" class="fl-select" aria-label="Modality"></select>
-              </div>
-              <div id="fl-providers"><div class="sb-rail-empty">Loading the catalog…</div></div>
-            </div>
-          </aside>
-
-          <div class="fl-pane">
-            <div class="fl-pane-head"><i data-lucide="layout-grid" class="w-3.5 h-3.5 text-emerald-300"></i><span>Provider detail</span></div>
-            <div id="fl-detail" class="fl-pane-body"><div class="sb-rail-empty">Loading the catalog…</div></div>
-          </div>
-
-          <!-- FL_CONFIG -->
-          <aside id="fl-config-pane" class="fl-pane fl-config-pane">
-            <div class="fl-pane-head"><i data-lucide="plug-zap" class="w-3.5 h-3.5 text-emerald-300"></i><span>Connect an agent</span></div>
-            <div class="fl-pane-body">
-              <div class="fl-config">
-                <div class="fl-agent-tabs">
-                  <button type="button" class="fl-agent-tab fl-agent-tab-active" data-fl-agent="claude-code">Claude Code</button>
-                  <button type="button" class="fl-agent-tab" data-fl-agent="codex">Codex CLI</button>
-                  <button type="button" class="fl-agent-tab" data-fl-agent="deepseek-harness">DeepSeek Harness</button>
-                  <button type="button" class="fl-agent-tab" data-fl-agent="opencode">OpenCode</button>
-                  <button type="button" class="fl-agent-tab" data-fl-agent="aider">Aider</button>
-                </div>
-                <form id="fl-config-form" class="fl-config">
-                  <div class="fl-field"><label class="fl-label" for="fl-base">Base URL</label><input id="fl-base" class="fl-input" type="url" placeholder="https://api.groq.com/openai/v1" autocomplete="off"></div>
-                  <div class="fl-field"><label class="fl-label" for="fl-model">Model ID</label><input id="fl-model" class="fl-input" type="text" placeholder="llama-3.3-70b-versatile" autocomplete="off"></div>
-                  <div class="fl-field"><label class="fl-label" for="fl-key">API key</label><input id="fl-key" class="fl-input" type="password" placeholder="Paste the provider API key" autocomplete="off"></div>
-                  <div id="fl-config-status" class="fl-config-status">Not connected.</div>
-                  <div class="fl-config-actions">
-                    <button id="fl-save" type="submit" class="sb-btn sb-btn-primary"><i data-lucide="save" class="w-3.5 h-3.5"></i><span>Save connection</span></button>
-                    <button id="fl-clear" type="button" class="sb-btn sb-btn-ghost"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i><span>Clear</span></button>
-                  </div>
-                </form>
-                <div class="fl-section-title"><i data-lucide="activity" class="w-3 h-3"></i>Agent status</div>
-                <div id="fl-agent-states" class="flex flex-col gap-1.5"></div>
-                <p class="fl-note">Saving writes the endpoint to the existing per-agent FreeLLMAPI settings. After connecting, choose the FreeLLMAPI model in the agent's model menu to run it. Keys stay in <code>data/freellmapi.json</code> with owner-only permissions.</p>
-              </div>
-            </div>
-          </aside>
-
-        </div>
-
-        <div id="fl-toast" class="fl-toast"></div>
-          </div><!-- /#freellm-panel-catalog -->
-
-          <div id="freellm-panel-connections" class="hidden flex-1 min-h-0 flex flex-col gap-3.5">
+        <!-- AI Connections workspace -->
+        <div id="freellm-panel-connections" class="hidden flex-1 min-h-0 flex flex-col gap-3.5">
 
         <!-- AI Connections: merged routing strip (policy + actions, no hero duplication) -->
         <div class="cn-hero glass-panel rounded-2xl border border-emerald-900/40 bg-gradient-to-r from-[#04120c] via-[#07170f] to-[#050d16] p-4 flex flex-wrap items-center justify-between gap-3 shrink-0">
@@ -4714,7 +4597,6 @@
   <script defer src="js/pluginsHub.js?v=20261115-hub1"></script>
   <script defer src="js/installedPlugins.js?v=20261115-ip2"></script>
   <script defer src="js/composio.js?v=20261115-hub1"></script>
-  <script defer src="js/freellmapi.js?v=20261030-freellm1"></script>
   <script defer src="js/connectedApps.js?v=20261115-hub1"></script>
   <script defer src="js/connectedSkills.js?v=20261115-hub1"></script>
 </body>

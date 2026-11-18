@@ -1930,6 +1930,10 @@
     btn.className = "ws-menu-item" + (isCurrent ? " ws-menu-item-active" : "") +
       (usable ? "" : " ws-menu-item-disabled");
     var chips = [];
+    (opts.modalities || []).forEach(function (mod) {
+      chips.push(modelChip(mod, "text-violet-400/80"));
+    });
+    if (opts.protocol) chips.push(modelChip(opts.protocol, "text-sky-400/70"));
     if (opts.pricing && opts.pricing !== "unknown") {
       var priceTone = (opts.pricing === "free" || opts.pricing === "free_tier" ||
                        opts.pricing === "local") ? "text-emerald-400/80" : "text-amber-400/80";
@@ -1939,6 +1943,8 @@
     var caps = opts.caps || {};
     if (caps.tools === "supported") chips.push(modelChip("tools"));
     if (caps.image === "supported") chips.push(modelChip("vision"));
+    if (caps.audio === "supported") chips.push(modelChip("audio"));
+    if (caps.video === "supported") chips.push(modelChip("video"));
     (opts.chips || []).forEach(function (c) { chips.push(modelChip(c)); });
     if (opts.badge) chips.push(modelChip(opts.badge, "text-emerald-400/80"));
     if (model.is_default && !opts.skipDefault) {
@@ -1968,6 +1974,25 @@
     var m = (state.models.items || []).filter(function (x) { return x.id === id; })[0];
     if (m) return (m.provider ? m.provider + " \u00b7 " : "") + (m.name || id);
     return modelName(id) || id;
+  }
+
+  /* Modality chips: connection records carry discovered capability flags,
+   * FreeLLMAPI catalog rows carry the provider's published modalities.
+   * "text" is only claimed when every known modality is unsupported. */
+  function modelModalities(m, caps) {
+    var out = [];
+    if (caps) {
+      if (caps.image === "supported") out.push("vision");
+      if (caps.audio === "supported") out.push("audio");
+      if (caps.video === "supported") out.push("video");
+      if (!out.length && caps.image === "unsupported" &&
+          caps.audio === "unsupported" && caps.video === "unsupported") out.push("text");
+    } else if (m && m.freellm && m.freellm.modalities && m.freellm.modalities.length) {
+      out = m.freellm.modalities.slice(0, 3).map(function (value) {
+        return String(value).toLowerCase();
+      });
+    }
+    return out;
   }
 
   function renderModels() {
@@ -2062,7 +2087,8 @@
         "Via FreeLLMAPI" + (state.agentId ? " \u00b7 " + state.agentId : "")));
       freeModels.forEach(function (m) {
         var cat = m.freellm || null;
-        var title = m.description || "";
+        var title = "Source: FreeLLMAPI" + (cat && cat.provider_name ? " · " + cat.provider_name : "") +
+          (m.description ? "\n" + m.description : "");
         if (cat && cat.rate_limit) title = (title ? title + "\n" : "") + "Rate limit: " + cat.rate_limit;
         if (cat && cat.base_url) title = (title ? title + "\n" : "") + cat.base_url;
         if (cat && !cat.endpoint_match) {
@@ -2074,7 +2100,10 @@
           label: m.name || m.id,
           badge: cat ? (cat.catalog ? (cat.provider_name || "catalog") : "saved") : "saved",
           skipDefault: true,
-          chips: cat && cat.context ? ["ctx " + cat.context] : [],
+          modalities: modelModalities(m, null),
+          chips: [].concat(
+            cat && cat.tier ? [cat.tier === "renewable" ? "renewable credits" : "free"] : [],
+            cat && cat.context ? ["ctx " + cat.context] : []),
           title: title,
           reason: m.reason,
           usable: m.available !== false,
@@ -2093,13 +2122,18 @@
       group.models.forEach(function (m) {
         addModelRow(host, m, {
           label: m.name || m.native_id,
+          modalities: modelModalities(m, m.capabilities),
+          protocol: c.protocol || null,
           pricing: m.pricing,
           context: m.context_window,
           caps: m.capabilities,
           badge: compatible ? null : String(c.compatibility || "unknown").replace(/_/g, " "),
           reason: m.reason,
           usable: compatible && m.available !== false,
-          title: [m.native_id || "", c.base_url || "", c.compatibility_reason || ""]
+          title: ["Source: " + (c.type === "provider" ? "Provider" : "Gateway") +
+                    " \u00b7 " + (c.name || c.id),
+                  m.native_id || "", c.base_url || "",
+                  c.compatibility_reason || ""]
             .filter(Boolean).join(" \u00b7 "),
         });
         rendered++;

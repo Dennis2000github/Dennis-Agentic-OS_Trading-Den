@@ -32,9 +32,14 @@ import re
 import shutil
 import subprocess
 import tempfile
+import threading
 import time
 
 from . import config
+
+
+# Lazy import: studio_llm pulls model routing; plugins must stay importable
+# without it (examination degrades to the deterministic scan).
 
 PLUGINS_ROOT = os.path.abspath(
     os.environ.get("DENNIS_PLUGINS_DIR", os.path.join(os.path.expanduser("~"), ".agents", "plugins"))
@@ -128,7 +133,6 @@ KNOWN_TAGS = {
     "rea": "REV",
     "heygen": "VID",
     "api-mega-list": "API",
-    "free-llm-apis": "LLM",
     "ui-ux-pro-max": "UX",
     "yt2skill": "SKL",
 }
@@ -392,15 +396,18 @@ def read_plugin(name):
     return _plugin_summary(path, state)
 
 
-def install_plugin(source, name=None, force=False, tier="personal", source_url=""):
+def install_plugin(source, name=None, force=False, tier="personal", source_url="", src_dir=None):
     source = (source or "").strip()
-    if not source:
+    if not source and not src_dir:
         raise PluginError("A local folder or git URL is required.")
     os.makedirs(PLUGINS_ROOT, exist_ok=True)
     tmp = None
-    src_dir = None
+    src_dir = src_dir if src_dir and os.path.isdir(src_dir) else None
     try:
-        if os.path.isdir(os.path.expanduser(source)):
+        if src_dir:
+            # Examination clone reused for the approved install: no re-clone.
+            pass
+        elif os.path.isdir(os.path.expanduser(source)):
             src_dir = os.path.abspath(os.path.expanduser(source))
         elif re.match(r"^(https?://|git@|ssh://|git://)", source) or source.endswith(".git"):
             tmp = tempfile.mkdtemp(prefix="dennis-plugin-")
@@ -692,24 +699,6 @@ _BUILTIN_APPS = [
         "blurb": "Upstream repository workspace with 23 core categories, the "
                  "featured collection, sponsored partners and its README pipeline.",
     },
-    {
-        "id": "free-llm-apis",
-        "name": "FreeLLMAPI",
-        "title": "FreeLLMAPI",
-        "tag": "LLM",
-        "icon": "zap",
-        "category": "Free model catalog",
-        "tier": "public",
-        "kind": "app",
-        "status": "core",
-        "installable": False,
-        "view": "freellm",
-        "repository": "https://github.com/open-free-llm-api/awesome-freellm-apis",
-        "homepage": "https://freellm.net",
-        "rel": os.path.join("public-plugins", "free-llm-apis"),
-        "blurb": "Free model catalog with 505+ models from 30 providers, search, "
-                 "tier filters and per-agent connections.",
-    },
 ]
 
 
@@ -942,4 +931,380 @@ def list_skills():
         "skills": [found[n] for n in order],
         "agents": agents(),
         "count": len(order),
+    }
+
+
+# =====================================================================
+# REPO EXAMINATION — inspect before install (Tools → Install from GitHub)
+#
+# The installer is report-first: pasting a GitHub repo clones it into a
+# persistent exam dir, a deterministic scan inventories the repository,
+# and the OS model (studio_llm routing) turns that into a capability
+# report. "Run the Installation" installs from the exam clone; "Connect
+# the skill" copies a discovered SKILL.md into the Vault without
+# installing any runtime.
+# =====================================================================
+
+_EXAM_ROOT = os.path.join(tempfile.gettempdir(), "dennis-plugin-exams")
+_EXAM_TTL = 24 * 3600
+_EXAM_LOCK = threading.RLock()
+_EXAMS = {}  # exam_id -> {"source", "clone", "created_at", "name"}
+
+_GIT_URL_RE = re.compile(r"^(https?://|git@|ssh://|git://)")
+
+
+def _exam_gc():
+    """Drop exam records older than the TTL and delete their clones."""
+    now = time.time()
+    with _EXAM_LOCK:
+        stale = [key for key, exam in _EXAMS.items()
+                 if now - exam.get("created_at", 0) > _EXAM_TTL]
+        for key in stale:
+            shutil.rmtree(_EXAMS[key].get("clone") or "", ignore_errors=True)
+            _EXAMS.pop(key, None)
+
+
+def _exam_get(exam_id):
+    with _EXAM_LOCK:
+        exam = _EXAMS.get(str(exam_id or ""))
+    if not exam:
+        raise PluginError("That examination has expired. Examine the repository again.")
+    if not os.path.isdir(exam.get("clone") or ""):
+        with _EXAM_LOCK:
+            _EXAMS.pop(exam.get("id", ""), None)
+        raise PluginError("The examination clone is gone. Examine the repository again.")
+    return exam
+
+
+def _exam_skill_dirs(src_dir):
+    """SKILL.md locations in a repository, same contract as the installer."""
+    found = []
+    candidates = [
+        (src_dir, "SKILL.md"),
+        (os.path.join(src_dir, "skills"), None),
+        (os.path.join(src_dir, ".claude", "skills"), None),
+    ]
+    for parent, exact in candidates:
+        if exact:
+            path = os.path.join(parent, exact)
+            if os.path.isfile(path):
+                found.append(parent)
+            continue
+        if not os.path.isdir(parent):
+            continue
+        try:
+            for entry in sorted(os.listdir(parent)):
+                if entry.startswith("."):
+                    continue
+                skill_md = os.path.join(parent, entry, "SKILL.md")
+                if os.path.isfile(skill_md):
+                    found.append(os.path.join(parent, entry))
+        except OSError:
+            continue
+    return found
+
+
+def _exam_scan(src_dir, name_hint=""):
+    """Deterministic inventory of an examined repository (no code execution)."""
+    files, total_bytes = 0, 0
+    for base, dirs, names in os.walk(src_dir):
+        dirs[:] = [d for d in dirs if d not in (".git", "__pycache__", "node_modules")]
+        for name in names:
+            try:
+                total_bytes += os.path.getsize(os.path.join(base, name))
+                files += 1
+            except OSError:
+                continue
+
+    top_level = []
+    try:
+        top_level = sorted(
+            entry + ("/" if os.path.isdir(os.path.join(src_dir, entry)) else "")
+            for entry in os.listdir(src_dir)
+            if not entry.startswith(".") and entry != "__pycache__"
+        )[:60]
+    except OSError:
+        pass
+
+    readme_title, readme_excerpt = "", ""
+    for candidate in ("README.md", "readme.md", "README.rst", "README"):
+        path = os.path.join(src_dir, candidate)
+        if os.path.isfile(path):
+            try:
+                with open(path, encoding="utf-8", errors="replace") as fh:
+                    text = fh.read(8000)
+                for line in text.splitlines():
+                    if line.startswith("# "):
+                        readme_title = line[2:].strip()
+                        break
+                readme_excerpt = text[:4000]
+            except OSError:
+                pass
+            break
+
+    manifest, manifest_path = {}, ""
+    for candidate in ("plugin.json", os.path.join(".claude", "plugin.json")):
+        path = os.path.join(src_dir, candidate)
+        if os.path.isfile(path):
+            try:
+                with open(path, encoding="utf-8", errors="replace") as fh:
+                    loaded = json.load(fh)
+                if isinstance(loaded, dict):
+                    manifest = loaded
+                    manifest_path = candidate
+            except (ValueError, OSError):
+                pass
+            break
+
+    skills = []
+    for skill_dir in _exam_skill_dirs(src_dir):
+        title, desc = _skill_meta(os.path.join(skill_dir, "SKILL.md"))
+        skills.append({
+            "name": title or os.path.basename(skill_dir),
+            "title": title or "",
+            "description": desc or "",
+            "path": os.path.relpath(skill_dir, src_dir),
+        })
+
+    runtimes = {
+        "node": os.path.isfile(os.path.join(src_dir, "package.json")),
+        "python": any(os.path.isfile(os.path.join(src_dir, f))
+                      for f in ("requirements.txt", "pyproject.toml", "setup.py")),
+        "docker": any(os.path.isfile(os.path.join(src_dir, f))
+                      for f in ("Dockerfile", "docker-compose.yml", "docker-compose.yaml")),
+        "mcp": os.path.isdir(os.path.join(src_dir, "mcp")),
+        "hooks": os.path.isdir(os.path.join(src_dir, "hooks")),
+        "scripts": os.path.isdir(os.path.join(src_dir, "scripts")),
+    }
+
+    risks = []
+    package_json = os.path.join(src_dir, "package.json")
+    if os.path.isfile(package_json):
+        try:
+            with open(package_json, encoding="utf-8", errors="replace") as fh:
+                scripts = (json.load(fh).get("scripts") or {})
+            for hook in ("preinstall", "postinstall", "prepare"):
+                command = str(scripts.get(hook) or "")
+                if re.search(r"curl|wget|http|npm\s+i?nstall\s+-g|node\s+-e", command, re.I):
+                    risks.append("package.json runs a network/install %s hook" % hook)
+        except (ValueError, OSError):
+            pass
+    probe_files = [os.path.join(src_dir, "README.md")]
+    scripts_dir = os.path.join(src_dir, "scripts")
+    if os.path.isdir(scripts_dir):
+        try:
+            probe_files += [os.path.join(scripts_dir, f) for f in os.listdir(scripts_dir)
+                            if f.endswith((".sh", ".js", ".py"))][:10]
+        except OSError:
+            pass
+    for probe in probe_files:
+        try:
+            with open(probe, encoding="utf-8", errors="replace") as fh:
+                text = fh.read(6000)
+            if re.search(r"curl[^|]{0,120}\|\s*(sudo\s+)?(ba)?sh", text, re.I) or \
+                    re.search(r"wget[^&;]{0,120}&&\s*(sudo\s+)?(ba)?sh", text, re.I):
+                risks.append("curl-pipe-shell pattern in %s" % os.path.relpath(probe, src_dir))
+        except OSError:
+            continue
+    try:
+        root_sh = [f for f in os.listdir(src_dir) if f.endswith(".sh")]
+        if root_sh:
+            risks.append("shell scripts at repository root: %s" % ", ".join(root_sh[:4]))
+    except OSError:
+        pass
+
+    name_guess = (manifest.get("name") or name_hint or readme_title
+                  or os.path.basename(src_dir.rstrip("/")))
+    return {
+        "name": str(name_guess)[:80],
+        "description": str(manifest.get("description") or "")[:400],
+        "manifest": manifest_path,
+        "readme_title": readme_title,
+        "readme_excerpt": readme_excerpt,
+        "skills": skills,
+        "skill_connectable": bool(skills),
+        "top_level": top_level,
+        "files": files,
+        "bytes": total_bytes,
+        "runtimes": runtimes,
+        "risks": risks[:8],
+    }
+
+
+_EXAM_SYSTEM_PROMPT = (
+    "You examine a GitHub repository for DENNIS Agentic OS, a local AI-agent "
+    "operating system with a plugin system based on the open Agent Skills "
+    "standard (SKILL.md) installed into ~/.agents/plugins, an Obsidian-style "
+    "Vault, MCP support, and LLM agents (Claude Code, Codex, OpenCode, ...). "
+    "Reply with STRICT JSON only, no prose outside the JSON object. Keys: "
+    '"capability" (what the repo does, 2-4 sentences), '
+    '"os_usefulness" (how it can be useful inside DENNIS Agentic OS, 2-4 sentences), '
+    '"installation" (markdown, concrete step-by-step install documentation for this repo), '
+    '"skill_verdict" ("connectable" only if a SKILL.md exists, else "install_only"), '
+    '"skill_notes" (whether it can run as a skill without installing the runtime), '
+    '"risks" (security/operational cautions for installing it).'
+)
+
+
+def _exam_llm(scan, source):
+    """Ask the OS model for the narrative report. Returns (report, meta)."""
+    meta = {"used": False, "model": None, "error": None}
+    try:
+        from . import studio_llm
+    except Exception as exc:  # pragma: no cover - routing stack unavailable
+        meta["error"] = "model stack unavailable: %s" % exc
+        return None, meta
+    scan_view = dict(scan)
+    scan_view["readme_excerpt"] = scan_view.get("readme_excerpt", "")[:3000]
+    prompt = (
+        "Repository source: %s\n\nDeterministic scan (JSON):\n%s\n\n"
+        "Write the examination report JSON now."
+        % (source, json.dumps(scan_view, ensure_ascii=False, indent=1))
+    )
+    try:
+        result = studio_llm.complete(
+            [{"role": "system", "content": _EXAM_SYSTEM_PROMPT},
+             {"role": "user", "content": prompt}],
+            temperature=0.2,
+        )
+    except Exception as exc:
+        meta["error"] = str(exc)[:300]
+        return None, meta
+    # studio_llm.complete returns {"content", "model", "usage"}; some callers
+    # treat it as text, so accept both shapes.
+    model_id, text = None, str(result or "")
+    if isinstance(result, dict):
+        model_id = result.get("model")
+        text = str(result.get("content") or "")
+    meta["used"] = True
+    meta["model"] = model_id
+    match = re.search(r"\{.*\}", text, re.S)
+    if match:
+        try:
+            parsed = json.loads(match.group(0))
+            if isinstance(parsed, dict) and parsed.get("capability"):
+                return parsed, meta
+        except ValueError:
+            pass
+    meta["error"] = "model reply was not parseable JSON; using the deterministic report"
+    return None, meta
+
+
+def examine_source(source):
+    """Clone + scan + report. Never executes repository code."""
+    source = (source or "").strip()
+    if not source:
+        raise PluginError("A git URL or local folder is required.")
+    _exam_gc()
+
+    clone = None
+    name_hint = ""
+    if os.path.isdir(os.path.expanduser(source)):
+        clone = os.path.abspath(os.path.expanduser(source))
+        name_hint = os.path.basename(clone.rstrip("/"))
+    elif _GIT_URL_RE.match(source) or source.endswith(".git"):
+        # Repo name from the URL: .../owner/<repo>(.git)
+        tail = re.split(r"[/:]", source.rstrip("/"))[-1]
+        name_hint = re.sub(r"\.git$", "", tail)[:80]
+        os.makedirs(_EXAM_ROOT, exist_ok=True)
+        clone = tempfile.mkdtemp(prefix="exam-", dir=_EXAM_ROOT)
+        proc = subprocess.run(
+            ["git", "clone", "--depth", "1", source, clone],
+            capture_output=True, text=True, timeout=300,
+        )
+        if proc.returncode != 0:
+            shutil.rmtree(clone, ignore_errors=True)
+            raise PluginError("git clone failed: %s" % ((proc.stderr or proc.stdout).strip()[:300]))
+    else:
+        raise PluginError("Not a local folder or git URL: %s" % source)
+
+    scan = _exam_scan(clone, name_hint=name_hint)
+    report, llm_meta = _exam_llm(scan, source)
+    if not report:
+        # Deterministic fallback keeps the panel functional without a model.
+        runtimes = ", ".join(k for k, v in scan.get("runtimes", {}).items() if v)
+        report = {
+            "capability": scan.get("description")
+                or (scan.get("readme_title") + " — repository inventory below.")
+                or "No description found in the repository.",
+            "os_usefulness": (
+                "Detected: %s. Skills: %s." % (
+                    runtimes or "no standard runtime files",
+                    ", ".join(s["name"] for s in scan.get("skills", [])) or "none",
+                )),
+            "installation": "1. Clone or download the repository.\n2. Install it from this panel.",
+            "skill_verdict": "connectable" if scan.get("skill_connectable") else "install_only",
+            "skill_notes": (
+                "SKILL.md found; it can be connected to the Vault without the runtime."
+                if scan.get("skill_connectable")
+                else "No SKILL.md found; install the runtime instead."),
+            "risks": "; ".join(scan.get("risks", [])) or "None detected by the scan.",
+        }
+
+    exam_id = "ex_%s" % os.urandom(8).hex()
+    with _EXAM_LOCK:
+        _EXAMS[exam_id] = {
+            "id": exam_id,
+            "source": source,
+            "clone": clone,
+            "name": scan.get("name") or "",
+            "created_at": time.time(),
+        }
+    return {
+        "exam_id": exam_id,
+        "source": source,
+        "name": scan.get("name") or "",
+        "scan": scan,
+        "report": report,
+        "llm": llm_meta,
+    }
+
+
+def exam_install(exam_id, name=None, force=False):
+    """Install from the examination clone — no second git clone."""
+    exam = _exam_get(exam_id)
+    return install_plugin(
+        exam.get("source") or "",
+        name=name or exam.get("name"),
+        force=bool(force),
+        src_dir=exam.get("clone"),
+    )
+
+
+def exam_connect(exam_id):
+    """Copy a discovered SKILL.md (and its folder) into the OS Vault.
+
+    Vault-only by design: nothing is installed into agent runtime dirs and
+    no repository code is executed.
+    """
+    exam = _exam_get(exam_id)
+    skills = _exam_skill_dirs(exam["clone"])
+    if not skills:
+        raise PluginError("No SKILL.md in this repository — it cannot be connected as a skill.")
+
+    skill_dir = skills[0]
+    title, _desc = _skill_meta(os.path.join(skill_dir, "SKILL.md"))
+    name = _safe_name(title or os.path.basename(skill_dir))
+
+    from . import vault as dennis_vault  # local import: avoids import cycles
+    dennis_vault.ensure_vault()
+    skills_root = os.path.join(dennis_vault._root(), "Skills")
+    dest = os.path.join(skills_root, name)
+    if os.path.exists(dest):
+        raise PluginError(
+            "Skill '%s' is already in the Vault (vault/Skills/%s)." % (name, name))
+
+    os.makedirs(skills_root, exist_ok=True)
+    staging = dest + ".connecting"
+    shutil.rmtree(staging, ignore_errors=True)
+    shutil.copytree(skill_dir, staging, symlinks=False,
+                    ignore=shutil.ignore_patterns(".git", "__pycache__", "*.pyc"))
+    os.rename(staging, dest)
+
+    copied = sum(len(files) for _base, _dirs, files in os.walk(dest))
+    return {
+        "name": name,
+        "path": "Skills/%s" % name,
+        "files": copied,
+        "note": "Connected into the Vault. No runtime was installed.",
     }

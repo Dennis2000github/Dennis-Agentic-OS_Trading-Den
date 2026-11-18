@@ -439,3 +439,114 @@
   .ip-install-form { align-items: stretch; }
   .ip-form-actions .sb-btn { flex: 1; justify-content: center; }
 }
+
+/* ------------------------------------------------------------------ */
+/* Repo examination report (report-first installer)                    */
+/* ------------------------------------------------------------------ */
+.ip-exam {
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px solid rgba(56, 189, 248, .25);
+  border-radius: 14px;
+  background: rgba(8, 15, 28, .65);
+}
+.ip-exam-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(148, 163, 184, .14);
+}
+.ip-exam-title { display: flex; align-items: center; gap: 10px; }
+.ip-exam-title h4 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e2e8f0;
+  letter-spacing: .01em;
+}
+.ip-exam-model {
+  display: block;
+  font-size: 10.5px;
+  color: #7c8aa5;
+}
+.ip-exam-status {
+  margin: 10px 0 0;
+  font-size: 11px;
+  color: #93c5fd;
+  min-height: 14px;
+}
+.ip-exam-status.is-err { color: #fca5a5; }
+.ip-exam-report { margin-top: 10px; }
+.ip-exam-verdict { margin-bottom: 10px; }
+.ip-exam-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+.ip-exam-badge.is-ok {
+  border: 1px solid rgba(52, 211, 153, .4);
+  background: rgba(6, 78, 59, .45);
+  color: #6ee7b7;
+}
+.ip-exam-badge.is-warn {
+  border: 1px solid rgba(251, 191, 36, .35);
+  background: rgba(120, 53, 15, .35);
+  color: #fcd34d;
+}
+.ip-exam-sec {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border: 1px solid rgba(148, 163, 184, .12);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, .45);
+}
+.ip-exam-sec h5 {
+  margin: 0 0 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+.ip-exam-sec p { margin: 0; font-size: 12px; line-height: 1.55; color: #cbd5e1; }
+.ip-exam-muted { color: #64748b !important; font-style: italic; }
+.ip-exam-md { font-size: 12px; line-height: 1.6; color: #cbd5e1; }
+.ip-exam-md p { margin: 0 0 6px; }
+.ip-exam-md ol, .ip-exam-md ul { margin: 4px 0 6px; padding-left: 20px; }
+.ip-exam-md li { margin-bottom: 3px; }
+.ip-exam-md code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(30, 41, 59, .9);
+  color: #7dd3fc;
+  font-size: 11px;
+}
+.ip-exam-md pre {
+  margin: 6px 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(2, 6, 23, .8);
+  overflow-x: auto;
+}
+.ip-exam-sec ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: #fca5a5;
+}
+.ip-exam-sec ul li { margin-bottom: 2px; }
+.ip-exam-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+.ip-exam-actions .sb-btn:disabled { opacity: .55; cursor: wait; }

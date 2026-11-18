@@ -110,7 +110,13 @@
     document.body.removeChild(area);
   }
 
-  function showPluginTab(name) {
+  function showPluginTab(name, fromHub) {
+    // The hub (js/pluginsHub.js) owns tab switching once it is present;
+    // this function then only keeps Composio's internal state in sync.
+    if (window.PluginsHub && !fromHub) {
+      window.PluginsHub.show(name === "composio" ? "composio" : "megalist");
+      return;
+    }
     state.tab = name === "composio" ? "composio" : "megalist";
     var mg = $("mg-workspace");
     var cp = $("composio-workspace");
@@ -618,10 +624,7 @@
   function init() {
     if (!$("plugins-view") || $("composio-workspace") == null || state.initialized) return;
     state.initialized = true;
-    var megaTab = $("plugins-tab-megalist");
-    var composioTab = $("plugins-tab-composio");
-    if (megaTab) megaTab.addEventListener("click", function () { showPluginTab("megalist"); });
-    if (composioTab) composioTab.addEventListener("click", function () { showPluginTab("composio"); });
+    // Hub tabs are owned by js/pluginsHub.js; this module no longer binds them.
     Array.prototype.forEach.call(document.querySelectorAll("[data-composio-view]"), function (button) {
       button.addEventListener("click", function () { showView(button.getAttribute("data-composio-view")); });
     });

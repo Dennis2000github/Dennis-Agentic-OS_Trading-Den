@@ -69,14 +69,7 @@ def internal_id(connection_id, native_id):
 
 
 def parse_internal_id(model_id):
-    """Return ``(connection_id, native_id)`` for connection models, else None.
-
-    Both parts may contain colons: derived FreeLLMAPI connection ids look
-    like ``freellmapi:claude-code`` and gateway model ids like
-    ``org/model:beta``. So the internal id is parsed by matching known
-    connection ids (longest first) as the prefix, with a first-colon split
-    only as the fallback for unknown connections.
-    """
+    """Return ``(connection_id, native_id)`` for connection models, else None."""
     if not isinstance(model_id, str) or not model_id.startswith("conn:"):
         return None
     body = model_id[len("conn:"):]
@@ -86,10 +79,6 @@ def parse_internal_id(model_id):
             known.update(c.get("id") for c in _read_store()["connections"])
         except Exception:
             pass
-    try:
-        known.update(d["id"] for d in connections._derived_freellmapi_connections())
-    except Exception:
-        pass
     known.discard(None)
     for connection_id in sorted(known, key=len, reverse=True):
         prefix = connection_id + ":"
@@ -328,9 +317,8 @@ def register_model(connection_id, native_id, name=None, metadata=None):
         else:
             models.append(record)
         # Keep the connection's manual list in sync so the registration
-        # survives re-discovery. Derived (FreeLLMAPI) connections are
-        # managed by freellmapi and are not modified here.
-        if not conn.get("derived") and native_id not in (conn.get("model_ids") or []):
+        # survives re-discovery.
+        if native_id not in (conn.get("model_ids") or []):
             connections.update_connection(connection_id, {
                 "model_ids": list(conn.get("model_ids") or []) + [native_id]})
         entry["discovered_at"] = entry.get("discovered_at") or config.now_iso()

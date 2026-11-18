@@ -18,6 +18,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from backend import (config, projects, session_store, sandbox, ws, filewatch,
                      docker_runtime, preflight, agent_registry, vault, hermes,
                      skill_builder)
+from backend import deepseek_native as deepseek_native
 from backend import session_manager as sm
 from backend.model_sources import (antigravity, claude, codex, opencode,
                                    cursor, openclaw, registry, base)
@@ -295,11 +296,70 @@ class ModelSourceTests(unittest.TestCase):
         self.assertEqual(models[0]["provider"], "openai")
         self.assertTrue(models[0]["is_default"])
 
-    def test_cursor_interactive_models(self):
+    def test_openclaw_uses_full_catalog_flag(self):
+        # `openclaw models list` reports an empty configured list until a model
+        # is set; the full catalog behind --all is what the dropdown needs.
+        empty = json.dumps({"count": 0, "models": []})
+        catalog = json.dumps({"count": 1, "models": [
+            {"key": "openai/gpt-6-astra", "name": "GPT-6 Astra",
+             "available": False, "reason": "auth required"},
+        ]})
+
+        class TwoCallCtx(FakeCtx):
+            calls = []
+
+            def exec(self, argv, cwd=None, timeout=30):
+                self.calls.append(list(argv))
+                if "--all" in argv:
+                    return 0, catalog, ""
+                return 0, empty, ""
+
+        ctx = TwoCallCtx()
+        models = openclaw.OpenClawModelSource().list_models(ctx)
+        self.assertEqual([m["id"] for m in models], ["openai/gpt-6-astra"])
+        self.assertIn("--all", ctx.calls[0])
+        self.assertFalse(models[0]["available"])
+
+    def test_openclaw_empty_catalog_raises_actionable(self):
+        with self.assertRaises(base.ModelListError) as cm:
+            openclaw.OpenClawModelSource().list_models(
+                FakeCtx(stdout=json.dumps({"count": 0, "models": []})))
+        self.assertIn("openclaw", str(cm.exception))
+
+    def test_cursor_list_models_flag_parses_plain_rows(self):
+        out = ("Available models\n\n"
+               "auto - Auto (default)\n"
+               "claude-opus-5-thinking-high - Claude Opus 5 1M Thinking\n"
+               "gpt-5.2 - GPT-5.2\n")
+        models = cursor.CursorModelSource().list_models(
+            FakeCtx(stdout=out, interactive="ignored"))
+        self.assertEqual([m["id"] for m in models],
+                         ["auto", "claude-opus-5-thinking-high", "gpt-5.2"])
+        self.assertEqual([m["name"] for m in models],
+                         ["Auto (default)", "Claude Opus 5 1M Thinking", "GPT-5.2"])
+
+    def test_cursor_list_models_skips_header_and_banner(self):
+        out = ("Fetching models…\nAvailable models\nauto - Auto\n\nBye.\n")
+        models = cursor.CursorModelSource().list_models(FakeCtx(stdout=out))
+        self.assertEqual([m["id"] for m in models], ["auto"])
+
+    def test_cursor_list_models_falls_back_to_picker(self):
+        # Older Cursor builds predate --list-models; the picker path still
+        # works when the flag is unsupported.
         raw = "Select model\n> 1. auto\n  2. anthropic/claude-sonnet\n"
-        models = cursor.CursorModelSource().list_models(FakeCtx(interactive=raw))
+        ctx = FakeCtx(rc=1, stderr="unknown option --list-models",
+                      interactive=raw)
+        models = cursor.CursorModelSource().list_models(ctx)
         self.assertEqual([m["id"] for m in models],
                          ["auto", "anthropic/claude-sonnet"])
+
+    def test_cursor_trust_prompt_raises_actionable(self):
+        ctx = FakeCtx(rc=1, stderr="", interactive=(
+            "Workspace Trust Required\nDo you trust the contents of this "
+            "directory?\n[a] Trust this workspace\n"))
+        with self.assertRaises(base.ModelListError) as cm:
+            cursor.CursorModelSource().list_models(ctx)
+        self.assertIn("trust", str(cm.exception).lower())
 
     def test_claude_numbered_menu(self):
         # Mirrors real /model output: a "Select model" section, cursor-collapsed
@@ -1064,6 +1124,58 @@ class HermesTests(unittest.TestCase):
         self.assertIn("opencode", ids)
         self.assertEqual(h.identity()["id"], "hermes")
         self.assertEqual(h.identity()["role"], "orchestrator")
+
+
+class DeepSeekHarnessWebTests(unittest.TestCase):
+    """The dsh web launch URL the embedded view is pointed at."""
+
+    def setUp(self):
+        self._saved = deepseek_native._url
+        deepseek_native._url = None
+        self.addCleanup(setattr, deepseek_native, "_url", self._saved)
+
+    def _feed(self, lines):
+        """Run the output reader over printed lines, as startup would."""
+        class _Output:
+            def __init__(self, queue):
+                self._queue = queue
+
+            def readline(self):
+                return self._queue.pop(0) if self._queue else b""
+
+        class _Proc:
+            stdout = _Output([(line + "\n").encode("utf-8") for line in lines])
+
+        deepseek_native._read_output(_Proc())
+        return deepseek_native._url
+
+    def test_inline_credential_url_is_kept_verbatim(self):
+        url = self._feed(["Listening: http://127.0.0.1:3080/?token=abc123def"])
+        self.assertEqual(url, "http://127.0.0.1:3080/?token=abc123def")
+
+    def test_bare_url_and_token_line_are_merged(self):
+        url = self._feed(["Local: http://127.0.0.1:3080/",
+                          "Auth token: dsh_live_4f9k2m7q1p"])
+        self.assertEqual(url, "http://127.0.0.1:3080/?token=dsh_live_4f9k2m7q1p")
+
+    def test_fragment_url_keeps_query_before_hash(self):
+        url = self._feed(["open http://127.0.0.1:3080/#/chat",
+                          "token: abc123def456"])
+        self.assertEqual(url, "http://127.0.0.1:3080/?token=abc123def456#/chat")
+
+    def test_token_is_not_duplicated(self):
+        url = self._feed(["http://127.0.0.1:3080/?token=inline1",
+                          "token: second-secret"])
+        self.assertEqual(url, "http://127.0.0.1:3080/?token=inline1")
+
+    def test_foreign_urls_are_ignored(self):
+        url = self._feed(["See https://docs.deepseek.com/harness for help.",
+                          "http://127.0.0.1:3080/"])
+        self.assertEqual(url, "http://127.0.0.1:3080/")
+
+    def test_trailing_punctuation_is_stripped(self):
+        url = self._feed(["Open http://127.0.0.1:3080/?token=abc123def."])
+        self.assertEqual(url, "http://127.0.0.1:3080/?token=abc123def")
 
 
 if __name__ == "__main__":

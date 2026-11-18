@@ -12,7 +12,6 @@ import time
 
 from . import config
 from . import execution_router
-from . import freellmapi
 
 DEFAULT_AGENTS = [
     {
@@ -488,19 +487,19 @@ PROVIDER_SETUP = {
                 "then press Refresh in this menu.",
     },
     "claude-code": {
-        "label": "FreeLLMAPI account",
-        "hint": "Choose an Anthropic-compatible provider from the FreeLLMAPI catalog. Enter its base URL, model ID, and API key; the key stays local.",
-        "form": "freellmapi",
+        "label": "Claude account",
+        "command": "claude login",
+        "hint": "Sign in from Claude Code's own UI, then press Refresh here.",
     },
     "codex": {
-        "label": "FreeLLMAPI account",
-        "hint": "Choose an OpenAI-compatible provider from the FreeLLMAPI catalog. Enter its base URL, model ID, and API key; the key stays local.",
-        "form": "freellmapi",
+        "label": "Codex login",
+        "command": "codex login",
+        "hint": "Sign in to OpenAI via Codex, then press Refresh here.",
     },
     "codex-cli": {
-        "label": "FreeLLMAPI account",
-        "hint": "Choose an OpenAI-compatible provider from the FreeLLMAPI catalog. Enter its base URL, model ID, and API key; the key stays local.",
-        "form": "freellmapi",
+        "label": "Codex login",
+        "command": "codex login",
+        "hint": "Sign in to OpenAI via Codex, then press Refresh here.",
     },
     "antigravity": {
         "label": "Google account",

@@ -16,8 +16,11 @@ class OpenClawModelSource(ModelSource):
     agent_id = "openclaw"
 
     def list_models(self, ctx, cwd=None):
+        # `--all` lists the full hosted catalog. The default (configured only)
+        # reports `{"count": 0, "models": []}` whenever no model is configured,
+        # which is exactly when the dropdown needs the catalog most.
         rc, out, err = ctx.exec(
-            ["openclaw", "models", "list", "--json"], cwd=cwd, timeout=30
+            ["openclaw", "models", "list", "--all", "--json"], cwd=cwd, timeout=30
         )
         if rc != 0:
             raise ModelListError((err or out or "openclaw models list failed").strip()[:300])
@@ -58,5 +61,8 @@ class OpenClawModelSource(ModelSource):
                 provider=_provider(item, ident),
             ))
         if not models:
-            raise ModelListError("No models parsed from `openclaw models list`")
+            hint = ""
+            if isinstance(payload, dict) and not payload.get("models"):
+                hint = " (the `openclaw models list --all` catalog is empty)"
+            raise ModelListError("No models parsed from `openclaw models list`" + hint)
         return models
