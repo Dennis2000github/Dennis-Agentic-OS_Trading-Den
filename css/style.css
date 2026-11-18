@@ -4490,3 +4490,6 @@ span.jarvis-bar-btn { cursor: default; }
   border: 1px solid rgba(99,102,241,.3); background: rgba(10,8,20,.96);
 }
 .cs-reg-install-hint { font-size: 10px; color: #94a3b8; line-height: 1.45; margin: 0; }
+
+/* Main views must disappear when switchMainView adds .hidden */
+section[id$="-view"].hidden { display: none !important; }

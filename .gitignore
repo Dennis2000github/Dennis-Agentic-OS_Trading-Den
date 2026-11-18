@@ -48,3 +48,4 @@ tts_service/models/*.part
 # Electron desktop build
 node_modules/
 dist/
+.claude/
