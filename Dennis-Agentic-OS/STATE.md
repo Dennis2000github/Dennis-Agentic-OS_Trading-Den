@@ -2683,3 +2683,62 @@ assuming):
   settings save → derived `freellmapi:aider` gateway connection → model API
   listing saved + catalog + connection-scoped models → harness routing only
   the saved model. Browser e2e suites were not re-run this session.
+
+---
+
+## 2026-11-19 (COSMOS GENESIS) — Production dashboard + Studio navigation consolidation
+
+Branch `feature/cosmos-genesis` (not merged to main; owner approval pending).
+
+- **GENESIS** is the new system-level production dashboard inside COSMOS —
+  production intake, project workspaces, final rendering, quality review,
+  owner approval and publishing for both divisions. It is NOT a sixth agent:
+  the five agent dashboards, model routing, config selectors, execution
+  history, recommendation cards and review actions are untouched
+  (`#cosmos/genesis` route, distinct rail tab, `js/cosmosGenesis.js`,
+  `backend/genesis{,_store,_render,_publish,_api}.py`, data under
+  `data/cosmos/genesis/` 0700/0600 atomic).
+- **Intake gates**: Ads products enter production only from
+  `approved`/`ready_for_creation`, YouTube topics only when `scripted` with a
+  linked script; source records advance through their own forward-only
+  lifecycles (`in_production`, `published` only after destination
+  confirmation). Full provenance (agent/recommendation/execution/backlog
+  item/script/channel/config snapshot) on every project; duplicates blocked.
+- **Render Center**: AI scene generation reuses the shared StudioRunner +
+  provider registry (wired via `genesis_render.set_runner`); final assembly
+  is a real FFmpeg adapter (encoder probing, normalization, image loop,
+  caption burn, honest states `queued→preparing→waiting_media→assembling→
+  complete|failed`, real errors stored; media saved into the existing Studio
+  library). Verified with FFmpeg 6.1.1-tessus.
+- **Quality review**: ffprobe checks (streams, resolution/aspect/fps vs
+  export settings, duration, audio integrity, missing assets, captions,
+  platform rules, disclosure, metadata); verdict pass/warn/fail; approval
+  requires non-fail; publishing requires approval + fresh review.
+- **Publishing Center**: destination adapters with honest availability.
+  YouTube: real OAuth 2.0 (env or existing google-oauth.json client,
+  youtube.upload scope, state, token exchange/refresh, tokens stored 0600
+  backend-only) + resumable Data API v3 upload; success only on a real
+  remote video id; duplicates blocked; explicit `approved:true` flag
+  required; scheduler publishes owner-approved scheduled uploads. TikTok/
+  Instagram/Facebook shown as not implemented.
+- **Navigation consolidation**: Ads "Product Backlog" and YouTube "Topic
+  Backlog"/"Publishing"/"YouTube Intelligence" sidebar entries + panels
+  removed (backends untouched); COSMOS backlog blocks are now the single
+  full management interfaces (search/filter/add/edit/status/delete/
+  provenance; topic details + status transitions); QUASAR's YouTube domain
+  hosts the migrated research workflows (validations, competitors, evidence
+  basis rules). Legacy deep links redirect: `#studio/ads/backlog`→
+  `#cosmos/andromeda`, `#studio/youtube/backlog|topics`→`#cosmos/andromeda`,
+  `…/publishing|calendar`→`#cosmos/genesis`, `…/intelligence|research`→
+  `#cosmos/quasar`. Ads keeps Create/Generate(five-step)/Assets/Library/
+  Playlists/History/Setup; YouTube keeps Create/Templates/Projects+Scripts/
+  Analytics/Settings.
+- **Tests**: new `tests/test_genesis.py` (24 OK, incl. real-ffmpeg render +
+  mocked-YouTube publishing); updated `tests/studioWorkspaceState.test.js`
+  (21 OK) + `tests/cosmosState.test.js` (15 OK); affected COSMOS/Studio/
+  YouTube Python suites 163 OK; Ads Studio E2E (five-step) ALL PASSED;
+  full-suite failure diff vs pristine HEAD shows pre-existing unrelated
+  failures only. Browser verification (Playwright): zero console errors,
+  redirects verified, live intake→render→QA→approval loop on the running
+  server. Docs: `docs/GENESIS_IMPLEMENTATION.md` (+ screenshots under
+  `docs/screenshots/`).

@@ -15,6 +15,8 @@ from . import cosmos_config
 from . import cosmos_engine
 from . import cosmos_registry
 from . import cosmos_store
+from . import genesis
+from . import genesis_api
 from . import studio_llm
 from . import youtube_channels
 from . import youtube_topics
@@ -45,6 +47,11 @@ def _fail(exc):
 
 def handle(method, path, query=None, body=None):
     subpath = path[len(PREFIX):].strip("/")
+    # The GENESIS production dashboard owns the /genesis subtree of COSMOS.
+    # It is a system-level workflow (production, rendering, publishing), not
+    # an intelligence agent, so it dispatches to its own pure handler.
+    if subpath == "genesis" or subpath.startswith("genesis/"):
+        return genesis_api.handle(method, path, query, body)
     parts = [part for part in subpath.split("/") if part]
     try:
         if method == "GET":
@@ -118,6 +125,7 @@ def overview():
             "ads_backlog": ads_backlog.counts(),
             "youtube_backlog": _youtube_summary().get("counts") or {},
             "recommendations": cosmos_store.recommendation_counts(),
+            "genesis": genesis.overview_counts(),
         },
     }
 

@@ -11,20 +11,19 @@
 
   // Existing Studio tabs. These keys must never change: the Ads workspace
   // relies on them.
-  // Create and Product Backlog are additive; the five-step Generate workflow
-  // remains the default Ads landing section.
-  var ADS_SECTIONS = ["fashion", "create", "backlog", "assets", "library", "playlists", "preset", "history", "setup"];
+  // The Product Backlog lives in COSMOS only (single authoritative
+  // interface); the five-step Generate workflow remains the default Ads
+  // landing section.
+  var ADS_SECTIONS = ["fashion", "create", "assets", "library", "playlists", "preset", "history", "setup"];
 
-  // YouTube Studio sections (master spec v1.0). The default landing page is
-  // Create. Settings holds channel connection, defaults and providers.
+  // YouTube Studio sections. Topic Backlog, Publishing and YouTube
+  // Intelligence are consolidated into COSMOS (backlog + QUASAR + GENESIS);
+  // Analytics stays. The default landing page is Create.
   var YOUTUBE_SECTIONS = [
     "create",
     "templates",
     "projects",
-    "backlog",
-    "publishing",
     "analytics",
-    "intelligence",
     "settings"
   ];
 
@@ -33,15 +32,30 @@
   var LEGACY_SECTIONS = {
     overview: "create",
     "channel-manager": "settings",
-    research: "backlog",
-    topics: "backlog",
     scripts: "projects",
     storyboard: "projects",
     assets: "projects",
     voice: "projects",
     animation: "projects",
-    thumbnails: "projects",
-    calendar: "publishing"
+    thumbnails: "projects"
+  };
+
+  // Sections whose content moved into COSMOS. Deep links to them redirect
+  // instead of opening a duplicate panel: ads backlog + youtube backlog go
+  // to the COSMOS backlog management, publishing goes to GENESIS, and
+  // youtube intelligence / research go to QUASAR's YouTube domain.
+  var LEGACY_REDIRECTS = {
+    ads: {
+      backlog: { cosmos: "andromeda", note: "The Product Backlog now lives in COSMOS." }
+    },
+    youtube: {
+      backlog: { cosmos: "andromeda", note: "The Topic Backlog now lives in COSMOS." },
+      publishing: { cosmos: "genesis", note: "Publishing moved to the GENESIS production dashboard." },
+      intelligence: { cosmos: "quasar", note: "YouTube intelligence lives with QUASAR in COSMOS." },
+      research: { cosmos: "quasar", note: "Research lives with QUASAR in COSMOS." },
+      topics: { cosmos: "andromeda", note: "The Topic Backlog now lives in COSMOS." },
+      calendar: { cosmos: "genesis", note: "Scheduling moved to the GENESIS production dashboard." }
+    }
   };
 
   var DEFAULTS = {
@@ -50,35 +64,35 @@
   };
 
   // Backlog and Projects expose secondary tabs once inside the section.
-  var BACKLOG_TABS = ["topics", "research"];
   var PROJECT_TABS = ["projects", "scripts"];
 
   var SECTION_LABELS = {
     create: "Create",
     templates: "Templates",
     projects: "Projects",
-    backlog: "Topic Backlog",
-    publishing: "Publishing",
     analytics: "Analytics",
-    intelligence: "YouTube Intelligence",
     settings: "Settings",
     overview: "Overview",
     "channel-manager": "Channel Manager",
-    research: "Niche Research",
-    topics: "Topic Studio",
     scripts: "Script Studio",
     storyboard: "Storyboard Studio",
     assets: "Asset Studio",
     voice: "Voice Studio",
     animation: "Animation Studio",
     thumbnails: "Thumbnail Studio",
-    calendar: "Publishing Calendar",
     fashion: "Generate",
     library: "Library",
     playlists: "Playlists",
     preset: "Preset Video",
     history: "History",
-    setup: "Provider Setup"
+    setup: "Provider Setup",
+    // Legacy labels survive only so redirect messages stay human-readable.
+    backlog: "Backlog (COSMOS)",
+    publishing: "Publishing (GENESIS)",
+    intelligence: "YouTube Intelligence (QUASAR)",
+    research: "Niche Research (QUASAR)",
+    topics: "Topic Studio (COSMOS)",
+    calendar: "Publishing Calendar (GENESIS)"
   };
 
   function normalizeWorkspace(value, fallback) {
@@ -104,9 +118,10 @@
     return sectionsFor(workspace).indexOf(text) !== -1;
   }
 
-  function normalizeBacklogTab(value) {
-    var text = String(value || "").trim().toLowerCase();
-    return BACKLOG_TABS.indexOf(text) !== -1 ? text : "topics";
+  function legacyRedirect(workspace, section) {
+    var map = LEGACY_REDIRECTS[workspace];
+    if (!map) return null;
+    return map[String(section || "").trim().toLowerCase()] || null;
   }
 
   function normalizeProjectTab(value) {
@@ -129,6 +144,13 @@
       return { view: "studio", workspace: null, section: null, explicitWorkspace: false };
     }
     var section = parts.length > 2 ? String(parts[2]).trim().toLowerCase() : "";
+    // Consolidated sections redirect to their COSMOS home instead of a
+    // duplicate (or removed) Studio panel — old deep links must never 404
+    // or open a blank screen.
+    if (section && legacyRedirect(workspace, section)) {
+      var redirect = legacyRedirect(workspace, section);
+      return { view: "cosmos", target: redirect.cosmos, note: redirect.note || null, legacySection: section };
+    }
     if (section && !isKnownSection(workspace, section)) section = "";
     return {
       view: "studio",
@@ -182,13 +204,13 @@
     ADS_SECTIONS: ADS_SECTIONS,
     YOUTUBE_SECTIONS: YOUTUBE_SECTIONS,
     LEGACY_SECTIONS: LEGACY_SECTIONS,
-    BACKLOG_TABS: BACKLOG_TABS,
+    LEGACY_REDIRECTS: LEGACY_REDIRECTS,
     PROJECT_TABS: PROJECT_TABS,
     normalizeWorkspace: normalizeWorkspace,
     sectionsFor: sectionsFor,
     normalizeSection: normalizeSection,
     isKnownSection: isKnownSection,
-    normalizeBacklogTab: normalizeBacklogTab,
+    legacyRedirect: legacyRedirect,
     normalizeProjectTab: normalizeProjectTab,
     defaultSection: defaultSection,
     parseHash: parseHash,

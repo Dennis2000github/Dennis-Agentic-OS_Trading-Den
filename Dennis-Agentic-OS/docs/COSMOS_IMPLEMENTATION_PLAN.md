@@ -349,3 +349,18 @@ All eight phases above are implemented and verified:
   (21/21 checks) covering the five-agent tab rail, Ads-left/YouTube-right
   divisions, deep links, empty states, Ads Create brief composition and the
   Product Backlog add/delete round-trip.
+
+---
+
+## Status addendum — 2026-11-19 (GENESIS)
+
+This document describes the COSMOS intelligence layer as implemented on
+2026-11-15 and remains accurate for the five-agent architecture. Since then,
+the production workflow described in section 2 ("Missing") has been built as
+**GENESIS**, a system-level production dashboard inside COSMOS — not a sixth
+agent. GENESIS owns production intake, project workspaces, final FFmpeg
+rendering, quality review, owner approval and publishing for both divisions;
+the Ads Product Backlog and the YouTube Topic Backlog / Publishing /
+YouTube Intelligence Studio screens were consolidated into COSMOS. See
+**docs/GENESIS_IMPLEMENTATION.md** for the current architecture, API routes,
+render/publishing adapters, test results and known limitations.

@@ -55,7 +55,7 @@
   <link rel="stylesheet" href="css/studio-ads.css?v=20261113-runtime-rail">
   <!-- UI UX Pro Max design system skin (design-system/dennis-agentic-os/MASTER.md) -->
   <link rel="stylesheet" href="css/theme-uiuxpro.css?v=20261112-uupm1">
-  <link rel="stylesheet" href="css/cosmos.css?v=20261115-cosmos1">
+  <link rel="stylesheet" href="css/cosmos.css?v=20261119-genesis1">
 </head>
 <body class="bg-[#060913] text-slate-100 h-screen overflow-hidden flex flex-col font-sans select-none">
 
@@ -1560,7 +1560,6 @@
               <nav class="collart-side-nav">
                 <button type="button" class="collart-side-item" data-studio-tab="create" data-nav-key="create"><i data-lucide="pen-line" class="w-4 h-4"></i><span>Create</span></button>
                 <button type="button" class="collart-side-item is-active" data-studio-tab="fashion" data-nav-key="generate"><i data-lucide="sparkles" class="w-4 h-4"></i><span>Generate</span></button>
-                <button type="button" class="collart-side-item" data-studio-tab="backlog" data-nav-key="ads-backlog"><i data-lucide="list-checks" class="w-4 h-4"></i><span>Product Backlog</span></button>
                 <button type="button" class="collart-side-item" data-studio-tab="assets" data-nav-key="assets"><i data-lucide="folder" class="w-4 h-4"></i><span>Assets</span></button>
                 <button type="button" class="collart-side-item" data-studio-subtab="library" data-nav-key="library"><i data-lucide="library" class="w-4 h-4"></i><span>Library</span></button>
                 <button type="button" class="collart-side-item" data-studio-subtab="playlists" data-nav-key="playlists"><i data-lucide="list-music" class="w-4 h-4"></i><span>Playlists</span></button>
@@ -1597,20 +1596,15 @@
                 <button type="button" class="collart-side-item is-active" data-yt-section="create"><i data-lucide="sparkles" class="w-4 h-4"></i><span>Create</span></button>
                 <button type="button" class="collart-side-item" data-yt-section="templates"><i data-lucide="layout-template" class="w-4 h-4"></i><span>Templates</span><em class="yt-soon">Phase 3</em></button>
                 <button type="button" class="collart-side-item" data-yt-section="projects"><i data-lucide="list-video" class="w-4 h-4"></i><span>Projects</span></button>
-                <button type="button" class="collart-side-item" data-yt-section="backlog"><i data-lucide="lightbulb" class="w-4 h-4"></i><span>Topic Backlog</span></button>
-                <div class="collart-side-label">Distribution</div>
-                <button type="button" class="collart-side-item" data-yt-section="publishing"><i data-lucide="upload" class="w-4 h-4"></i><span>Publishing</span><em class="yt-soon">Phase 10</em></button>
-                <button type="button" class="collart-side-item" data-yt-section="analytics"><i data-lucide="bar-chart-3" class="w-4 h-4"></i><span>Analytics</span><em class="yt-soon">Phase 10</em></button>
-                <div class="collart-side-label">Intelligence</div>
-                <button type="button" class="collart-side-item" data-yt-section="intelligence"><i data-lucide="orbit" class="w-4 h-4"></i><span>YouTube Intelligence</span></button>
+                <button type="button" class="collart-side-item" data-yt-section="analytics"><i data-lucide="bar-chart-3" class="w-4 h-4"></i><span>Analytics</span></button>
                 <div class="collart-side-label">Configure</div>
                 <button type="button" class="collart-side-item" data-yt-section="settings"><i data-lucide="settings-2" class="w-4 h-4"></i><span>Settings</span></button>
               </nav>
             </div>
             <div class="collart-side-bottom">
               <div class="yt-side-note">
-                <b>Phase 2 build</b>
-                <span>Create, projects, topic backlog, settings and the intelligence hub are live. Templates arrive in Phase 3; publishing and analytics in Phase 10 once Google OAuth is configured.</span>
+                <b>COSMOS consolidation</b>
+                <span>Create, projects, scripts, settings and analytics are live. Topic Backlog, Publishing and YouTube Intelligence live in COSMOS — publishing is the GENESIS production dashboard.</span>
               </div>
               <div class="collart-footnote"><span>YouTube Studio</span><span>|</span><span id="yt-build-chip" class="studio-catalog-chip">Phase 2</span></div>
             </div>
@@ -2622,57 +2616,6 @@
           </section>
         </div>
 
-        <!-- ============ Ads Product Backlog ============ -->
-        <div id="studio-panel-backlog" class="studio-panel studio-panel-backlog hidden">
-          <h1 class="collart-h1">Ads Product Backlog</h1>
-          <p class="collart-note">Products discovered or entered by the owner. Drafts land here first; status moves forward only, and publishing is never automatic.</p>
-
-          <div class="adc-grid">
-            <section class="adc-card">
-              <h2>Add a product</h2>
-              <label class="adc-field"><span>Product name</span><input id="adb-name" maxlength="200" placeholder="Floral midi dress"></label>
-              <div class="adc-row">
-                <label class="adc-field"><span>Merchant</span><input id="adb-merchant" maxlength="160" placeholder="Shopee"></label>
-                <label class="adc-field"><span>Category</span><input id="adb-category" maxlength="160" placeholder="Dresses"></label>
-              </div>
-              <div class="adc-row">
-                <label class="adc-field"><span>Price</span><input id="adb-price" type="number" min="0" step="0.01" placeholder="899"></label>
-                <label class="adc-field"><span>Currency</span><input id="adb-currency" maxlength="8" value="PHP"></label>
-              </div>
-              <label class="adc-field"><span>Product URL</span><input id="adb-url" maxlength="1000" placeholder="https://…"></label>
-              <label class="adc-field"><span>Target audience</span><input id="adb-audience" maxlength="600" placeholder="Women 18-35"></label>
-              <div class="adc-actions">
-                <button id="adb-add" type="button" class="collart-btn">Add product</button>
-              </div>
-              <p id="adb-error" class="adc-error hidden"></p>
-            </section>
-
-            <section class="adc-card">
-              <div class="adc-preview-head">
-                <h2>Products</h2>
-                <span id="adb-total" class="adc-badge">0</span>
-              </div>
-              <div class="adc-row">
-                <label class="adc-field"><span>Search</span><input id="adb-search" placeholder="Name, merchant, category…"></label>
-                <label class="adc-field"><span>Status</span>
-                  <select id="adb-status-filter">
-                    <option value="">All active</option>
-                    <option value="drafted">Drafted</option>
-                    <option value="discovered">Discovered</option>
-                    <option value="reviewing">Reviewing</option>
-                    <option value="approved">Approved</option>
-                    <option value="ready_for_creation">Ready for creation</option>
-                    <option value="in_production">In production</option>
-                    <option value="published">Published</option>
-                    <option value="archived">Archived</option>
-                  </select>
-                </label>
-              </div>
-              <div id="adb-list" class="adc-briefs"></div>
-            </section>
-          </div>
-        </div>
-
       </div><!-- /collart-content -->
 
       <footer class="collart-dock" id="collart-dock">
@@ -2891,82 +2834,6 @@
                 </div>
               </section>
 
-              <!-- ========================== TOPIC BACKLOG ======================== -->
-              <section class="yt-panel is-hidden" data-yt-panel="backlog">
-                <div class="yt-panel-head">
-                  <div>
-                    <h2>Topic Backlog</h2>
-                    <p>Idea → Researching → Validated → Approved → Scripted → In Production → Published. Approval requires a validation score of at least 18/25.</p>
-                  </div>
-                  <button id="yt-topic-create" type="button" class="collart-btn"><i data-lucide="plus" class="w-4 h-4"></i><span>New Topic</span></button>
-                </div>
-                <div class="yt-subtabs" role="tablist" aria-label="Backlog views">
-                  <button type="button" class="yt-subtab is-active" data-yt-btab="topics">Topics</button>
-                  <button type="button" class="yt-subtab" data-yt-btab="research">Research & Validation</button>
-                </div>
-
-                <div data-yt-btab-panel="topics">
-                  <div id="yt-topics-error" class="yt-error-banner is-hidden"><i data-lucide="alert-triangle" class="w-4 h-4"></i><span id="yt-topics-error-text"></span></div>
-                  <div id="yt-topic-pipeline" class="yt-pipeline-chips"></div>
-                  <div class="yt-toolbar">
-                    <label class="yt-search">
-                      <i data-lucide="search" class="w-4 h-4"></i>
-                      <input id="yt-topics-search" type="search" placeholder="Search topics…" aria-label="Search topics">
-                    </label>
-                    <label class="yt-select"><select id="yt-topics-status" aria-label="Filter by status">
-                      <option value="">All statuses</option>
-                    </select></label>
-                    <label class="yt-select"><select id="yt-topics-pillar" aria-label="Filter by pillar">
-                      <option value="">All pillars</option>
-                    </select></label>
-                    <label class="yt-select"><select id="yt-topics-priority" aria-label="Filter by priority">
-                      <option value="">All priorities</option>
-                      <option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option>
-                    </select></label>
-                    <label class="yt-check"><span>Min score</span><input id="yt-topics-min-score" type="number" min="0" max="25" class="yt-number" aria-label="Minimum validation score"></label>
-                    <span id="yt-topics-count" class="yt-count"></span>
-                  </div>
-                  <div id="yt-topics-list" class="yt-projects"></div>
-                </div>
-
-                <div class="is-hidden" data-yt-btab-panel="research">
-                  <div class="yt-panel-head yt-panel-head-sub">
-                    <div>
-                      <h3>Research & Validation</h3>
-                      <p>Five-criteria validation (18/25 threshold), sources with provenance, and competitor intelligence. Scores are analyst estimates — never measured platform data.</p>
-                    </div>
-                    <button id="yt-validation-create" type="button" class="collart-btn"><i data-lucide="plus" class="w-4 h-4"></i><span>New Validation</span></button>
-                  </div>
-                  <div id="yt-research-error" class="yt-error-banner is-hidden"><i data-lucide="alert-triangle" class="w-4 h-4"></i><span id="yt-research-error-text"></span></div>
-                  <div class="yt-grid-2">
-                    <section class="yt-card yt-card-wide">
-                      <div class="yt-card-head">
-                        <div><h3>Saved Validations</h3><p id="yt-research-rules"></p></div>
-                      </div>
-                      <div id="yt-research-list" class="yt-research-list"></div>
-                    </section>
-                    <section class="yt-card">
-                      <div class="yt-card-head">
-                        <div><h3>Competitor Intelligence</h3><p>Observations must be marked observed or assumed.</p></div>
-                        <button type="button" class="yt-link" data-yt-action="add-competitor">Add competitor</button>
-                      </div>
-                      <div id="yt-competitor-list" class="yt-competitor-list"></div>
-                    </section>
-                  </div>
-                </div>
-              </section>
-
-              <!-- =========================== PUBLISHING ========================== -->
-              <section class="yt-panel is-hidden" data-yt-panel="publishing">
-                <div class="yt-panel-head">
-                  <div>
-                    <h2>Publishing</h2>
-                    <p>Uploads, thumbnails, playlists and scheduling through the official YouTube Data API.</p>
-                  </div>
-                </div>
-                <div id="yt-publishing-flag"></div>
-              </section>
-
               <!-- ============================ ANALYTICS ========================== -->
               <section class="yt-panel is-hidden" data-yt-panel="analytics">
                 <div class="yt-panel-head">
@@ -2976,58 +2843,6 @@
                   </div>
                 </div>
                 <div id="yt-analytics-flag"></div>
-              </section>
-
-              <!-- ========================== INTELLIGENCE ========================= -->
-              <section class="yt-panel is-hidden" data-yt-panel="intelligence">
-                <div class="yt-panel-head">
-                  <div>
-                    <h2>YouTube Intelligence</h2>
-                    <p>Five independent workflows sharing one channel context. They operate behind the scenes and feed the Studio — never the other way around.</p>
-                  </div>
-                </div>
-                <div class="yt-intel-grid">
-                  <article class="yt-card yt-intel-card">
-                    <span class="yt-intel-icon"><i data-lucide="telescope" class="w-5 h-5"></i></span>
-                    <div class="yt-intel-copy">
-                      <h3>Hermes Oracle</h3>
-                      <p>Research intelligence: trending US business topics, evergreen demand, competitor monitoring and content gaps — every result traceable to a source.</p>
-                      <span class="yt-phase-badge">Phase 9</span>
-                    </div>
-                  </article>
-                  <article class="yt-card yt-intel-card">
-                    <span class="yt-intel-icon"><i data-lucide="audio-waveform" class="w-5 h-5"></i></span>
-                    <div class="yt-intel-copy">
-                      <h3>Hermes Muse</h3>
-                      <p>Audience intelligence: reads real channel performance (CTR, retention, RPM) and turns it into topic and template recommendations. Never fabricates analytics.</p>
-                      <span class="yt-phase-badge">Phase 9 · ranking feedback Phase 11</span>
-                    </div>
-                  </article>
-                  <article class="yt-card yt-intel-card">
-                    <span class="yt-intel-icon"><i data-lucide="search-check" class="w-5 h-5"></i></span>
-                    <div class="yt-intel-copy">
-                      <h3>Search OS</h3>
-                      <p>SEO intelligence: keyword research, search intent, long-tail clusters and title recommendations connected to the Topic Backlog.</p>
-                      <span class="yt-phase-badge">Phase 9</span>
-                    </div>
-                  </article>
-                  <article class="yt-card yt-intel-card">
-                    <span class="yt-intel-icon"><i data-lucide="shield-check" class="w-5 h-5"></i></span>
-                    <div class="yt-intel-copy">
-                      <h3>YouTube Review OS</h3>
-                      <p>Quality assurance across research accuracy, script, storytelling, animation, voice and monetization safety. Critical errors block approval.</p>
-                      <span class="yt-phase-badge">Phase 9</span>
-                    </div>
-                  </article>
-                  <article class="yt-card yt-intel-card">
-                    <span class="yt-intel-icon"><i data-lucide="orbit" class="w-5 h-5"></i></span>
-                    <div class="yt-intel-copy">
-                      <h3>Memory Galaxy</h3>
-                      <p>Shared memory on the existing Obsidian-compatible vault: channel identity, editorial guidelines, topic history, approved packages and performance reports.</p>
-                      <button id="yt-open-memory-galaxy" type="button" class="collart-btn-soft"><i data-lucide="orbit" class="w-4 h-4"></i><span>Open Memory Galaxy</span></button>
-                    </div>
-                  </article>
-                </div>
               </section>
 
               <!-- ============================ SETTINGS =========================== -->
@@ -4462,8 +4277,9 @@
   <script defer src="js/studioWorkspaceState.js?v=20261112-yt-phase2"></script>
   <script defer src="js/studioYoutube.js?v=20261113-yt-cleanup"></script>
   <script defer src="js/studioWorkspaces.js?v=20261112-yt-phase2"></script>
-  <script defer src="js/cosmosState.js?v=20261115-cosmos1"></script>
-  <script defer src="js/cosmosDashboard.js?v=20261115-cosmos1"></script>
+  <script defer src="js/cosmosState.js?v=20261119-genesis1"></script>
+  <script defer src="js/cosmosGenesis.js?v=20261119-genesis1"></script>
+  <script defer src="js/cosmosDashboard.js?v=20261119-genesis1"></script>
   <script defer src="js/studioCreate.js?v=20261115-cosmos1"></script>
   <script defer src="js/skill-builder.js?v=20261112-video-reverse"></script>
   <script defer src="vendor/marked.min.js"></script>

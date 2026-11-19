@@ -17,13 +17,23 @@
   var AGENT_ORDER = ["andromeda", "polaris", "pleiades", "quasar", "helios"];
   var DIVISIONS = ["ads", "youtube"];
 
+  // GENESIS is a system-level production dashboard, not a sixth agent. It
+  // lives alongside the agent tabs in the COSMOS rail and owns production,
+  // rendering, quality review and publishing.
+  var GENESIS_ID = "genesis";
+
   var DIVISION_TITLES = {
     ads: "Ads Intelligence",
     youtube: "YouTube Intelligence"
   };
 
+  function isGenesis(value) {
+    return String(value || "").trim().toLowerCase() === GENESIS_ID;
+  }
+
   function normalizeAgent(value, fallback) {
     var text = String(value || "").trim().toLowerCase();
+    if (isGenesis(text)) return GENESIS_ID;
     if (AGENT_ORDER.indexOf(text) !== -1) return text;
     return fallback == null ? AGENT_ORDER[0] : fallback;
   }
@@ -98,7 +108,7 @@
 
   function setActiveAgent(state, agentId) {
     state.activeAgent = normalizeAgent(agentId, state.activeAgent);
-    agentState(state, state.activeAgent);
+    if (state.activeAgent !== GENESIS_ID) agentState(state, state.activeAgent);
     return state.activeAgent;
   }
 
@@ -144,7 +154,8 @@
     state.config.channels = Array.isArray(data.channels) ? data.channels.slice() : [];
     state.llm = data.llm || state.llm;
     state.counts = data.counts || state.counts;
-    if (AGENT_ORDER.indexOf(state.activeAgent) === -1) state.activeAgent = AGENT_ORDER[0];
+    // GENESIS stays selected across refreshes; only unknown agent ids fall back.
+    if (state.activeAgent !== GENESIS_ID && AGENT_ORDER.indexOf(state.activeAgent) === -1) state.activeAgent = AGENT_ORDER[0];
     AGENT_ORDER.concat(state.agents.map(function (agent) { return agent.id; })).forEach(function (id) {
       if (id) agentState(state, id);
     });
@@ -247,10 +258,12 @@
     var text = String(hash || "").replace(/^#/, "");
     var parts = text.split("/").filter(function (part) { return part; });
     if (parts[0] !== "cosmos") return { view: null, agent: null };
+    if (parts[1] && isGenesis(parts[1])) return { view: "cosmos", agent: GENESIS_ID };
     return { view: "cosmos", agent: parts[1] ? normalizeAgent(parts[1]) : null };
   }
 
   function hashForAgent(agentId) {
+    if (isGenesis(agentId)) return "#cosmos/" + GENESIS_ID;
     return "#cosmos/" + normalizeAgent(agentId);
   }
 
@@ -285,6 +298,28 @@
     return "muted";
   }
 
+  // GENESIS production statuses extend the shared tone map.
+  var GENESIS_TONES = {
+    complete: "ok",
+    in_production: "info",
+    rendering: "info",
+    quality_review: "info",
+    awaiting_approval: "warn",
+    scheduled: "info",
+    publishing: "info",
+    cancelled: "muted",
+    preparing: "info",
+    waiting_media: "info",
+    assembling: "info",
+    queued: "muted"
+  };
+
+  function statusToneExtended(status) {
+    var key = String(status || "").toLowerCase();
+    if (GENESIS_TONES[key]) return GENESIS_TONES[key];
+    return statusTone(status);
+  }
+
   function evidenceLabel(value) {
     var key = String(value || "hypothesis").toLowerCase();
     var labels = {
@@ -300,6 +335,8 @@
   return {
     AGENT_ORDER: AGENT_ORDER,
     DIVISIONS: DIVISIONS,
+    GENESIS_ID: GENESIS_ID,
+    isGenesis: isGenesis,
     normalizeAgent: normalizeAgent,
     normalizeDivision: normalizeDivision,
     divisionTitle: divisionTitle,
@@ -331,6 +368,7 @@
     formatDuration: formatDuration,
     formatWhen: formatWhen,
     statusTone: statusTone,
+    statusToneExtended: statusToneExtended,
     evidenceLabel: evidenceLabel
   };
 });

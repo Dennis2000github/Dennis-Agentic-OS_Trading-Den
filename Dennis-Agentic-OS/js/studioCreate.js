@@ -1,10 +1,12 @@
 /* =====================================================================
-   Ads Studio · Create + Product Backlog.
+   Ads Studio · Create.
 
    Additive to the existing five-step Generate workflow. Create composes a
    reviewable brief from the active Ads template, then hands it to a draft
    Ads project and prefills the Generate prompt. It never renders or
-   publishes. The backlog is the same store COSMOS drafts into.
+   publishes. Products load from the COSMOS Product Backlog — the single
+   authoritative backlog management interface now lives in COSMOS, so this
+   module no longer renders its own duplicate backlog screen.
    ===================================================================== */
 (function () {
   "use strict";
@@ -148,25 +150,6 @@
     setError("adc-error", "");
     return Promise.all([loadContext(), loadBriefs()]).catch(function (err) {
       setError("adc-error", err.message || String(err));
-    });
-  }
-
-  function refreshBacklog() {
-    setError("adb-error", "");
-    var filter = $("adb-status-filter");
-    var search = $("adb-search");
-    var params = ["limit=200"];
-    var status = filter ? filter.value : "";
-    var query = search ? search.value.trim() : "";
-    if (status) params.push("status=" + encodeURIComponent(status));
-    if (status === "archived") params.push("include_archived=1");
-    if (query) params.push("q=" + encodeURIComponent(query));
-    return api("/api/cosmos/backlog/ads?" + params.join("&")).then(function (data) {
-      S.products = data.products || [];
-      renderProductOptions();
-      renderBacklog(data.counts || {});
-    }).catch(function (err) {
-      setError("adb-error", err.message || String(err));
     });
   }
 
@@ -396,115 +379,6 @@
   }
 
   // -----------------------------------------------------------------------
-  // Backlog rendering
-  // -----------------------------------------------------------------------
-  function renderBacklog(counts) {
-    var host = $("adb-list");
-    var total = $("adb-total");
-    if (total) total.textContent = String((counts && counts.total) || (S.products || []).length);
-    if (!host) return;
-    if (!S.products.length) {
-      host.innerHTML = '<div class="adc-empty">No products match. Add one here or draft an Ads recommendation from COSMOS.</div>';
-      return;
-    }
-    host.innerHTML = S.products.map(function (product) {
-      var currentIndex = STATUS_ORDER.indexOf(product.status);
-      var allowed = STATUS_ORDER.slice(Math.max(0, currentIndex)).filter(function (status, index, list) {
-        return list.indexOf(status) === index;
-      });
-      var provenance = product.provenance || {};
-      return [
-        '<div class="adc-product">',
-        '  <div class="adc-product-main"><b>' + esc(product.name) + "</b>",
-        "    <em>" + esc(product.merchant || "No merchant") + " · " + esc(priceLabel(product.price)) +
-          (product.category ? " · " + esc(product.category) : "") + "</em>",
-        provenance.agent_id ? '    <span class="adc-provenance">from ' + esc(String(provenance.agent_id).toUpperCase()) +
-          (provenance.execution_id ? " · " + esc(provenance.execution_id) : "") + "</span>" : "",
-        "  </div>",
-        '  <div class="adc-product-actions">',
-        '    <div class="adc-status"><select data-adb-status="' + esc(product.id) + '" aria-label="Product status">' +
-        allowed.map(function (status) {
-          return '<option value="' + esc(status) + '"' + (status === product.status ? " selected" : "") + ">" +
-            esc(STATUS_LABELS[status] || status) + "</option>";
-        }).join("") + "</select></div>",
-        product.status === "archived" ? "" : '    <button type="button" class="collart-btn-soft" data-adb-create="' + esc(product.id) + '">Use in Create</button>',
-        '    <button type="button" class="collart-btn-soft" data-adb-delete="' + esc(product.id) + '">Delete</button>',
-        "  </div>",
-        "</div>"
-      ].filter(Boolean).join("\n");
-    }).join("\n");
-    icons();
-  }
-
-  function addProduct() {
-    var button = $("adb-add");
-    setError("adb-error", "");
-    var payload = {
-      name: (($("adb-name") || {}).value || "").trim(),
-      merchant: (($("adb-merchant") || {}).value || "").trim(),
-      category: (($("adb-category") || {}).value || "").trim(),
-      target_audience: (($("adb-audience") || {}).value || "").trim(),
-      product_url: (($("adb-url") || {}).value || "").trim(),
-      status: "drafted"
-    };
-    var amount = ($("adb-price") || {}).value;
-    if (amount !== "" && amount !== undefined) {
-      payload.price = {
-        amount: Number(amount),
-        currency: (($("adb-currency") || {}).value || "PHP").trim() || "PHP"
-      };
-    }
-    busy(button, true, "Adding…");
-    return api("/api/cosmos/backlog/ads", { method: "POST", body: payload }).then(function () {
-      busy(button, false);
-      ["adb-name", "adb-merchant", "adb-category", "adb-audience", "adb-url", "adb-price"].forEach(function (id) {
-        var el = $(id);
-        if (el) el.value = "";
-      });
-      toast("Product added to the backlog.");
-      return refreshBacklog();
-    }).catch(function (err) {
-      busy(button, false);
-      setError("adb-error", err.message || String(err));
-    });
-  }
-
-  function changeStatus(productId, status) {
-    return api("/api/cosmos/backlog/ads/" + encodeURIComponent(productId) + "/status", {
-      method: "POST", body: { status: status }
-    }).then(function () {
-      toast("Status updated.");
-      return refreshBacklog();
-    }).catch(function (err) {
-      setError("adb-error", err.message || String(err));
-      return refreshBacklog();
-    });
-  }
-
-  function deleteProduct(productId) {
-    if (window.confirm && !window.confirm("Remove this product from the backlog?")) return;
-    return api("/api/cosmos/backlog/ads/" + encodeURIComponent(productId), { method: "DELETE" })
-      .then(function () {
-        toast("Product removed.");
-        return refreshBacklog();
-      }).catch(function (err) {
-        setError("adb-error", err.message || String(err));
-      });
-  }
-
-  function useInCreate(productId) {
-    if (window.StudioWorkspaces && window.StudioWorkspaces.go) {
-      try { window.StudioWorkspaces.go("ads", "create"); } catch (err) { /* direct tab fallback */ }
-    } else if (window.Studio && window.Studio.setTab) {
-      window.Studio.setTab("create");
-    }
-    var select = $("adc-product");
-    if (select) select.value = productId;
-    var instruction = $("adc-instruction");
-    if (instruction) instruction.focus();
-  }
-
-  // -----------------------------------------------------------------------
   // Events
   // -----------------------------------------------------------------------
   function bind() {
@@ -554,34 +428,6 @@
       });
     }
 
-    var add = $("adb-add");
-    if (add) add.addEventListener("click", addProduct);
-    var filter = $("adb-status-filter");
-    if (filter) filter.addEventListener("change", refreshBacklog);
-    var search = $("adb-search");
-    if (search) {
-      var timer = null;
-      search.addEventListener("input", function () {
-        if (timer) clearTimeout(timer);
-        timer = setTimeout(refreshBacklog, 260);
-      });
-    }
-
-    var list = $("adb-list");
-    if (list) {
-      list.addEventListener("change", function (event) {
-        var product = event.target.getAttribute("data-adb-status");
-        if (product) changeStatus(product, event.target.value);
-      });
-      list.addEventListener("click", function (event) {
-        var button = event.target.closest("button");
-        if (!button) return;
-        var use = button.getAttribute("data-adb-create");
-        if (use) return useInCreate(use);
-        var remove = button.getAttribute("data-adb-delete");
-        if (remove) return deleteProduct(remove);
-      });
-    }
   }
 
   function init() {
@@ -597,13 +443,9 @@
       init();
       return refreshCreate();
     },
-    showBacklog: function () {
-      init();
-      return refreshBacklog();
-    },
     refresh: function () {
       init();
-      return Promise.all([refreshCreate(), refreshBacklog()]);
+      return refreshCreate();
     }
   };
 

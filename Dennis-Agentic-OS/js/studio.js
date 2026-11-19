@@ -2539,7 +2539,9 @@
       S.higgsfieldTab = tab;
       tab = "higgsfield";
     }
-    if (["higgsfield", "fashion", "setup", "assets", "preset", "create", "backlog"].indexOf(tab) === -1) tab = "fashion";
+    // "backlog" moved to COSMOS (single authoritative Product Backlog);
+    // legacy deep links are redirected before reaching this whitelist.
+    if (["higgsfield", "fashion", "setup", "assets", "preset", "create"].indexOf(tab) === -1) tab = "fashion";
     S.tab = tab;
     updateHeader();
     Array.prototype.forEach.call(document.querySelectorAll("[data-studio-tab]"), function (button) {
@@ -2563,7 +2565,6 @@
     show($("studio-panel-assets"), tab === "assets");
     show($("studio-panel-preset"), tab === "preset");
     show($("studio-panel-create"), tab === "create");
-    show($("studio-panel-backlog"), tab === "backlog");
     show($("studio-panel-setup"), tab === "setup");
     var settings = $("studio-settings-btn");
     if (settings) settings.classList.toggle("active", tab === "setup");
@@ -2586,7 +2587,6 @@
     }
     if (tab === "setup") renderSetup();
     if (tab === "create" && window.StudioCreate) window.StudioCreate.showCreate();
-    if (tab === "backlog" && window.StudioCreate) window.StudioCreate.showBacklog();
   }
 
   function providerSafeUrl(url) {

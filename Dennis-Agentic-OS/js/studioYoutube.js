@@ -1,19 +1,21 @@
 /* =====================================================================
-   YOUTUBE STUDIO — master-spec workspace (Phase 2).
+   YOUTUBE STUDIO — creative workspace.
 
-   Seven sections + Settings, per the YouTube Studio master specification:
-     Create · Templates · Projects · Topic Backlog · Publishing ·
-     Analytics · YouTube Intelligence · Settings.
+   Five sections after the COSMOS consolidation:
+     Create · Templates · Projects · Analytics · Settings.
+
+   Topic Backlog, Publishing and YouTube Intelligence live in COSMOS now
+   (backlog management, the GENESIS Publishing Center and QUASAR's research
+   domain). This module keeps the creative workspace: composer, projects,
+   scripts, channel settings and the analytics placeholder.
 
    Real data only:
      - workspace descriptor / projects: /api/studio/workspaces[/youtube/...];
-     - editorial backend: /api/studio/youtube/* (channels, research,
-       competitors, topics, scripts, llm, features, overview);
-     - the composer creates a backlog topic; it never fakes templates,
-       packaging, publishing or analytics.
-
-   Templates (Phase 3), packaging (Phase 6), production (Phase 8) and
-   publishing/analytics (Phase 10, OAuth-gated) render honest placeholders.
+     - editorial backend: /api/studio/youtube/* (channels, topics, scripts,
+       llm, features, overview);
+     - the composer creates a backlog topic in the same store COSMOS
+       manages; it never fakes templates, packaging, publishing or
+       analytics.
    ===================================================================== */
 (function () {
   "use strict";
@@ -49,14 +51,11 @@
     topicCounts: {},
     topicStatuses: [],
     topicQuery: { q: "", status: "", pillar: "", priority: "", min_score: "" },
-    validations: [],
-    competitors: [],
     scripts: [],
     scriptQuery: { q: "", status: "" },
     currentScript: null,
     currentVersions: [],
     llm: null,
-    backlogTab: "topics",
     projectTab: "projects"
   };
 
@@ -304,37 +303,6 @@
       return payload;
     }).catch(function (error) {
       panelError("yt-topics-error", error.message);
-    });
-  }
-
-  function loadBacklogPage() {
-    var chain = loadTopics().then(function () {
-      renderTopicPipeline();
-      renderTopics();
-    });
-    if (S.backlogTab === "research") {
-      chain = Promise.all([loadValidations(), loadCompetitors()]).then(function () {
-        renderResearch();
-      });
-    }
-    return chain;
-  }
-
-  function loadValidations() {
-    return yt("/research").then(function (payload) {
-      S.validations = payload.validations || [];
-      return S.validations;
-    }).catch(function (error) {
-      panelError("yt-research-error", error.message);
-    });
-  }
-
-  function loadCompetitors() {
-    return yt("/competitors").then(function (payload) {
-      S.competitors = payload.competitors || [];
-      return S.competitors;
-    }).catch(function (error) {
-      panelError("yt-research-error", error.message);
     });
   }
 
@@ -631,143 +599,6 @@
     }[status] || "muted";
   }
 
-  function topicNextActions(topic) {
-    var actions = [];
-    switch (topic.status) {
-      case "idea": actions.push(["researching", "Start research"]); break;
-      case "researching": actions.push(["validated", "Mark validated"]); break;
-      case "validated": actions.push(["approved", "Approve"]); break;
-      case "approved": actions.push(["__script__", "New script"]); break;
-      case "scripted": actions.push(["in_production", "Start production"]); break;
-      case "in_production": actions.push(["published", "Mark published"]); break;
-    }
-    if (topic.status !== "published") actions.push(["rejected", "Reject"]);
-    return actions;
-  }
-
-  function renderTopicPipeline() {
-    var host = $("yt-topic-pipeline");
-    if (!host) return;
-    var statuses = S.topicStatuses.length ? S.topicStatuses : Object.keys(TOPIC_LABELS);
-    host.innerHTML = statuses.map(function (status) {
-      var value = S.topicCounts[status] || 0;
-      return '<span class="yt-pipe-chip' + (value ? " has-items" : "") + '">' +
-        esc(TOPIC_LABELS[status] || status) + " <b>" + value + "</b></span>";
-    }).join("");
-  }
-
-  function renderTopics() {
-    var host = $("yt-topics-list");
-    if (!host) return;
-    panelError("yt-topics-error", "");
-    setText("yt-topics-count", (S.topics.length || 0) + " topic" + (S.topics.length === 1 ? "" : "s"));
-    if (!S.topics.length) {
-      host.innerHTML = emptyState(
-        "No topics here yet",
-        "Create a topic from the Create screen, or add one manually. Template recommendations attach in Phase 4.",
-        { id: "topic", label: "New Topic", icon: "lightbulb" }
-      );
-      icons();
-      return;
-    }
-    host.innerHTML = S.topics.map(topicCard).join("");
-    icons();
-  }
-
-  function topicCard(topic) {
-    var template = topic.template_name
-      ? '<span class="yt-template-chip"><i data-lucide="layout-template" class="w-3 h-3"></i> ' + esc(topic.template_name) + "</span>"
-      : "";
-    var actions = topicNextActions(topic).map(function (pair) {
-      return '<button type="button" class="yt-link" data-yt-topic-status="' + esc(pair[0]) + '" data-yt-topic-id="' + esc(topic.id) + '">' + esc(pair[1]) + "</button>";
-    }).join(" ");
-    var score = topic.score != null
-      ? '<span class="yt-score-pill ' + (topic.score >= 18 ? "pass" : "fail") + '">' + topic.score + "/25</span>"
-      : '<span class="yt-score-pill none">no validation</span>';
-    return '<article class="yt-topic-card" data-yt-topic-card="' + esc(topic.id) + '">' +
-      '<div class="yt-topic-head">' +
-        "<h3>" + esc(topic.title) + "</h3>" +
-        '<div class="yt-project-badges">' +
-          '<span class="yt-badge yt-badge-' + topicTone(topic.status) + '">' + esc(TOPIC_LABELS[topic.status] || topic.status) + "</span>" +
-          (topic.priority ? '<span class="yt-badge yt-badge-stage">' + esc(topic.priority) + "</span>" : "") +
-          score +
-        "</div>" +
-      "</div>" +
-      (topic.angle ? '<p class="yt-topic-angle">' + esc(topic.angle) + "</p>" : "") +
-      '<div class="yt-topic-foot">' +
-        "<span>" + esc(topic.pillar || "No pillar") + "</span>" +
-        template +
-        "<span>Updated " + esc(dateLabel(topic.updated_iso)) + "</span>" +
-        '<span class="yt-topic-actions">' + actions +
-          '<button type="button" class="yt-danger-btn" data-yt-topic-delete="' + esc(topic.id) + '">Delete</button>' +
-        "</span>" +
-      "</div>" +
-      "</article>";
-  }
-
-  /* ------------------------------------------------------------------ */
-  /* Renderers — Research & competitors                                  */
-  /* ------------------------------------------------------------------ */
-  function renderResearch() {
-    panelError("yt-research-error", "");
-    var rules = (S.overview && S.overview.rules && S.overview.rules.validation) || null;
-    var rulesHost = $("yt-research-rules");
-    if (rulesHost) {
-      rulesHost.textContent = rules
-        ? "Each criterion scores " + rules.min_score + "–" + rules.max_score + " (max " + rules.max_total + "); approval needs " + rules.approval_threshold + "/25. Scores are analyst estimates."
-        : "Five criteria, 1–5 each, approval at 18/25. Scores are analyst estimates.";
-    }
-    var host = $("yt-research-list");
-    if (host) {
-      if (!S.validations.length) {
-        host.innerHTML = emptyState("No validations yet", "Validate a niche before approving topics — the 18/25 threshold is enforced by the backend.", { id: "validation", label: "New Validation", icon: "search" });
-      } else {
-        host.innerHTML = S.validations.map(function (validation) {
-          var tone = validation.verdict === "pass" ? "pass" : (validation.verdict === "fail" ? "fail" : "review");
-          return '<article class="yt-research-card">' +
-            '<div class="yt-topic-head">' +
-              "<h3>" + esc(validation.subject) + "</h3>" +
-              '<div class="yt-project-badges">' +
-                '<span class="yt-score-pill ' + tone + '">' + esc(validation.total_score) + "/" + esc(validation.max_total) + "</span>" +
-                '<span class="yt-badge yt-badge-' + (validation.verdict === "pass" ? "ok" : validation.verdict === "fail" ? "muted" : "warn") + '">' + esc(validation.verdict) + "</span>" +
-              "</div>" +
-            "</div>" +
-            (validation.summary ? '<p class="yt-topic-angle">' + esc(validation.summary) + "</p>" : "") +
-            '<div class="yt-topic-foot">' +
-              "<span>" + esc(validation.pillar || "No pillar") + "</span>" +
-              "<span>" + esc((validation.sources || []).length) + " source" + ((validation.sources || []).length === 1 ? "" : "s") + "</span>" +
-              "<span>Updated " + esc(dateLabel(validation.updated_iso)) + "</span>" +
-              '<span class="yt-topic-actions">' +
-                '<button type="button" class="yt-link" data-yt-validation-topic="' + esc(validation.id) + '">Create topic</button>' +
-                '<button type="button" class="yt-danger-btn" data-yt-validation-delete="' + esc(validation.id) + '">Delete</button>' +
-              "</span>" +
-            "</div>" +
-            "</article>";
-        }).join("");
-      }
-      icons();
-    }
-    var compHost = $("yt-competitor-list");
-    if (compHost) {
-      if (!S.competitors.length) {
-        compHost.innerHTML = '<p class="yt-panel-note">No competitors recorded. Observations must be marked observed or assumed.</p>';
-      } else {
-        compHost.innerHTML = S.competitors.map(function (competitor) {
-          var observations = (competitor.observations || []).slice(-3).map(function (observation) {
-            return '<li><span class="yt-ref-chip">' + esc(observation.basis || "observed") + "</span> " + esc(observation.note) + "</li>";
-          }).join("");
-          return '<article class="yt-competitor-card">' +
-            '<div class="yt-topic-head"><h3>' + esc(competitor.name) + "</h3>" +
-            '<span class="yt-topic-actions"><button type="button" class="yt-link" data-yt-competitor-observe="' + esc(competitor.id) + '">Add observation</button></span></div>' +
-            (competitor.url ? '<p class="yt-hint yt-mono">' + esc(competitor.url) + "</p>" : "") +
-            (observations ? "<ul class=\"yt-competitor-notes\">" + observations + "</ul>" : "") +
-            "</article>";
-        }).join("");
-      }
-      icons();
-    }
-  }
-
   /* ------------------------------------------------------------------ */
   /* Renderers — Publishing / Analytics feature flags                    */
   /* ------------------------------------------------------------------ */
@@ -781,12 +612,6 @@
     return '<div class="yt-empty"><div class="yt-empty-icon"><i data-lucide="lock" class="w-6 h-6"></i></div>' +
       "<h3>Not available yet</h3><p>" + esc(feature.reason || copy || (title + " arrives in Phase 10 once Google OAuth is configured.")) + "</p>" +
       '<div class="yt-placeholder-foot"><span>Nothing is faked in the meantime — no uploads, no metrics.</span></div></div>';
-  }
-
-  function renderPublishing() {
-    var host = $("yt-publishing-flag");
-    if (host) host.innerHTML = featureNote("publishing", "Publishing", "Publishing arrives in Phase 10 once a Google Cloud OAuth client is configured.");
-    icons();
   }
 
   function renderAnalytics() {
@@ -1004,11 +829,11 @@
       body: { title: title, notes: text, priority: "P2" }
     }).then(function () {
       if (prompt) prompt.value = "";
-      toast("Topic added to the backlog.");
-      go("backlog");
+      toast("Topic added to the COSMOS Topic Backlog.");
+      setError("Topic created. Manage it in COSMOS — the Topic Backlog lives there now.");
     }).catch(function (error) {
       setError(error.code === "duplicate_topic"
-        ? error.message + " Open the Topic Backlog to review it."
+        ? error.message + " Open the COSMOS Topic Backlog to review it."
         : error.message);
     }).then(function () {
       setBusy(button, false);
@@ -1161,277 +986,6 @@
         });
       });
     }
-  }
-
-  /* ------------------------------------------------------------------ */
-  /* Topic actions                                                       */
-  /* ------------------------------------------------------------------ */
-  function setTopicStatus(topicId, status) {
-    var body = { status: status };
-    if (status === "rejected") {
-      var reason = window.prompt("Why is this topic rejected? (optional)") || "";
-      if (reason) body.reason = reason;
-    }
-    yt("/topics/" + encodeURIComponent(topicId) + "/status", { method: "POST", body: body })
-      .then(function () {
-        toast("Topic updated.");
-        return loadTopics();
-      })
-      .then(function () {
-        renderTopicPipeline();
-        renderTopics();
-      })
-      .catch(function (error) {
-        panelError("yt-topics-error", error.message);
-      });
-  }
-
-  function deleteTopic(topicId) {
-    yt("/topics/" + encodeURIComponent(topicId), { method: "DELETE" })
-      .then(function () {
-        toast("Topic deleted.");
-        return loadTopics();
-      })
-      .then(function () {
-        renderTopicPipeline();
-        renderTopics();
-      })
-      .catch(function (error) {
-        panelError("yt-topics-error", error.message);
-      });
-  }
-
-  function openTopicModal() {
-    var pillars = (S.activeChannel && S.activeChannel.content_pillars) || [];
-    var pillarOptions = '<option value="">No pillar</option>' + pillars.map(function (pillar) {
-      return '<option value="' + esc(pillar.label) + '">' + esc(pillar.label) + "</option>";
-    }).join("");
-    openModal(
-      "New Topic",
-      '<form id="yt-topic-form" class="yt-form" autocomplete="off">' +
-        '<label class="yt-field"><span>Title <em>required</em></span>' +
-          '<input id="yt-topic-title" type="text" maxlength="160" placeholder="e.g. How the S-Corp salary rule actually works" required></label>' +
-        '<label class="yt-field"><span>Angle</span><textarea id="yt-topic-angle" rows="2" maxlength="500" placeholder="The specific take or question"></textarea></label>' +
-        '<div class="yt-form-grid">' +
-          '<label class="yt-field"><span>Content pillar</span><select id="yt-topic-pillar">' + pillarOptions + "</select></label>" +
-          '<label class="yt-field"><span>Priority</span><select id="yt-topic-priority"><option value="P1">P1</option><option value="P2" selected>P2</option><option value="P3">P3</option></select></label>' +
-        "</div>" +
-        '<p class="yt-hint">Topics can also be created from a saved validation in the Research tab.</p>' +
-        '<p id="yt-modal-error" class="yt-form-error is-hidden"></p>' +
-      "</form>",
-      modalFoot('<button type="button" class="collart-btn" id="yt-topic-create-go">Create Topic</button>')
-    );
-    var button = $("yt-topic-create-go");
-    var submit = function () {
-      var title = $("yt-topic-title");
-      if (!title || !title.value.trim()) { modalError("A title is required."); return; }
-      modalError("");
-      setBusy(button, true, "Creating…");
-      yt("/topics", {
-        method: "POST",
-        body: {
-          title: title.value.trim(),
-          angle: ($("yt-topic-angle") || {}).value || "",
-          pillar: ($("yt-topic-pillar") || {}).value || "",
-          priority: ($("yt-topic-priority") || {}).value || "P2"
-        }
-      }).then(function () {
-        closeModal();
-        toast("Topic created.");
-        return loadTopics();
-      }).then(function () {
-        renderTopicPipeline();
-        renderTopics();
-      }).catch(function (error) {
-        modalError(error.message);
-      }).then(function () {
-        setBusy(button, false);
-      });
-    };
-    if (button) button.addEventListener("click", submit);
-    var form = $("yt-topic-form");
-    if (form) form.addEventListener("submit", function (event) { event.preventDefault(); submit(); });
-  }
-
-  /* ------------------------------------------------------------------ */
-  /* Validation + competitor actions                                     */
-  /* ------------------------------------------------------------------ */
-  function criteriaInputs() {
-    var meta = [
-      ["rpm_potential", "RPM potential"],
-      ["proven_demand", "Proven demand"],
-      ["geographic_audience", "Geographic audience"],
-      ["content_sustainability", "Content sustainability"],
-      ["content_gap", "Content gap"]
-    ];
-    return meta.map(function (item) {
-      return '<div class="yt-criterion"><b>' + esc(item[1]) + "</b>" +
-        '<select data-yt-criterion="' + esc(item[0]) + '">' +
-          [1, 2, 3, 4, 5].map(function (score) {
-            return '<option value="' + score + '"' + (score === 3 ? " selected" : "") + ">" + score + "</option>";
-          }).join("") +
-        "</select></div>";
-    }).join("");
-  }
-
-  function openValidationModal() {
-    var pillars = (S.activeChannel && S.activeChannel.content_pillars) || [];
-    var pillarOptions = '<option value="">No pillar</option>' + pillars.map(function (pillar) {
-      return '<option value="' + esc(pillar.label) + '">' + esc(pillar.label) + "</option>";
-    }).join("");
-    openModal(
-      "New Niche Validation",
-      '<form id="yt-validation-form" class="yt-form" autocomplete="off">' +
-        '<label class="yt-field"><span>Subject <em>required</em></span>' +
-          '<input id="yt-val-subject" type="text" maxlength="160" placeholder="e.g. Quarterly estimated taxes for new freelancers" required></label>' +
-        '<label class="yt-field"><span>Content pillar</span><select id="yt-val-pillar">' + pillarOptions + "</select></label>" +
-        '<div class="yt-criteria-grid">' + criteriaInputs() + "</div>" +
-        '<label class="yt-field"><span>Summary</span><textarea id="yt-val-summary" rows="2" maxlength="4000" placeholder="Why this niche, who it serves, what the angle is"></textarea></label>' +
-        '<div class="yt-form-grid">' +
-          '<label class="yt-field"><span>Source label (optional)</span><input id="yt-val-source-label" type="text" maxlength="200" placeholder="e.g. IRS Publication 334"></label>' +
-          '<label class="yt-field"><span>Source URL (optional)</span><input id="yt-val-source-url" type="url" maxlength="500" placeholder="https://…"></label>' +
-        "</div>" +
-        '<p class="yt-hint">Scores are analyst estimates. Measured figures must come from a recorded source — nothing is invented.</p>' +
-        '<p id="yt-modal-error" class="yt-form-error is-hidden"></p>' +
-      "</form>",
-      modalFoot('<button type="button" class="collart-btn" id="yt-val-create-go">Save Validation</button>')
-    );
-    var button = $("yt-val-create-go");
-    var submit = function () {
-      var subject = $("yt-val-subject");
-      if (!subject || !subject.value.trim()) { modalError("A subject is required."); return; }
-      modalError("");
-      var criteria = {};
-      Array.prototype.forEach.call(document.querySelectorAll("[data-yt-criterion]"), function (select) {
-        criteria[select.getAttribute("data-yt-criterion")] = { score: parseInt(select.value, 10) || 3 };
-      });
-      var sources = [];
-      var label = ($("yt-val-source-label") || {}).value || "";
-      var url = ($("yt-val-source-url") || {}).value || "";
-      if (label.trim()) sources.push({ label: label.trim(), url: url.trim() });
-      setBusy(button, true, "Saving…");
-      yt("/research", {
-        method: "POST",
-        body: {
-          subject: subject.value.trim(),
-          pillar: ($("yt-val-pillar") || {}).value || "",
-          criteria: criteria,
-          summary: ($("yt-val-summary") || {}).value || "",
-          sources: sources
-        }
-      }).then(function () {
-        closeModal();
-        toast("Validation saved.");
-        return Promise.all([loadValidations(), yt("/overview")]);
-      }).then(function (results) {
-        S.overview = results[1];
-        renderResearch();
-      }).catch(function (error) {
-        modalError(error.message);
-      }).then(function () {
-        setBusy(button, false);
-      });
-    };
-    if (button) button.addEventListener("click", submit);
-    var form = $("yt-validation-form");
-    if (form) form.addEventListener("submit", function (event) { event.preventDefault(); submit(); });
-  }
-
-  function validationToTopic(validationId) {
-    yt("/research/" + encodeURIComponent(validationId) + "/to-topic", { method: "POST", body: {} })
-      .then(function () {
-        toast("Topic created from validation.");
-        return Promise.all([loadTopics(), loadValidations()]);
-      })
-      .then(function () {
-        renderTopicPipeline();
-        renderTopics();
-        renderResearch();
-      })
-      .catch(function (error) {
-        panelError("yt-research-error", error.message);
-      });
-  }
-
-  function deleteValidation(validationId) {
-    yt("/research/" + encodeURIComponent(validationId), { method: "DELETE" })
-      .then(function () {
-        toast("Validation deleted.");
-        return loadValidations();
-      })
-      .then(renderResearch)
-      .catch(function (error) {
-        panelError("yt-research-error", error.message);
-      });
-  }
-
-  function openCompetitorModal() {
-    openModal(
-      "Add Competitor",
-      '<form id="yt-competitor-form" class="yt-form" autocomplete="off">' +
-        '<label class="yt-field"><span>Name <em>required</em></span><input id="yt-comp-name" type="text" maxlength="120" required></label>' +
-        '<label class="yt-field"><span>Channel URL</span><input id="yt-comp-url" type="url" maxlength="300" placeholder="https://youtube.com/@…"></label>' +
-        '<label class="yt-field"><span>Positioning</span><textarea id="yt-comp-positioning" rows="2" maxlength="600"></textarea></label>' +
-        '<p id="yt-modal-error" class="yt-form-error is-hidden"></p>' +
-      "</form>",
-      modalFoot('<button type="button" class="collart-btn" id="yt-comp-create-go">Add Competitor</button>')
-    );
-    var button = $("yt-comp-create-go");
-    var submit = function () {
-      var name = $("yt-comp-name");
-      if (!name || !name.value.trim()) { modalError("A name is required."); return; }
-      modalError("");
-      setBusy(button, true, "Adding…");
-      yt("/competitors", {
-        method: "POST",
-        body: {
-          name: name.value.trim(),
-          url: ($("yt-comp-url") || {}).value || "",
-          positioning: ($("yt-comp-positioning") || {}).value || ""
-        }
-      }).then(function () {
-        closeModal();
-        toast("Competitor added.");
-        return loadCompetitors();
-      }).then(renderResearch)
-        .catch(function (error) { modalError(error.message); })
-        .then(function () { setBusy(button, false); });
-    };
-    if (button) button.addEventListener("click", submit);
-    var form = $("yt-competitor-form");
-    if (form) form.addEventListener("submit", function (event) { event.preventDefault(); submit(); });
-  }
-
-  function openObservationModal(competitorId) {
-    openModal(
-      "Add Observation",
-      '<form id="yt-observation-form" class="yt-form" autocomplete="off">' +
-        '<label class="yt-field"><span>Observation <em>required</em></span><textarea id="yt-obs-note" rows="2" maxlength="600" placeholder="What did you actually see?" required></textarea></label>' +
-        '<label class="yt-field"><span>Basis</span><select id="yt-obs-basis"><option value="observed">Observed</option><option value="assumption">Assumption</option></select></label>' +
-        '<p id="yt-modal-error" class="yt-form-error is-hidden"></p>' +
-      "</form>",
-      modalFoot('<button type="button" class="collart-btn" id="yt-obs-create-go">Add</button>')
-    );
-    var button = $("yt-obs-create-go");
-    var submit = function () {
-      var note = $("yt-obs-note");
-      if (!note || !note.value.trim()) { modalError("An observation is required."); return; }
-      modalError("");
-      setBusy(button, true, "Adding…");
-      yt("/competitors/" + encodeURIComponent(competitorId) + "/observations", {
-        method: "POST",
-        body: { note: note.value.trim(), basis: ($("yt-obs-basis") || {}).value || "observed" }
-      }).then(function () {
-        closeModal();
-        toast("Observation added.");
-        return loadCompetitors();
-      }).then(renderResearch)
-        .catch(function (error) { modalError(error.message); })
-        .then(function () { setBusy(button, false); });
-    };
-    if (button) button.addEventListener("click", submit);
-    var form = $("yt-observation-form");
-    if (form) form.addEventListener("submit", function (event) { event.preventDefault(); submit(); });
   }
 
   /* ------------------------------------------------------------------ */
@@ -1840,13 +1394,13 @@
     if (banner) banner.classList.remove("is-hidden");
   }
 
+  // Topic Backlog, Publishing and YouTube Intelligence are consolidated
+  // into COSMOS (backlog + QUASAR research + the GENESIS Publishing Center).
+  // Analytics stays: its Phase-10 feature status remains visible here.
   var SECTION_LOADERS = {
     create: loadOverview,
     projects: loadProjectsPage,
-    backlog: loadBacklogPage,
-    publishing: function () { return loadFeatures().then(renderPublishing); },
     analytics: function () { return loadFeatures().then(renderAnalytics); },
-    intelligence: function () { icons(); },
     settings: loadSettingsPage
   };
 
@@ -1878,19 +1432,6 @@
       window.StudioWorkspaces.go("youtube", section);
     } else {
       setSection(section);
-    }
-  }
-
-  function setBacklogTab(tab) {
-    S.backlogTab = WS.normalizeBacklogTab(tab);
-    Array.prototype.forEach.call(document.querySelectorAll("[data-yt-btab]"), function (button) {
-      button.classList.toggle("is-active", button.getAttribute("data-yt-btab") === S.backlogTab);
-    });
-    Array.prototype.forEach.call(document.querySelectorAll("[data-yt-btab-panel]"), function (panel) {
-      panel.classList.toggle("is-hidden", panel.getAttribute("data-yt-btab-panel") !== S.backlogTab);
-    });
-    if (S.backlogTab === "research") {
-      Promise.all([loadValidations(), loadCompetitors()]).then(renderResearch);
     }
   }
 
@@ -1937,12 +1478,6 @@
     Array.prototype.forEach.call(document.querySelectorAll("[data-yt-section]"), function (button) {
       button.addEventListener("click", function () {
         go(button.getAttribute("data-yt-section"));
-      });
-    });
-
-    Array.prototype.forEach.call(document.querySelectorAll("[data-yt-btab]"), function (button) {
-      button.addEventListener("click", function () {
-        setBacklogTab(button.getAttribute("data-yt-btab"));
       });
     });
 
@@ -1994,36 +1529,6 @@
         if (S.section === "projects") loadProjectsPage();
       });
     }
-
-    var topicsSearch = $("yt-topics-search");
-    if (topicsSearch) {
-      topicsSearch.addEventListener("input", function () {
-        S.topicQuery.q = topicsSearch.value.trim();
-        loadTopics().then(function () { renderTopicPipeline(); renderTopics(); });
-      });
-    }
-    ["yt-topics-status", "yt-topics-pillar", "yt-topics-priority"].forEach(function (id) {
-      var select = $(id);
-      if (!select) return;
-      var key = id.replace("yt-topics-", "");
-      select.addEventListener("change", function () {
-        S.topicQuery[key] = select.value;
-        loadTopics().then(function () { renderTopicPipeline(); renderTopics(); });
-      });
-    });
-    var minScore = $("yt-topics-min-score");
-    if (minScore) {
-      minScore.addEventListener("change", function () {
-        S.topicQuery.min_score = minScore.value;
-        loadTopics().then(function () { renderTopicPipeline(); renderTopics(); });
-      });
-    }
-
-    var topicCreate = $("yt-topic-create");
-    if (topicCreate) topicCreate.addEventListener("click", openTopicModal);
-
-    var validationCreate = $("yt-validation-create");
-    if (validationCreate) validationCreate.addEventListener("click", openValidationModal);
 
     var scriptCreate = $("yt-script-create");
     if (scriptCreate) scriptCreate.addEventListener("click", openScriptModal);
@@ -2086,8 +1591,6 @@
       if (emptyAction) {
         var action = emptyAction.getAttribute("data-yt-empty-action");
         if (action === "create") openCreateProject();
-        else if (action === "topic") openTopicModal();
-        else if (action === "validation") openValidationModal();
         return;
       }
 
@@ -2135,32 +1638,6 @@
       var scriptDelete = target.closest("[data-yt-script-delete]");
       if (scriptDelete) { deleteScript(scriptDelete.getAttribute("data-yt-script-delete")); return; }
 
-      var topicStatus = target.closest("[data-yt-topic-status]");
-      if (topicStatus) {
-        var next = topicStatus.getAttribute("data-yt-topic-status");
-        if (next === "__script__") {
-          openScriptModal();
-        } else {
-          setTopicStatus(topicStatus.getAttribute("data-yt-topic-id"), next);
-        }
-        return;
-      }
-
-      var topicDelete = target.closest("[data-yt-topic-delete]");
-      if (topicDelete) { deleteTopic(topicDelete.getAttribute("data-yt-topic-delete")); return; }
-
-      var validationTopic = target.closest("[data-yt-validation-topic]");
-      if (validationTopic) { validationToTopic(validationTopic.getAttribute("data-yt-validation-topic")); return; }
-
-      var validationDelete = target.closest("[data-yt-validation-delete]");
-      if (validationDelete) { deleteValidation(validationDelete.getAttribute("data-yt-validation-delete")); return; }
-
-      var addCompetitor = target.closest('[data-yt-action="add-competitor"]');
-      if (addCompetitor) { openCompetitorModal(); return; }
-
-      var observe = target.closest("[data-yt-competitor-observe]");
-      if (observe) { openObservationModal(observe.getAttribute("data-yt-competitor-observe")); return; }
-
       var channelRow = target.closest("[data-yt-channel]");
       if (channelRow && !target.closest("[data-yt-channel-activate]")) {
         selectChannel(channelRow.getAttribute("data-yt-channel"));
@@ -2204,24 +1681,8 @@
     if (S.initialized) return;
     S.initialized = true;
     bind();
-    /* Populate topic filter selects once the channel context is known. */
-    loadOverviewEditorial().then(function () {
-      var statusSelect = $("yt-topics-status");
-      if (statusSelect && !statusSelect.options.length) {
-        statusSelect.innerHTML = '<option value="">All statuses</option>';
-      }
-      if (statusSelect && S.topicStatuses.length) {
-        statusSelect.innerHTML = '<option value="">All statuses</option>' + S.topicStatuses.map(function (status) {
-          return '<option value="' + esc(status) + '">' + esc(TOPIC_LABELS[status] || status) + "</option>";
-        }).join("");
-      }
-      var pillarSelect = $("yt-topics-pillar");
-      if (pillarSelect && S.activeChannel) {
-        pillarSelect.innerHTML = '<option value="">All pillars</option>' + ((S.activeChannel.content_pillars || []).map(function (pillar) {
-          return '<option value="' + esc(pillar.label) + '">' + esc(pillar.label) + "</option>";
-        }).join("") || "");
-      }
-    });
+    /* The editorial overview primes channel context for the Create screen. */
+    loadOverviewEditorial().catch(function () { /* optional context */ });
   }
 
   window.YouTubeStudio = {
@@ -2230,7 +1691,6 @@
     go: go,
     refresh: refresh,
     openCreateProject: openCreateProject,
-    setBacklogTab: setBacklogTab,
     setProjectTab: setProjectTab,
     section: function () { return S.section; },
     projects: function () { return S.projects.slice(); },
