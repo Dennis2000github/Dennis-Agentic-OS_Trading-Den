@@ -120,10 +120,12 @@ function switchMainView(viewName) {
   ];
   const VIEWS = ['jarvis', 'workspace', 'trading-den', 'vault', 'memory-galaxy', 'hermes', 'studio', 'cosmos', 'skill-builder', 'plugins'];
   // Legacy view names that now live as tabs inside the Plugins hub.
-  const LEGACY_PLUGIN_VIEWS = { 'installed-plugins': ['tools', 'plugins'], 'freellm': ['freellm', 'catalog'], 'connections': ['freellm', 'connections'] };
+  // (freellm / connections surfaces were removed with their dead backend;
+  // those legacy names now fall through to the JARVIS default.)
+  const LEGACY_PLUGIN_VIEWS = { 'installed-plugins': ['tools', 'plugins'] };
   // JARVIS is the default dashboard: unknown names fall back to it.
-  // Legacy plugin names (freellm / connections / installed-plugins) land on
-  // the Plugins hub instead of Jarvis.
+  // The legacy installed-plugins name lands on the Plugins hub instead of
+  // a standalone view that no longer exists.
   const active = VIEWS.includes(viewName) ? viewName
     : (LEGACY_PLUGIN_VIEWS[viewName] ? 'plugins' : 'jarvis');
 
@@ -159,8 +161,8 @@ function switchMainView(viewName) {
   if (osMain) osMain.classList.toggle('os-studio-active', active === 'studio');
   if (skillBuilderView) skillBuilderView.classList.toggle('hidden', active !== 'skill-builder');
   if (pluginsView) pluginsView.classList.toggle('hidden', active !== 'plugins');
-  // Legacy deep links (freellm / connections / installed-plugins) land on the
-  // matching Plugins hub tab instead of standalone views that no longer exist.
+  // Legacy deep links (installed-plugins) land on the matching Plugins hub
+  // tab instead of a standalone view that no longer exists.
   if (active === 'plugins' && LEGACY_PLUGIN_VIEWS[viewName] && window.PluginsHub) {
     window.PluginsHub.show(LEGACY_PLUGIN_VIEWS[viewName][0], LEGACY_PLUGIN_VIEWS[viewName][1]);
   }

@@ -4211,21 +4211,6 @@ span.jarvis-bar-btn { cursor: default; }
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-weight: 600;
 }
-#fl-pipeline .fl-pipe-step {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  border-radius: 999px;
-  border: 1px solid rgba(16, 185, 129, .25);
-  background: rgba(16, 185, 129, .07);
-  color: #a7f3d0;
-  cursor: pointer;
-  transition: background .15s ease, border-color .15s ease;
-}
-#fl-pipeline .fl-pipe-step:hover { background: rgba(16, 185, 129, .16); border-color: rgba(16, 185, 129, .45); }
-#fl-pipeline .fl-pipe-step:disabled { opacity: .5; cursor: not-allowed; }
-#freellm-subtabs .plugins-tab b,
 #tools-subtabs .plugins-tab b {
   background: rgba(16, 185, 129, .2);
   border-color: rgba(16, 185, 129, .35);

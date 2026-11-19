@@ -1,6 +1,52 @@
 # STATE
 
-_Last updated: 2026-11-18_
+_Last updated: 2026-11-19_
+
+## 2026-11-19 — Shared access confirmed live; Plugins hub fixed; AI Connections removed
+
+**Ask:** (1) confirm the Composio connected apps are actually reachable by
+every integrated agent; (2) fix the Plugins display being cut off; (3) delete
+the AI Connections tab.
+
+**Done:**
+- **Shared access — confirmed live, not just wired in code:** generated the
+  shared project session MCP endpoint against the real API
+  (`backend.composio.dev/tool_router/session/…`, user `dennis-os-local`,
+  stored in `data/composio.json`), then `wire(endpoint="project")` pointed
+  all five MCP-capable agent configs at it with automatic backups:
+  opencode, claude-code, gemini-cli, antigravity, cursor — all `updated`.
+  Access matrix: claude-code/cursor/gemini-cli/opencode `mcp=wired`;
+  codex/generic/hermes reach the same connections via the owner-gated OS
+  API + the portable skill pack (`os_api=True` for every agent). The
+  project serves 6 active apps to all of them: apify, canva, github,
+  hugging_face, vidiq_mcp, youtube.
+- **Cutoff root cause — malformed DOM:** `#freellm-workspace` had a closing
+  `</div>` with no opening tag (depth −1), so the parser closed an ancestor
+  shell early and Plugins content escaped its layout container. Removed the
+  orphan and rebalanced (verified depth 0 at `</section>`). Also gave
+  `#plugins-view`, `#mg-workspace` and `#tools-workspace` the same
+  `overflow-y-auto` scroll pattern `#composio-workspace` already had — Mega
+  List and Tools tabs could previously clip at the viewport bottom.
+- **AI Connections tab deleted** (it was already dead: the button carried
+  `data-plugins-tab="connections"` but the hub only knew `freellm`, and
+  `backend/freellmapi.py` is gone): removed the hub tab, the orphaned
+  `#freellm-panel-connections` workspace (hero strip, provider/gateway
+  panes, cn-modal, toast), the `ws-model-manage` "Manage connections…" menu
+  item + its dynamic builder and binding, the `freellm`/`connections`
+  legacy deep-link mappings, `js/connections.js`, `css/connections.css`,
+  `tests/e2e_connections_smoke.py`, the dead `#fl-pipeline` CSS, and the
+  `#freellm-subtabs` selector half. `js/pluginsHub.js` rewritten to three
+  tabs (API Mega List · Composio · Tools). `switchMainView('freellm' |
+  'connections')` now falls through to the JARVIS default (graceful).
+  backend/connections.py + its routes stay: model routing still reads the
+  connections store; only the UI surface is gone.
+
+**Locked behaviour:** no backend/API changes this round; Composio tests
+19/19 green; compiled Tailwind already contains the reused utilities (no
+rebuild); no leftover references (grep clean).
+
+**Next (needs you):** restart the OS shell so agents re-read their configs;
+purge the 10 expired accounts via the new Delete expired button when ready.
 
 ## 2026-11-18 — Composio: agent-agnostic shared access + expired-account purge
 

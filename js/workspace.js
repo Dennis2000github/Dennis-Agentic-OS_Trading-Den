@@ -1163,17 +1163,6 @@
       }
       host.appendChild(btn);
     });
-    var manage = document.createElement("button");
-    manage.className = "ws-menu-item";
-    manage.innerHTML =
-      '<i data-lucide="settings-2" class="w-3.5 h-3.5 text-slate-500"></i>' +
-      '<span class="flex-1 text-left">Manage connections\u2026</span>';
-    manage.addEventListener("click", function (e) {
-      e.stopPropagation();
-      closeMenus();
-      if (window.switchMainView) window.switchMainView("connections");
-    });
-    host.appendChild(manage);
     icons();
   }
 
@@ -3713,11 +3702,6 @@
       }
     });
     bind("ws-model-refresh", "click", function (e) { e.stopPropagation(); loadModels(true); });
-    bind("ws-model-manage", "click", function (e) {
-      e.stopPropagation();
-      closeMenus();
-      if (window.switchMainView) window.switchMainView("connections");
-    });
     bind("ws-model-search", "input", function (e) { state.modelQuery = e.target.value || ""; renderModels(); });
     bind("ws-new-session", "click", function (e) {
       e.stopPropagation();

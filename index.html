@@ -47,7 +47,6 @@
   <link rel="stylesheet" href="css/style.css?v=20261113-jarvis-mode">
   <!-- Installed Plugins rail -->
   <link rel="stylesheet" href="css/installed-plugins.css?v=20261115-ip2">
-  <link rel="stylesheet" href="css/connections.css?v=20261114-connections">
   <!-- Studio cinematic workspace skin -->
   <link rel="stylesheet" href="css/studio-v2.css?v=20261028-studio-kit1">
   <!-- YouTube Studio workspace skin -->
@@ -322,12 +321,6 @@
                 <input id="ws-model-search" type="text" aria-label="Search workspace models" placeholder="Search models…" class="w-full bg-[#0b1226] border border-[#22304f] rounded-lg px-2 py-1 text-[11px] text-slate-200 placeholder-slate-600 outline-none focus:border-cyan-500/60">
               </div>
               <div id="ws-model-options" class="max-h-60 overflow-y-auto"></div>
-              <div class="px-2.5 pb-2 pt-1 mt-1 border-t border-[#1b2537]">
-                <button id="ws-model-manage" class="ws-menu-item w-full text-left" type="button" title="Open the AI Connections manager">
-                  <i data-lucide="settings-2" class="w-3.5 h-3.5 text-slate-500"></i>
-                  <span class="flex-1">Manage connections…</span>
-                </button>
-              </div>
             </div>
           </div>
 
@@ -3521,7 +3514,7 @@
       <!-- ================================================================= -->
       <!-- PLUGINS: upstream API Mega List workspace + native Composio dashboard -->
       <!-- ================================================================= -->
-      <section id="plugins-view" class="hidden flex-1 flex flex-col gap-3.5 min-h-0 pb-6">
+      <section id="plugins-view" class="hidden flex-1 flex flex-col gap-3.5 min-h-0 pb-6 overflow-y-auto">
 
         <!-- Header: Plugins hub (API Mega List · Composio · FreeLLMAPI · Tools) -->
         <div class="relative overflow-hidden glass-panel rounded-2xl border border-purple-900/50 bg-gradient-to-r from-[#120a1c] via-[#170f22] to-[#0b0712] p-4 flex flex-wrap items-center justify-between gap-3 shrink-0">
@@ -3534,7 +3527,7 @@
                 <span id="plugins-hub-badge" class="text-[9px] font-mono uppercase tracking-widest text-purple-300/80 border border-purple-700/50 px-1.5 py-0.5 rounded">API &amp; Tools Hub</span>
               </h2>
               <p class="text-[11px] text-slate-400">
-                One hub for every API surface — the upstream repository, connected apps, free LLM routes and the tools they power.
+                One hub for every API surface — the upstream repository, connected apps and the tools they power.
               </p>
               <div id="plugins-tabs" class="mt-2 inline-flex flex-wrap items-center gap-1 rounded-xl border border-purple-900/50 bg-[#0b0712]/80 p-1">
                 <button id="plugins-tab-megalist" type="button" class="plugins-tab plugins-tab-active" data-plugins-tab="megalist">
@@ -3542,9 +3535,6 @@
                 </button>
                 <button id="plugins-tab-composio" type="button" class="plugins-tab" data-plugins-tab="composio">
                   <i data-lucide="plug-zap" class="w-3.5 h-3.5"></i><span>Composio</span>
-                </button>
-                <button id="plugins-tab-connections" type="button" class="plugins-tab" data-plugins-tab="connections">
-                  <i data-lucide="route" class="w-3.5 h-3.5"></i><span>AI Connections</span><b id="cn-nav-count" class="ml-1 text-[9px] px-1 py-0.2 rounded bg-purple-500/20 text-purple-300">0</b>
                 </button>
                 <button id="plugins-tab-tools" type="button" class="plugins-tab" data-plugins-tab="tools">
                   <i data-lucide="package-check" class="w-3.5 h-3.5"></i><span>Tools</span>
@@ -3566,7 +3556,7 @@
         </div>
 
         <!-- Repository workspace (API Mega List tab) -->
-        <div id="mg-workspace" class="flex-1 min-h-0 flex flex-col gap-3.5">
+        <div id="mg-workspace" class="flex-1 min-h-0 flex flex-col gap-3.5 overflow-y-auto pr-0.5">
         <!-- Repository tree + document viewer -->
         <div class="mg-repo-body flex-1 min-h-0">
           <aside class="glass-panel rounded-2xl border border-purple-900/40 bg-[#0b0712]/80 flex flex-col min-h-0 mg-tree-panel">
@@ -3730,7 +3720,7 @@
         </div><!-- /#composio-workspace -->
 
         <!-- Tools workspace: Installed Plugins · Connected Apps · Connected Skills -->
-        <div id="tools-workspace" class="hidden flex-1 min-h-0 flex flex-col gap-3.5">
+        <div id="tools-workspace" class="hidden flex-1 min-h-0 flex flex-col gap-3.5 overflow-y-auto pr-0.5">
           <div id="tools-subtabs" class="glass-panel rounded-2xl border border-purple-900/40 bg-[#0b0712]/80 px-3 py-2 flex flex-wrap items-center gap-2 shrink-0">
             <button type="button" id="tools-subtab-plugins" class="plugins-tab plugins-tab-active" data-tools-subtab="plugins">
               <i data-lucide="package-check" class="w-3.5 h-3.5"></i><span>Installed Plugins</span><b id="tools-nav-plugin-count">0</b>
@@ -3999,123 +3989,7 @@
           </div><!-- /#tools-panel-skills -->
         </div><!-- /#tools-workspace -->
 
-        <!-- AI Connections workspace -->
-        <div id="freellm-panel-connections" class="hidden flex-1 min-h-0 flex flex-col gap-3.5">
-
-        <!-- AI Connections: merged routing strip (policy + actions, no hero duplication) -->
-        <div class="cn-hero glass-panel rounded-2xl border border-emerald-900/40 bg-gradient-to-r from-[#04120c] via-[#07170f] to-[#050d16] p-4 flex flex-wrap items-center justify-between gap-3 shrink-0">
-          <div class="flex items-center gap-3">
-            <div class="cn-logo"><i data-lucide="route" class="w-5 h-5"></i></div>
-            <div>
-              <h3 class="text-[12px] font-semibold text-white flex flex-wrap items-center gap-2">AI Connections
-                <span id="cn-count-badge" class="cn-badge">0</span>
-              </h3>
-              <p class="text-[10.5px] text-slate-500 mt-0.5">Official providers and gateway/proxy routes · one source active at a time · health from real endpoint tests, never from saved keys.</p>
-            </div>
-          </div>
-          <div class="flex items-center gap-2">
-            <div class="cn-seg" id="cn-mode-seg">
-              <button type="button" class="cn-seg-btn" data-cn-mode="free_first" title="Prefer Free / Free Tier / Local connections; ask before paid fallback">Free First</button>
-              <button type="button" class="cn-seg-btn" data-cn-mode="paid_first" title="Prefer official provider connections; free as fallback">Paid First</button>
-              <button type="button" class="cn-seg-btn" data-cn-mode="manual" title="Only use the connection explicitly selected in the Workspace">Manual</button>
-            </div>
-            <label class="cn-check" title="When allowed, routing may use a paid connection as a fallback without asking again (per 24h grant)">
-              <input id="cn-allow-paid" type="checkbox">
-              <span>Allow paid fallback</span>
-            </label>
-            <button id="cn-refresh" type="button" class="sb-btn sb-btn-ghost"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i><span>Refresh</span></button>
-            <button id="cn-add" type="button" class="sb-btn sb-btn-primary"><i data-lucide="plus" class="w-3.5 h-3.5"></i><span>Add connection</span></button>
-          </div>
-          <div id="cn-override-note" class="hidden mt-2 text-[10.5px] text-amber-300/90"></div>
-        </div>
-
-        <div class="cn-layout flex-1 min-h-0">
-          <div class="cn-pane">
-            <div class="cn-pane-head">
-              <i data-lucide="shield-check" class="w-3.5 h-3.5 text-cyan-300"></i>
-              <span>Providers</span>
-              <span class="cn-pane-sub">official provider APIs</span>
-            </div>
-            <div id="cn-providers" class="cn-pane-body"><div class="sb-rail-empty">Loading connections…</div></div>
-          </div>
-          <div class="cn-pane">
-            <div class="cn-pane-head">
-              <i data-lucide="shuffle" class="w-3.5 h-3.5 text-amber-300"></i>
-              <span>Gateways / Proxies</span>
-              <span class="cn-pane-sub">aggregators, free-model endpoints, custom APIs</span>
-            </div>
-            <div id="cn-gateways" class="cn-pane-body"><div class="sb-rail-empty">Loading connections…</div></div>
-          </div>
-        </div>
-
-        <!-- Add / edit connection dialog -->
-        <div id="cn-modal" class="cn-modal hidden" role="dialog" aria-modal="true" aria-labelledby="cn-modal-title">
-          <div class="cn-modal-card">
-            <div class="cn-modal-head">
-              <h3 id="cn-modal-title" class="text-[13px] font-semibold text-white">Add connection</h3>
-              <button id="cn-modal-close" class="ws-icon-btn" title="Close"><i data-lucide="x" class="w-3.5 h-3.5"></i></button>
-            </div>
-            <div class="cn-modal-body">
-              <div class="cn-field">
-                <label class="cn-label">Type</label>
-                <div class="cn-seg" id="cn-type-seg">
-                  <button type="button" class="cn-seg-btn" data-cn-type="gateway">Gateway / Proxy</button>
-                  <button type="button" class="cn-seg-btn" data-cn-type="provider">Provider</button>
-                </div>
-              </div>
-              <div class="cn-field">
-                <label class="cn-label" for="cn-preset">Preset</label>
-                <select id="cn-preset" class="cn-select"></select>
-                <p id="cn-preset-note" class="cn-note"></p>
-              </div>
-              <div class="cn-field">
-                <label class="cn-label" for="cn-name">Name</label>
-                <input id="cn-name" class="cn-input" type="text" placeholder="My connection" autocomplete="off">
-              </div>
-              <div class="cn-field">
-                <label class="cn-label" for="cn-base-url">Base URL</label>
-                <input id="cn-base-url" class="cn-input" type="text" placeholder="https://api.example.com/v1" autocomplete="off" spellcheck="false">
-                <p class="cn-note">OpenAI-compatible bases usually end in /v1. Anthropic-compatible bases end at the host root.</p>
-              </div>
-              <div class="cn-field" id="cn-protocol-field">
-                <label class="cn-label" for="cn-protocol">API protocol</label>
-                <select id="cn-protocol" class="cn-select">
-                  <option value="openai">OpenAI-compatible</option>
-                  <option value="anthropic">Anthropic-compatible</option>
-                </select>
-              </div>
-              <div class="cn-field">
-                <label class="cn-label" for="cn-key">API key</label>
-                <input id="cn-key" class="cn-input" type="password" placeholder="Paste key (stored owner-only; never returned)" autocomplete="off">
-                <p class="cn-note">Leave blank to keep the saved key. The <code>key env</code> preset var is used when no key is stored here.</p>
-              </div>
-              <div class="cn-field">
-                <label class="cn-label" for="cn-pricing">Pricing class</label>
-                <select id="cn-pricing" class="cn-select">
-                  <option value="unknown">Unknown</option>
-                  <option value="free">Free</option>
-                  <option value="free_tier">Free Tier</option>
-                  <option value="paid">Paid per usage</option>
-                  <option value="subscription">Subscription</option>
-                  <option value="local">Local / self-hosted</option>
-                </select>
-              </div>
-              <div class="cn-field">
-                <label class="cn-label" for="cn-notes">Notes</label>
-                <input id="cn-notes" class="cn-input" type="text" placeholder="Optional" autocomplete="off">
-              </div>
-              <div id="cn-modal-msg" class="cn-note"></div>
-            </div>
-            <div class="cn-modal-foot">
-              <button id="cn-save" type="button" class="sb-btn sb-btn-primary"><i data-lucide="save" class="w-3.5 h-3.5"></i><span>Save connection</span></button>
-              <button id="cn-cancel" type="button" class="sb-btn sb-btn-ghost">Cancel</button>
-            </div>
-          </div>
-        </div>
-
-        <div id="cn-toast" class="fl-toast"></div>
-          </div><!-- /#freellm-panel-connections -->
-        </div><!-- /#freellm-workspace -->
+        
 
       </section>
 
@@ -4574,7 +4448,6 @@
   <script defer src="js/agentDashboards.js"></script>
   <!-- DeepSeek Harness uses its official native Web UI; no OS-recreated chat bundle. -->
   <script defer src="js/app.js?v=20261114-connections"></script>
-  <script defer src="js/connections.js?v=20261114-connections"></script>
   <script defer src="js/jarvisDashboard.js?v=20261112-jarvis-home"></script>
   <script defer src="js/memoryGalaxy.js?v=20261112-galaxy1"></script>
   <script defer src="js/workspace.js?v=20261115-unified1"></script>
