@@ -1,0 +1,98 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Studio">
+  <title>Studio</title>
+  <desc>A folded paper page holding a photograph, with a glass lens resting on it.</desc>
+
+  <defs>
+    <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset=".62" stop-color="#fbfbfd"/>
+      <stop offset="1" stop-color="#eef0f5"/>
+    </linearGradient>
+    <linearGradient id="pageEdge" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#d9dee8"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="0" y1="0" x2=".8" y2=".8">
+      <stop offset="0" stop-color="#f4f6fa"/>
+      <stop offset="1" stop-color="#d5dae4"/>
+    </linearGradient>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9cc2f4"/>
+      <stop offset=".55" stop-color="#7aa8e6"/>
+      <stop offset="1" stop-color="#5f8ed6"/>
+    </linearGradient>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#22498a"/>
+      <stop offset=".45" stop-color="#1a3a70"/>
+      <stop offset="1" stop-color="#122a56"/>
+    </linearGradient>
+    <linearGradient id="glass" x1=".2" y1="0" x2=".8" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity=".10"/>
+      <stop offset=".45" stop-color="#ffffff" stop-opacity=".02"/>
+      <stop offset="1" stop-color="#a9c4e8" stop-opacity=".10"/>
+    </linearGradient>
+
+    <filter id="pageShadow" x="-25%" y="-20%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="18" stdDeviation="16" flood-color="#0b1120" flood-opacity=".22"/>
+    </filter>
+    <filter id="lensShadow" x="-60%" y="-60%" width="220%" height="220%">
+      <feDropShadow dx="0" dy="14" stdDeviation="12" flood-color="#0b1120" flood-opacity=".45"/>
+    </filter>
+    <clipPath id="cardClip">
+      <rect x="92" y="152" width="300" height="250" rx="44"/>
+    </clipPath>
+    <clipPath id="pageClip">
+      <path d="M100 24h212l112 112v312a44 44 0 0 1-44 44H100a44 44 0 0 1-44-44V68a44 44 0 0 1 44-44Z"/>
+    </clipPath>
+  </defs>
+
+  <!-- page -->
+  <g filter="url(#pageShadow)">
+    <path d="M100 24h212l112 112v312a44 44 0 0 1-44 44H100a44 44 0 0 1-44-44V68a44 44 0 0 1 44-44Z"
+          fill="url(#page)" stroke="#e3e7ee" stroke-width="2"/>
+  </g>
+  <g clip-path="url(#pageClip)">
+    <!-- soft fold shading across the top-right -->
+    <path d="M312 24 424 136 312 136Z" fill="url(#fold)"/>
+    <path d="M312 24 424 136H352c-22 0-40-18-40-40Z" fill="#e7ebf2" opacity=".9"/>
+    <path d="M312 24 424 136" stroke="#cfd6e2" stroke-width="2"/>
+    <path d="M312 24v72c0 22 18 40 40 40h72" fill="none" stroke="#ffffff" stroke-width="3" opacity=".9"/>
+  </g>
+
+  <!-- photograph on the page -->
+  <g filter="url(#pageShadow)">
+    <rect x="92" y="152" width="300" height="250" rx="44" fill="#ffffff"/>
+  </g>
+  <g clip-path="url(#cardClip)">
+    <rect x="92" y="152" width="300" height="250" fill="url(#sky)"/>
+    <path d="M92 268h300v134H92Z" fill="url(#sea)"/>
+    <path d="M92 264h300v8H92Z" fill="#0e2447" opacity=".9"/>
+    <!-- distant swell -->
+    <path d="M92 296c40-10 74 6 112 2s64-14 104-8 52 12 84 6v26c-36-6-56 8-92 10s-66-10-104-4-70 12-104 4Z"
+          fill="#4f7cc0" opacity=".5"/>
+    <!-- breaking wave -->
+    <path d="M92 330c30-14 52 6 84 2 26-4 40-20 70-16 24 4 34 16 60 18 26 2 48-8 86-2v22c-36 8-58 18-88 18s-44-12-70-12-44 12-72 12-52-10-70-14Z"
+          fill="#eef5ff" opacity=".95"/>
+    <!-- foam edge -->
+    <path d="M92 352c34-6 56 10 90 8s52-12 82-8 48 14 78 10 34-6 50-4v14c-24 2-38 8-60 8s-46-10-74-8-50 10-78 8-52-8-88-4Z"
+          fill="#ffffff" opacity=".7"/>
+    <!-- rocks -->
+    <path d="M92 398c22-24 44-30 68-20 18 8 24 20 40 26s32-2 46 6 18 18 30 22H92Z" fill="#1d2637"/>
+    <path d="M300 404c14-18 34-24 52-18s24 16 34 22 26 6 34 14H300Z" fill="#202a3d"/>
+    <!-- shore -->
+    <path d="M92 414c40-10 78 6 118 2s74-10 112-6 46 8 74 10v42H92Z" fill="#636c7b" opacity=".6"/>
+  </g>
+
+  <!-- glass lens -->
+  <g filter="url(#lensShadow)">
+    <circle cx="330" cy="352" r="89" fill="url(#glass)" stroke="#ffffff" stroke-opacity=".95" stroke-width="10"/>
+    <circle cx="330" cy="352" r="95" fill="none" stroke="#7b8ca3" stroke-opacity=".55" stroke-width="3"/>
+    <circle cx="330" cy="352" r="77" fill="none" stroke="#ffffff" stroke-opacity=".55" stroke-width="2.5"/>
+    <!-- bottom inner shade -->
+    <path d="M258 384a76 76 0 0 0 144 0" fill="none" stroke="#0b1120" stroke-opacity=".22" stroke-width="8" stroke-linecap="round"/>
+    <!-- specular highlights -->
+    <path d="M268 382a76 76 0 0 1 22-52" fill="none" stroke="#ffffff" stroke-width="7" stroke-linecap="round" opacity=".8"/>
+    <path d="M396 370a70 70 0 0 1-9 24" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" opacity=".4"/>
+    <ellipse cx="302" cy="320" rx="22" ry="8" fill="#ffffff" opacity=".5" transform="rotate(-34 302 320)"/>
+  </g>
+</svg>

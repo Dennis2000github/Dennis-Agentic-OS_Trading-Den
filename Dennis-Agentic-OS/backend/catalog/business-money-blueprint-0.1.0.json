@@ -1,0 +1,261 @@
+{
+  "schema_version": 1,
+  "catalog_version": "business-money-blueprint-0.1.0",
+  "channel": {
+    "name": "The Business Money Blueprint",
+    "tagline": "Build Smarter Businesses. Keep More of What You Earn.",
+    "handle": "",
+    "description": "Animated educational videos on small business finance, tax education, bookkeeping, business protection, and wealth building for U.S. owners, freelancers, and the self-employed.",
+    "brand_colors": {
+      "navy": "#0B1F3A",
+      "gold": "#C9A227",
+      "white": "#FFFFFF",
+      "grey": "#6B7280"
+    },
+    "target_audience": "U.S. small business owners, freelancers, self-employed professionals, solopreneurs, and entrepreneurs interested in business finances and wealth building",
+    "audience_age_focus": "25-54",
+    "language": "en-US",
+    "country": "US",
+    "content_niche": "Small Business Finance, Tax Education, Bookkeeping, Business Protection, and Wealth Building",
+    "editorial_guidelines": "One primary educational question per video. Original scripts. Plain American English. Practical numerical examples. Accurate, sourced financial information. Strong opening hook. No fabricated experiences, credentials, testimonials, or statistics. No guaranteed outcomes. Educational content only - never individualized tax, legal, or investment advice.",
+    "publishing": {
+      "schedule": [
+        "mon",
+        "wed",
+        "fri"
+      ],
+      "videos_per_week": 3,
+      "default_duration_min": 12,
+      "duration_range_min": 10,
+      "duration_range_max": 15
+    },
+    "default_voice": "Professional, calm American-English narration",
+    "default_visual_style": "2D and 2.5D animation, animated infographics, diagrams, illustrated characters, financial storytelling; deep navy, gold, white, neutral grey",
+    "narration_personality": "Calm, confident, intelligent, practical, approachable",
+    "monetization_objective": "Maximize sustainable YouTube advertising revenue by attracting commercially valuable U.S. audiences with advertiser-friendly educational content. Never guarantee an RPM, income, or monetization outcome."
+  },
+  "pillars": [
+    {
+      "id": "tax-intelligence",
+      "label": "Tax Intelligence",
+      "allocation": 30,
+      "subjects": [
+        "Small business tax deductions",
+        "Self-employment taxes",
+        "Quarterly estimated taxes",
+        "LLC and S-Corp taxation",
+        "Tax documentation",
+        "Business expenses",
+        "Home office deductions",
+        "Tax planning education"
+      ]
+    },
+    {
+      "id": "business-finance",
+      "label": "Business Finance",
+      "allocation": 25,
+      "subjects": [
+        "Bookkeeping",
+        "Cash flow management",
+        "Profit and loss statements",
+        "Business budgeting",
+        "Business expenses",
+        "Financial reporting",
+        "Payroll fundamentals",
+        "Financial management"
+      ]
+    },
+    {
+      "id": "wealth-building",
+      "label": "Wealth Building",
+      "allocation": 20,
+      "subjects": [
+        "Retirement planning",
+        "Compound interest",
+        "Roth IRA and Traditional IRA",
+        "SEP IRA and Solo 401(k)",
+        "Index fund education",
+        "Long-term financial planning",
+        "Wealth-building fundamentals"
+      ]
+    },
+    {
+      "id": "business-protection",
+      "label": "Business Protection",
+      "allocation": 15,
+      "subjects": [
+        "Business credit",
+        "Business banking",
+        "Business insurance",
+        "Business loans",
+        "Financial risk management",
+        "Liability education",
+        "Financing fundamentals"
+      ]
+    },
+    {
+      "id": "business-growth",
+      "label": "Business Growth",
+      "allocation": 10,
+      "subjects": [
+        "Business profitability",
+        "Pricing strategies",
+        "Break-even analysis",
+        "Hiring decisions",
+        "Financial planning",
+        "Business sustainability",
+        "Revenue versus profit"
+      ]
+    }
+  ],
+  "validation": {
+    "criteria": [
+      {
+        "id": "rpm_potential",
+        "label": "RPM potential",
+        "question": "Does this attract an audience advertisers pay to reach (financial services, accounting, banking, insurance, business software, professional services)?"
+      },
+      {
+        "id": "proven_demand",
+        "label": "Proven demand",
+        "question": "Is there existing search demand, competing channel performance, or ongoing audience questions? Use sourced evidence, never invented volume."
+      },
+      {
+        "id": "geographic_audience",
+        "label": "Geographic audience",
+        "question": "Does the topic rely on U.S.-specific laws, products, or terminology and deliver value to U.S. viewers?"
+      },
+      {
+        "id": "content_sustainability",
+        "label": "Content sustainability",
+        "question": "Can this subject generate at least 50 distinct video ideas and support an ongoing series?"
+      },
+      {
+        "id": "content_gap",
+        "label": "Content gap",
+        "question": "What do competitors fail to explain, overcomplicate, or leave without practical examples - and can animation close that gap?"
+      }
+    ],
+    "min_score": 1,
+    "max_score": 5,
+    "max_total": 25,
+    "approval_threshold": 18,
+    "flags": [
+      "legal_uncertainty",
+      "factual_uncertainty",
+      "geographic_uncertainty",
+      "source_missing"
+    ],
+    "disclaimer": "Validation scores are analyst estimates, not measured platform data. Search volume, competitor views, and RPM figures are never invented and must come from a recorded source."
+  },
+  "competitors": [
+    {
+      "name": "Mark J. Kohler",
+      "url": "https://www.youtube.com/@MarkJKohler"
+    },
+    {
+      "name": "LYFE Accounting",
+      "url": "https://www.youtube.com/@LYFEAccounting"
+    },
+    {
+      "name": "ClearValue Tax",
+      "url": "https://www.youtube.com/@ClearValueTax"
+    },
+    {
+      "name": "Accounting Stuff",
+      "url": "https://www.youtube.com/@AccountingStuff"
+    },
+    {
+      "name": "The Money Guy Show",
+      "url": "https://www.youtube.com/@MoneyGuyShow"
+    }
+  ],
+  "competitor_note": "Reference channels from the channel master prompt. Observations must be collected from actual research and marked observed; assumptions must be marked as assumptions. Never copy competitor scripts, thumbnails, branding, or videos.",
+  "script_structure": [
+    {
+      "id": "introduction",
+      "heading": "Introduction",
+      "share": 0.04,
+      "purpose": "An intriguing question, mistake, misconception, or financial problem."
+    },
+    {
+      "id": "problem",
+      "heading": "Problem",
+      "share": 0.13,
+      "purpose": "Explain why the subject matters to the viewer's business."
+    },
+    {
+      "id": "education",
+      "heading": "Education",
+      "share": 0.25,
+      "purpose": "Explain the concept in plain American English."
+    },
+    {
+      "id": "demonstration",
+      "heading": "Demonstration",
+      "share": 0.33,
+      "purpose": "A hypothetical financial scenario with calculations, diagrams, and examples."
+    },
+    {
+      "id": "mistakes",
+      "heading": "Mistakes and Solutions",
+      "share": 0.25,
+      "purpose": "Misconceptions, practical considerations, and next steps."
+    },
+    {
+      "id": "conclusion",
+      "heading": "Conclusion",
+      "share": 0.08,
+      "purpose": "Recap the lessons and invite viewers to subscribe."
+    }
+  ],
+  "narration_wpm": 150,
+  "disclaimer": "This video is for educational purposes only and is not individualized tax, legal, or investment advice. Rules, thresholds, and figures change - verify current requirements with the original sources and consult a qualified professional before acting.",
+  "agent_prompts": [
+    {
+      "role": "research",
+      "label": "Research Agent",
+      "body": "Task extension - Niche Research. Validate the subject against the five criteria (RPM potential, proven demand, geographic audience, content sustainability, content gap), scoring each 1-5. Use only authoritative sources (IRS.gov, SBA.gov, SEC.gov, Investor.gov, FTC.gov, official state/federal sources). Record every sourced fact with its source and date; mark every judgement as an estimate. Never invent search volume, competitor views, or RPM figures. Flag legal, factual, or geographic uncertainties for review."
+    },
+    {
+      "role": "topic",
+      "label": "Topic Research Agent",
+      "body": "Task extension - Topic Studio. Turn validated subjects into distinct video topics with one clear educational angle each. Identify the audience question, likely search intent, and commercial relevance estimate. Check the backlog for duplication before proposing. Only topics meeting the 18/25 threshold may be approved; flag anything below it."
+    },
+    {
+      "role": "scriptwriter",
+      "label": "Scriptwriter Agent",
+      "body": "Task extension - Script Studio. Write an original long-form script for the approved topic using the channel script structure (Introduction, Problem, Education, Demonstration, Mistakes and Solutions, Conclusion) for a 10-15 minute narration. Plain American English, practical numerical examples, strong hook, no filler. Deliver title, three alternative titles, thumbnail concept and text, on-screen text, animation directions, sound suggestions, description, chapters, sources, and the channel disclaimer. Never fabricate experiences, credentials, testimonials, or statistics."
+    },
+    {
+      "role": "fact_check",
+      "label": "Fact-Checking Agent",
+      "body": "Task extension - Fact-Checking. Verify every factual claim in the script against an authoritative original source: identify the source, verify applicable dates, current thresholds and figures, eligibility requirements, exceptions, and federal versus state rules. Distinguish deductions from credits and other benefits. Re-verify every calculation. Mark each item verified only with a recorded source. Never present hypothetical savings as guaranteed results."
+    },
+    {
+      "role": "storyboard",
+      "label": "Storyboard Agent",
+      "body": "Task extension - Storyboard Studio. Convert the approved script into scene-by-scene storyboard entries: narration, estimated duration, visual description, character or object, camera movement, animation instructions, on-screen text, background, sound effects, and required assets. Keep characters and visual language consistent across scenes and reuse the channel's recurring visual concepts (Money Flow, Financial X-Ray, Business Case Study)."
+    },
+    {
+      "role": "visual_asset",
+      "label": "Visual Asset Agent",
+      "body": "Task extension - Asset Studio. Produce original visual assets for approved scenes only: character references and poses, backgrounds, illustrations, financial diagrams, charts, icons, and image references in the channel brand style. Match the referenced scene description exactly and keep characters consistent with existing references. Original assets over stock footage."
+    },
+    {
+      "role": "voice",
+      "label": "Voice Agent",
+      "body": "Task extension - Voice Studio. Generate narration from the approved script only. Professional, calm American-English delivery matching the channel narration personality. Respect the script's wording - flag pronunciation questions for review instead of silently changing them. Export per-scene audio so scenes stay synchronizable."
+    },
+    {
+      "role": "animation",
+      "label": "Animation Agent",
+      "body": "Task extension - Animation Studio. Assemble approved scenes into the video: background, character, main visual, financial graphics, on-screen text, voiceover, music, sound effects, and subtitles in sync with narration. 16:9 1920x1080 30 FPS by default. No fabricated motion - only documented renderer capabilities."
+    },
+    {
+      "role": "publishing",
+      "label": "Publishing Agent",
+      "body": "Task extension - Publishing. Prepare the upload package: SEO-informed title, thumbnail, description with chapters and sources, tags, playlist, language, audience setting, and disclosures. Publishing requires explicit owner authorization through the authorized YouTube connection; never publish automatically and never claim an upload that did not happen."
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "gemini-video": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@ugarchance/mcp-gemini-video-understanding"],
+      "env": {
+        "GEMINI_API_KEY": "AQ.Ab8RN6Lcowm8D6I5wz_rJa1EOjLwWTMbs705dy2eEQ02vHbO1g",
+        "GEMINI_MODEL": "${GEMINI_MODEL:-gemini-3.6-flash}",
+        "GEMINI_THINKING": "${GEMINI_THINKING:-high}"
+      }
+    },
+    "yt-transcript": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@thenavidm/youtube-mcp-cli@latest"]
+    }
+  }
+}

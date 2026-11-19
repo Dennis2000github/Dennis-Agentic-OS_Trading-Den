@@ -1,0 +1,35 @@
+# Sports
+
+<p align="right"><a href="../README.md#-table-of-contents">← Back to main list</a></p>
+
+**Organized APIs by Category**
+
+**21 APIs in this category**
+
+| API Name | Description |
+|----------|-------------|
+| [🏈 NFL Scores — Live Stats & Game Data](https://apify.com/nexgendata/nfl-scoreboard?fpr=p2hrc6) | Live & historical NFL scores, box scores, player stats, schedules and standings. ESPN, Sportradar & TheSportsDB alternative for fantasy tools, betting models and sports dashboards. Real-time during... |
+| [Action Network Sports Odds Scraper](https://apify.com/jungle_synthesizer/actionnetwork-sports-odds-line-movement-scraper?fpr=p2hrc6) | Scrapes multi-sportsbook odds (DraftKings, FanDuel, BetMGM, Caesars, and more) from Action Network's API across NFL, NBA, MLB, NHL, NCAAF, and NCAAB. Returns moneyline, spread, and totals for each... |
+| [Baseball Reference Scraper &#124; MLB Stats and History](https://apify.com/parseforge/baseball-reference-scraper?fpr=p2hrc6) | Extract MLB player, team, and game data from Baseball Reference including box scores, season stats, advanced metrics, standings, and historical records dating back over a century. Built for... |
+| [BSU Beijing Sport University Faculty Directory Scraper](https://apify.com/jungle_synthesizer/bsu-beijing-sport-university-faculty-directory-scraper?fpr=p2hrc6) | Scrapes the public faculty directory of Beijing Sport University (北京体育大学), China's top sport sciences institution. Returns faculty profiles with name, title, research areas, bio, and photo URL across... |
+| [Chess.com Player & Game Scraper](https://apify.com/parseforge/chess-com-scraper?fpr=p2hrc6) | Pull chess player profiles, game archives, titled player lists, country leaderboards, club memberships, and tournament data from the Chess.com public API. Rich stats, ratings, country, and PGN game... |
+| [Chess.com Player Game Archive Scraper](https://apify.com/jungle_synthesizer/chess-com-player-game-archive-scraper?fpr=p2hrc6) | Harvest full game archives from Chess.com's open Published-Data API. Scrape PGN, time controls, accuracy scores, ECO openings, and per-game ratings for any player. Bulk username support. Also fetches... |
+| [College Athlete Recruiting Profiles Scraper — On3 & Rivals](https://apify.com/jungle_synthesizer/college-athletes-on3-247-rivals-scraper?fpr=p2hrc6) | Scrape 80,000+ college football and multi-sport recruiting profiles from On3.com (the platform that acquired Rivals in 2023). Extracts star ratings, national/position/state rankings, commitment data,... |
+| [Equibase Horse Racing Scraper - US Race Entries & Results](https://apify.com/jungle_synthesizer/equibase-us-horse-racing-scraper?fpr=p2hrc6) | Scrape US Thoroughbred horse racing data from Equibase.com — the official source for North American racing. Extract race entries (horses, jockeys, trainers, odds) and results (finish order, times,... |
+| [ESPN MLB Scoreboard Scraper](https://apify.com/parseforge/espn-mlb-scoreboard-scraper?fpr=p2hrc6) | Fetch Major League Baseball games from the ESPN scoreboard endpoint by season year or a specific YYYYMMDD date. Returns matchups, scores, and team info as ESPN serves them. Great for daily score... |
+| [FanDuel Sportsbook Odds Scraper](https://apify.com/parseforge/fanduel-scraper?fpr=p2hrc6) | Scrape live FanDuel Sportsbook odds in real time: moneylines, spreads, totals, futures, and runners across NFL, NBA, MLB, NHL, MMA, soccer, and tennis. |
+| [Fantasy Premier League (FPL) Official API Scraper](https://apify.com/jungle_synthesizer/fpl-official-fantasy-premier-league-api-scraper?fpr=p2hrc6) | Scrapes the official Fantasy Premier League API — all ~700 players with xG, xA, ICT index, ownership, gameweek-by-gameweek point history, current season fixtures, and optional manager / mini-league... |
+| [FBref Scraper &#124; Advanced Soccer Statistics](https://apify.com/parseforge/fbref-scraper?fpr=p2hrc6) | Extract advanced soccer stats from FBref including xG, xA, progressive passes, player and team metrics, match logs, shot maps, and league tables. Cover top leagues worldwide for football analytics,... |
+| [Flashscore Scraper &#124; Live Sports Scores and Fixtures](https://apify.com/parseforge/flashscore-scraper?fpr=p2hrc6) | Pull live scores, fixtures, results, and standings from Flashscore across soccer, tennis, basketball, hockey, baseball, and more. Get match details, lineups, head to head, and statistics for sports... |
+| [Goldin Auctions Scraper - Sports Cards & Collectibles](https://apify.com/jungle_synthesizer/goldin-auctions-marketplace-scraper?fpr=p2hrc6) | Scrape Goldin Auctions (eBay-owned) for marketplace listings and past-auction results. Captures weekly / premium / elite auction tiers with PSA / BGS / SGC / CGC grade normalization, final-sale... |
+| [HYROX Race Results Scraper](https://apify.com/jungle_synthesizer/hyrox-race-results-scraper?fpr=p2hrc6) | Scrape race results from results.hyrox.com — HYROX's official timing portal. Extracts rank, finish time, age group, nationality, and all 8 station splits (SkiErg, Sled Push, Sled Pull, Burpee Broad... |
+| [Komoot Hiking & Outdoor Routes Scraper](https://apify.com/logiover/komoot-hiking-outdoor-routes-scraper?fpr=p2hrc6) | Scrape Komoot hiking, cycling and MTB routes without login. Export trail data to CSV/JSON by location, coordinates or tour ID via an unofficial Komoot API. |
+| [MLB StatsAPI Baseball Data Scraper](https://apify.com/parseforge/mlb-statsapi-scraper?fpr=p2hrc6) | Tap the official MLB StatsAPI for teams, players, schedules, venues, leagues, divisions, and seasons. Filter by sport id and season year to build rosters, standings, or game calendars. Useful for... |
+| [Sofascore Live Events Scraper](https://apify.com/maximedupre/sofascore-live-events-scraper?fpr=p2hrc6) | Scrape Sofascore live events, scheduled fixtures, scores, teams, players, managers, and supported match URLs. Export sports data to datasets, API, schedules, and integrations. No Sofascore login or... |
+| [Transfermarkt Global Football Player Scraper](https://apify.com/jungle_synthesizer/transfermarkt-global-football-player-scraper?fpr=p2hrc6) | Scrape global football player profiles from Transfermarkt — career, market value history, transfers, agency, caps, injuries. Discover by player ID, club, competition (Premier League, La Liga, MLS,... |
+| [Transfermarkt Scraper](https://apify.com/automation-lab/transfermarkt-scraper?fpr=p2hrc6) | Scrape football player profiles from Transfermarkt. Extract market value, position, nationality, club, contract details & transfer history. Search by name or URL. Export JSON/CSV/Excel. |
+| [WorldFootball Scraper &#124; Global Soccer Stats](https://apify.com/parseforge/worldfootball-net-scraper?fpr=p2hrc6) | Pull soccer match results, league tables, player profiles, transfers, lineups, and historical records from WorldFootball.net across leagues worldwide. Perfect for football analytics, fantasy tools,... |
+
+---
+
+<p align="center"><a href="../README.md">← Back to main API list</a></p>

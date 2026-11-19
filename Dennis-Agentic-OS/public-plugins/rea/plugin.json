@@ -1,0 +1,38 @@
+{
+  "name": "rea",
+  "title": "REA — Reverse Engineer Anything",
+  "version": "6.8.0",
+  "description": "One MCP for reverse engineering across binaries, applications, and runtime behavior: native binaries, JavaScript/Electron apps, .NET assemblies, websites, Android APKs and more.",
+  "author": "morluto",
+  "repository": "https://github.com/morluto/rea",
+  "homepage": "https://rea.tools",
+  "license": "MIT",
+  "skills": [
+    "skills/reverse-engineer-anything"
+  ],
+  "mcp": [
+    "mcp/rea.mcp.json"
+  ],
+  "compatibility": {
+    "agents": [
+      "generic",
+      "claude-code",
+      "cursor",
+      "codex",
+      "gemini-cli",
+      "opencode",
+      "hermes"
+    ]
+  },
+  "x-dennis": {
+    "tier": "public",
+    "source_repo": "https://github.com/morluto/rea",
+    "upstream_version": "6.8.0",
+    "upstream_commit": "c3647ade1e55",
+    "npm_package": "rea-agents",
+    "mcp_transport": "stdio",
+    "mcp_command": "npx -y rea-agents@latest mcp",
+    "requirements": "Node.js 22.x (>=22.23.4), 24.x (>=24.22.1), or 26.12.1+; native analysis needs a Hopper, Ghidra, IDA or Kuna installation",
+    "generated_at": "2026-11-04"
+  }
+}

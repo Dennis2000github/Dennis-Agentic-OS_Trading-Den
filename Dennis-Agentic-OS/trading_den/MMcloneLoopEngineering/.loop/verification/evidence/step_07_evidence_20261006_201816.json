@@ -1,0 +1,111 @@
+{
+  "step": 7,
+  "status": "PASS",
+  "summary": "Step 7 Directional Maker/Taker Fees Verification",
+  "timestamp": "2026-10-06T12:18:08.313120+00:00",
+  "checks": [
+    {
+      "name": "Project Isolation",
+      "passed": true,
+      "blocked": false,
+      "expected": "Clone isolation intact and source read-only",
+      "actual": "Clone isolation verified. Original project is read-only and clean.",
+      "technical_basis": "Isolation audit rule 5 & 16."
+    },
+    {
+      "name": "Module Import",
+      "passed": true,
+      "blocked": false,
+      "expected": "FeeEngine and models importable from arbitrage",
+      "actual": "Import successful",
+      "technical_basis": "Directional Fee Engine dedicated layer architecture."
+    },
+    {
+      "name": "Directional Fee Formula",
+      "passed": true,
+      "blocked": false,
+      "expected": "Candidate A = A Maker + B Taker; Candidate B = B Maker + A Taker",
+      "actual": "Cand A: maker=0.001, taker=0.001, total=0.002 | Cand B: maker=0.001, taker=0.001, total=0.002",
+      "technical_basis": "Step 7 requirement: Directional maker/taker fees for A Maker -> B Taker and B Maker -> A Taker."
+    },
+    {
+      "name": "Directional Asymmetry Verification",
+      "passed": true,
+      "blocked": false,
+      "expected": "MEXC->OKX Cand A total fee pct is 0.10%, Cand B total fee pct is 0.18%",
+      "actual": "Cand A: 0.1%, Cand B: 0.18%",
+      "technical_basis": "Directional fees must accurately capture cost differences depending on which venue is Maker vs Hedge."
+    },
+    {
+      "name": "Multi-Dimensional Fee Support",
+      "passed": true,
+      "blocked": false,
+      "expected": "Supports exchange, market type (spot/perp), fee tier (standard/vip), account override, and instrument override",
+      "actual": "market_type_ok=True, tier_ok=True, custom_ok=True",
+      "technical_basis": "Step 7 requirement: Use exchange, account, instrument, market type, fee tier."
+    },
+    {
+      "name": "Raw Spread Fee-Independent Invariant",
+      "passed": true,
+      "blocked": false,
+      "expected": "Raw spread calculation is unaffected by fees",
+      "actual": "Raw spread pct: 0.3166%, Expected: 0.3166%",
+      "technical_basis": "Step 7 requirement: Raw Spread remains fee-independent."
+    },
+    {
+      "name": "Centralized Fee Logic Integration",
+      "passed": true,
+      "blocked": false,
+      "expected": "DirectionEngine reuses FeeEngine without duplicate fee logic",
+      "actual": "Cand A fees: maker=0.001, taker=0.001, total_pct=0.2",
+      "technical_basis": "Step 7 requirement: Do not create duplicate fee logic. Reuse existing directional fee engine."
+    },
+    {
+      "name": "Zero Order Placement Invariant",
+      "passed": true,
+      "blocked": false,
+      "expected": "No order placement method invocations in FeeEngine",
+      "actual": "Prohibited calls found: []",
+      "technical_basis": "Step 7 requirement: No order placement or exit changes."
+    },
+    {
+      "name": "Deterministic Step 7 Test Suite",
+      "passed": true,
+      "blocked": false,
+      "expected": "Exit code 0 from tests/test_step7_directional_fees.py",
+      "actual": "Exit code 0.\n\n..........\n----------------------------------------------------------------------\nRan 10 tests in 0.001s\n\nOK",
+      "technical_basis": "Step 7 unit tests pass deterministically."
+    }
+  ],
+  "evidence": {
+    "fee_calculation_result": {
+      "symbol": "BTC/USDT",
+      "instrument": "BTC/USDT",
+      "venue_a": "BINANCE",
+      "venue_b": "BYBIT",
+      "account_a": null,
+      "account_b": null,
+      "market_type": "spot",
+      "fee_tier_a": "standard",
+      "fee_tier_b": "standard",
+      "candidate_a": {
+        "maker_venue": "BINANCE",
+        "taker_venue": "BYBIT",
+        "maker_fee": 0.001,
+        "taker_fee": 0.001,
+        "total_fee": 0.002,
+        "total_fee_pct": 0.2
+      },
+      "candidate_b": {
+        "maker_venue": "BYBIT",
+        "taker_venue": "BINANCE",
+        "maker_fee": 0.001,
+        "taker_fee": 0.001,
+        "total_fee": 0.002,
+        "total_fee_pct": 0.2
+      },
+      "timestamp": 1791289091.778411
+    },
+    "unit_test_output": "..........\n----------------------------------------------------------------------\nRan 10 tests in 0.001s\n\nOK\n"
+  }
+}

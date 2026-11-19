@@ -1,0 +1,17 @@
+{
+  "step": 6,
+  "status": "BLOCKED",
+  "summary": "Step 6 Dynamic Maker/Hedge Direction Verification",
+  "timestamp": "2026-10-06T08:57:25.655077+00:00",
+  "checks": [
+    {
+      "name": "Project Isolation",
+      "passed": false,
+      "blocked": true,
+      "expected": "Clone isolation intact and source read-only",
+      "actual": "Original project has uncommitted changes:  M data/denma_history.db\n",
+      "technical_basis": "Isolation audit rule 5 & 16."
+    }
+  ],
+  "evidence": {}
+}

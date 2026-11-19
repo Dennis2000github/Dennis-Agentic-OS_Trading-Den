@@ -1,0 +1,9 @@
+{
+  "$comment": "REA MCP server (stdio, local). Requires Node.js 22+. Launches `npx rea-agents mcp`; pin a version (e.g. rea-agents@6.8.0) instead of @latest for reproducible setups. Claude Code and Codex accept the mcpServers shape below; OpenCode uses { \"type\": \"local\", \"command\": [\"npx\", \"-y\", \"rea-agents@latest\", \"mcp\"] }; Cursor uses \"command\" + \"args\". The Plugins tab can generate the exact block for each client.",
+  "mcpServers": {
+    "rea": {
+      "command": "npx",
+      "args": ["-y", "rea-agents@latest", "mcp"]
+    }
+  }
+}

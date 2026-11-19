@@ -1,0 +1,37 @@
+{
+ "records": [
+  {
+   "id": "sync-1793777786063",
+   "at": "2026-11-04T15:36:26+0800",
+   "trigger": "sync",
+   "status": "success",
+   "commit": "b7c914f5abd7d0f7562bd1f2036411d3c8f7c29e",
+   "parser_version": "2026-10-23.1",
+   "counts": {
+    "entries": 11884,
+    "listings": 30509,
+    "core_entries": 11660,
+    "featured_entries": 224,
+    "categories": 23,
+    "featured_collections": 1,
+    "duplicates_merged": 18625,
+    "skipped": 0,
+    "parse_errors": 0
+   },
+   "import": {
+    "created": 11884,
+    "updated": 0,
+    "unchanged": 0,
+    "removed": 0,
+    "failed": 0,
+    "skipped": 0,
+    "duplicates_merged": 18625,
+    "entries": 11884,
+    "trigger": "sync",
+    "started_at": "2026-11-04T15:35:55+0800",
+    "finished_at": "2026-11-04T15:36:22+0800"
+   },
+   "error": ""
+  }
+ ]
+}

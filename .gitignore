@@ -1,0 +1,10 @@
+.venv/
+cookies.txt
+.DS_Store
+.idea/
+__pycache__/
+*.pyc
+.env
+.env.*
+OpenJarvis/
+audit_config.py

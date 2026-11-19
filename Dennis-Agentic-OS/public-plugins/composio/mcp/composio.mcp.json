@@ -1,0 +1,12 @@
+{
+  "$comment": "Composio Connect (streamable HTTP). Replace ${COMPOSIO_CONSUMER_KEY} with the ck_... consumer key from dashboard.composio.dev > For You > AI Clients. Claude Code expands ${VAR}; OpenCode uses {env:VAR}; Cursor uses ${env:VAR}. The Plugins tab can generate the exact block for each client.",
+  "mcpServers": {
+    "composio": {
+      "type": "http",
+      "url": "https://connect.composio.dev/mcp",
+      "headers": {
+        "x-consumer-api-key": "${COMPOSIO_CONSUMER_KEY}"
+      }
+    }
+  }
+}

@@ -1,0 +1,139 @@
+{
+  "step": 10,
+  "status": "PASS",
+  "summary": "Step 10 Funding Arbitrage Mode Verification",
+  "timestamp": "2026-10-07T02:53:54.810947+00:00",
+  "checks": [
+    {
+      "name": "Project Isolation",
+      "passed": true,
+      "blocked": false,
+      "expected": "Clone isolation intact and source read-only",
+      "actual": "Clone isolation verified. Original project is read-only and clean.",
+      "technical_basis": "Isolation audit rule 5 & 16."
+    },
+    {
+      "name": "Module Import",
+      "passed": true,
+      "blocked": false,
+      "expected": "FundingArbitrageEngine and models importable from arbitrage",
+      "actual": "Import successful",
+      "technical_basis": "Funding Arbitrage dedicated layer architecture."
+    },
+    {
+      "name": "Highest Funding Direction Selection",
+      "passed": true,
+      "blocked": false,
+      "expected": "Short Binance (+0.03%) & Long Bybit (+0.01%) selected with net funding +0.02%",
+      "actual": "short=BINANCE, long=BYBIT, net_rate=0.0002",
+      "technical_basis": "Step 10 requirement: Select First Leg/Maker using Highest Funding %."
+    },
+    {
+      "name": "Funding Rate Decoupled From Order Price",
+      "passed": true,
+      "blocked": false,
+      "expected": "Maker order price matches market level (~60000) and is not equal to funding rate (0.0002)",
+      "actual": "maker_price=60005.0, net_funding_rate=0.0002",
+      "technical_basis": "Step 10 requirement: Funding % is a venue/direction selector only, NEVER the Maker order price."
+    },
+    {
+      "name": "Maker Entry Pricing Modes Support",
+      "passed": true,
+      "blocked": false,
+      "expected": "Supports Spread, Grid, and Bollinger pricing for funding maker entry",
+      "actual": "spread=SPREAD, grid=GRID, boll=BOLLINGER",
+      "technical_basis": "Step 10 requirement: Spread/Grid/Bollinger determines Maker entry level."
+    },
+    {
+      "name": "Independent Funding Exit Lifecycle",
+      "passed": true,
+      "blocked": false,
+      "expected": "Funding exit is settlement/inversion based and decoupled from 0% spread convergence",
+      "actual": "exit_type=FUNDING_SETTLEMENT, use_spread_convergence=False",
+      "technical_basis": "Step 10 requirement: Independent Funding Exit (Section 10.9)."
+    },
+    {
+      "name": "Zero Order Placement Invariant",
+      "passed": true,
+      "blocked": false,
+      "expected": "No order placement method invocations in FundingArbitrageEngine",
+      "actual": "Prohibited calls found: []",
+      "technical_basis": "Step 10 requirement: No order placement during modular development."
+    },
+    {
+      "name": "Deterministic Step 10 Test Suite",
+      "passed": true,
+      "blocked": false,
+      "expected": "Exit code 0 from tests/test_step10_funding_arbitrage.py",
+      "actual": "Exit code 0.\n\n......\n----------------------------------------------------------------------\nRan 6 tests in 0.001s\n\nOK",
+      "technical_basis": "Step 10 unit tests pass deterministically."
+    }
+  ],
+  "evidence": {
+    "decision": {
+      "symbol": "BTC/USDT",
+      "first_leg_venue": "BYBIT",
+      "second_leg_venue": "BINANCE",
+      "maker_side": "BUY",
+      "hedge_side": "SELL",
+      "net_funding_rate": 0.0002,
+      "net_funding_annual_pct": 21.9,
+      "is_viable": true,
+      "rejection_reason": null,
+      "pricing": {
+        "pricing_mode": "SPREAD",
+        "base_maker_price": 60005.0,
+        "maker_side": "BUY",
+        "order_quantity": 1.0,
+        "grid_levels": [],
+        "bollinger_bands": null,
+        "exit_target_price": 0.0,
+        "stop_loss_price": null,
+        "target_hedge_price": 60010.0
+      },
+      "risk_metrics": {
+        "net_funding_rate": 0.0002,
+        "net_funding_annual_pct": 21.9,
+        "total_fee_pct": 0.07,
+        "short_venue": "BINANCE",
+        "long_venue": "BYBIT"
+      },
+      "exit_conditions": {
+        "exit_type": "FUNDING_SETTLEMENT",
+        "settlement_target_time": 1791356036.596429,
+        "target_settlement_count": 1,
+        "rate_inversion_stop": true,
+        "max_duration_hours": 24,
+        "use_spread_convergence_exit": false
+      },
+      "timestamp": 1791341636.596566,
+      "reference_venue": "",
+      "priced_venue": "",
+      "selected_opportunity": {
+        "symbol": "BTC/USDT",
+        "short_venue": "BINANCE",
+        "long_venue": "BYBIT",
+        "short_funding_rate": 0.0003,
+        "long_funding_rate": 0.0001,
+        "net_funding_rate": 0.0002,
+        "net_funding_annual_pct": 21.9,
+        "candidate_id": "B",
+        "maker_venue": "BYBIT",
+        "maker_side": "BUY",
+        "hedge_venue": "BINANCE",
+        "hedge_side": "SELL",
+        "total_fee_pct": 0.07,
+        "net_opportunity_pct": 21.06,
+        "next_settlement_time": 1791356036.596429,
+        "validity": true,
+        "error_reason": null,
+        "timestamps": {
+          "evaluated": 1791341636.59647,
+          "funding_a": 1791341636.596429,
+          "funding_b": 1791341636.596429
+        }
+      }
+    },
+    "unit_test_output": "......\n----------------------------------------------------------------------\nRan 6 tests in 0.001s\n\nOK\n"
+  }
+}

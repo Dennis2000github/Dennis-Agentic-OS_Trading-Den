@@ -1,0 +1,15 @@
+# Secrets
+.env
+!.env.example
+
+# Generated artifacts: transcripts, metadata, visual breakdowns, media
+output/*
+!output/.gitkeep
+
+# Static binaries (ffmpeg/ffprobe) — fetch with scripts/fetch-ffmpeg.sh
+bin/*
+!bin/.gitkeep
+
+# Runtime drafts and source/model-health cache (generated)
+drafts/
+.cache/

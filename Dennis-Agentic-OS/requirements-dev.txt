@@ -1,0 +1,4 @@
+# Development / verification dependencies (the app itself is stdlib-only).
+# The browser E2E test drives the installed Google Chrome via channel="chrome",
+# so no Playwright browser download is required.
+playwright>=1.40
