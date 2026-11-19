@@ -23,7 +23,8 @@
     selected: "",
     detail: null,
     detailLoading: false,
-    client: "generic"
+    client: "generic",
+    endpoint: "consumer"
   };
 
   function $(id) { return document.getElementById(id); }
@@ -83,7 +84,7 @@
 
   function setBusy(on) {
     state.busy = !!on;
-    ["cp-refresh", "cp-save-keys", "cp-clear-keys", "cp-install", "cp-wire", "cp-unwire"].forEach(function (id) {
+    ["cp-refresh", "cp-save-keys", "cp-clear-keys", "cp-install", "cp-wire", "cp-unwire", "cp-purge-expired", "cp-mcp-project"].forEach(function (id) {
       var el = $(id);
       if (el) el.disabled = !!on;
     });
@@ -281,6 +282,7 @@
     renderClients();
     renderRuntime();
     renderMcp();
+    renderSharedMcp();
     if (state.selected) {
       var exists = state.toolkits.some(function (item) { return item.slug === state.selected; });
       if (exists) loadToolkit(state.selected, true);
@@ -323,6 +325,12 @@
     if ($("cp-nav-toolkit-count")) $("cp-nav-toolkit-count").textContent = Number(catalog.count || 0).toLocaleString();
     if ($("cp-nav-connection-count")) $("cp-nav-connection-count").textContent = connections.length;
     if ($("cp-connections-count")) $("cp-connections-count").textContent = connections.length;
+    var expired = (state.overview && state.overview.expired) || { count: 0 };
+    var purgeLabel = $("cp-purge-expired");
+    if (purgeLabel) {
+      var span = purgeLabel.querySelector("span");
+      if (span) span.textContent = expired.count ? "Delete expired (" + expired.count + ")" : "Delete expired";
+    }
     if ($("cp-wire-state")) $("cp-wire-state").textContent = wired ? wired + " wired" : "not wired";
     if ($("cp-cred-state")) $("cp-cred-state").textContent = status.updated_at ? "saved " + status.updated_at.replace("T", " ") : "";
     var pluginState = $("cp-plugin-state");
@@ -537,7 +545,9 @@
     var select = $("cp-client-select");
     if (!select) return;
     state.client = select.value || state.client || "generic";
-    api("/api/composio/mcp?client=" + encodeURIComponent(state.client)).then(function (result) {
+    var endpointSelect = $("cp-mcp-endpoint");
+    if (endpointSelect && document.activeElement !== endpointSelect) endpointSelect.value = state.endpoint || "consumer";
+    api("/api/composio/mcp?client=" + encodeURIComponent(state.client) + "&endpoint=" + encodeURIComponent(state.endpoint || "consumer")).then(function (result) {
       var code = result.ok && result.data ? result.data.snippet : ((result.data && result.data.error) || "Could not load MCP configuration.");
       if ($("cp-mcp-snippet")) $("cp-mcp-snippet").textContent = code || "";
     }).catch(function (error) {
@@ -611,14 +621,53 @@
     var clients = selectedClients();
     if (!clients.length) { toast("Select at least one MCP client.", true); return; }
     setBusy(true);
-    toast(remove ? "Removing Composio from selected clients…" : "Wiring Composio MCP…");
-    api("/api/composio/wire", { method: "POST", body: { clients: clients, remove: !!remove } }).then(function (result) {
+    toast(remove ? "Removing Composio from selected clients…" : "Wiring Composio MCP (" + (state.endpoint === "project" ? "shared project endpoint" : "consumer endpoint") + ")…");
+    api("/api/composio/wire", { method: "POST", body: { clients: clients, remove: !!remove, endpoint: state.endpoint || "consumer" } }).then(function (result) {
       if (!result.ok) { toast((result.data && result.data.error) || "MCP wiring failed", true); return; }
       var items = result.data && result.data.results || [];
       var failed = items.some(function (item) { return !item.ok; });
       toast(items.map(function (item) { return item.client + ": " + (item.action || item.error || "done"); }).join(" · ") || "Done", failed);
       return api("/api/composio/overview").then(function (overview) { if (overview.ok) applyOverview(overview.data); });
     }).catch(function (error) { toast("MCP wiring failed: " + error.message, true); }).then(function () { setBusy(false); });
+  }
+
+  function renderSharedMcp() {
+    var data = state.overview || {};
+    var url = (data.session_mcp && data.session_mcp.url) || "";
+    var el = $("cp-mcp-project-url");
+    if (el) el.textContent = url || "Not generated yet";
+    var btn = $("cp-mcp-project");
+    if (btn) {
+      var label = btn.querySelector("span");
+      if (label) label.textContent = url ? "Regenerate shared endpoint" : "Generate shared endpoint";
+    }
+  }
+
+  function purgeExpired() {
+    if (state.busy) return;
+    var count = ((state.overview || {}).expired || {}).count || 0;
+    if (!count) { toast("No expired connected accounts to delete."); return; }
+    if (!window.confirm("Delete all " + count + " expired connected account(s) from the Composio project? This cannot be undone.")) return;
+    setBusy(true);
+    toast("Deleting expired connected accounts…");
+    api("/api/composio/purge-expired", { method: "POST", body: { statuses: ["EXPIRED"] } }).then(function (result) {
+      if (!result.ok) { toast((result.data && result.data.error) || "Delete failed", true); return; }
+      var removed = ((result.data || {}).removed || []).length;
+      var failed = ((result.data || {}).failed || []).length;
+      toast("Deleted " + removed + " expired account(s)" + (failed ? " · " + failed + " failed" : ""), !!failed);
+      return api("/api/composio/overview").then(function (overview) { if (overview.ok) applyOverview(overview.data); });
+    }).catch(function (error) { toast("Delete failed: " + error.message, true); }).then(function () { setBusy(false); });
+  }
+
+  function generateSessionMcp() {
+    if (state.busy) return;
+    setBusy(true);
+    toast("Generating the shared project MCP endpoint…");
+    api("/api/composio/session-mcp", { method: "POST", body: { force: true } }).then(function (result) {
+      if (!result.ok) { toast((result.data && result.data.error) || "Could not generate the shared endpoint", true); return; }
+      toast("Shared endpoint ready. Pick 'Shared project session' and Wire selected to point every agent at the same apps.");
+      return api("/api/composio/overview").then(function (overview) { if (overview.ok) applyOverview(overview.data); });
+    }).catch(function (error) { toast("Shared endpoint failed: " + error.message, true); }).then(function () { setBusy(false); });
   }
 
   function init() {
@@ -658,6 +707,10 @@
     if ($("cp-install")) $("cp-install").addEventListener("click", installPlugin);
     if ($("cp-wire")) $("cp-wire").addEventListener("click", function () { wire(false); });
     if ($("cp-unwire")) $("cp-unwire").addEventListener("click", function () { wire(true); });
+    if ($("cp-purge-expired")) $("cp-purge-expired").addEventListener("click", purgeExpired);
+    if ($("cp-mcp-project")) $("cp-mcp-project").addEventListener("click", generateSessionMcp);
+    if ($("cp-copy-project")) $("cp-copy-project").addEventListener("click", function () { copyText(($("cp-mcp-project-url") || {}).textContent || "", "Shared endpoint URL"); });
+    if ($("cp-mcp-endpoint")) $("cp-mcp-endpoint").addEventListener("change", function () { state.endpoint = this.value || "consumer"; renderMcp(); });
     ["cp-consumer", "cp-api"].forEach(function (id) { if ($(id)) $(id).addEventListener("keydown", function (event) { if (event.key === "Enter") saveKeys(); }); });
     ["cp-runtime"].forEach(function (id) { if ($(id)) $(id).addEventListener("click", function (event) { var button = event.target.closest("[data-copy]"); if (button) copyText(button.getAttribute("data-copy"), "Command"); }); });
     // Coming back from the OAuth tab is the usual moment a connection turns

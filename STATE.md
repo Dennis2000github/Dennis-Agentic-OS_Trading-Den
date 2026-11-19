@@ -1,6 +1,56 @@
 # STATE
 
-_Last updated: 2026-11-16_
+_Last updated: 2026-11-18_
+
+## 2026-11-18 — Composio: agent-agnostic shared access + expired-account purge
+
+**Ask:** (1) Composio connected apps must be reachable by every integrated
+agent, not bound to one (e.g. OpenCode's own consumer/For You account — which
+only had googledrive, while the OS Platform project holds the real six:
+apify, youtube, hugging_face, canva, vidiq_mcp, github). (2) A Delete button
+that purges the expired connected accounts (10 stale rows: canva ×10, apify,
+elevenlabs, gmail).
+
+**Done:**
+- `backend/composio.py`: `session_mcp(force)` creates/reuses ONE shared
+  project-scoped MCP endpoint (POST `/tool_router/session`, user
+  `dennis-os-local`, persisted in `data/composio.json`) backed by the
+  project's connected accounts — per docs.composio.dev
+  `docs/sessions-via-mcp.md` (session.mcp.url, x-api-key header).
+  `mcp_block/mcp_snippet/_wire_one/wire` accept `endpoint="consumer"|"project"`
+  (consumer behaviour unchanged); `agents_access()` returns the agent-agnostic
+  access matrix (OS HTTP API for all agents, shared MCP for MCP-capable ones,
+  portable skill pack); `purge_expired(statuses)` + `remove_connection(id)`
+  via DELETE `/connected_accounts/{id}` (verified against v3.1 reference);
+  `overview()` now reports `expired`, `session_mcp`, `agents`, and the
+  project URL — all additive.
+- `app.py`: owner-gated POST `/api/composio/purge-expired` and
+  `/api/composio/session-mcp`; `/api/composio/wire` + `/api/composio/mcp`
+  take an `endpoint` param.
+- `index.html` + `js/composio.js`: Connected-accounts head gains a
+  "Delete expired (n)" button (confirm dialog, per-status summary toast);
+  MCP panel gains a "Shared agent access" card — generate/regenerate the
+  shared endpoint, copy URL, and an endpoint selector that controls what
+  "Wire selected" writes into every client config.
+- `tests/test_composio.py`: +7 tests (purge filtering/status guard, remove
+  validation, session reuse/rotate, project block + wire-through, access
+  matrix). Suite: 19/19 composio green; full discover run 812 tests with the
+  SAME 27 pre-existing failures/errors as the pristine tree (freellm
+  removal leftovers: test_connections/test_compatibility/test_model_catalog/
+  test_execution_router/test_connection_routes still import
+  `backend.freellmapi`, plus upif/deepseek/model-source cases) — verified via
+  `git stash` that none are caused by this change.
+
+**Locked behaviour:** consumer endpoint wiring byte-identical to before;
+connections remain project-owned (user `dennis-os-local`); no new keys
+stored (session URL + id live in the existing 0600 store); purge defaults to
+EXPIRED only and refuses ACTIVE/INITIATED.
+
+**Next (needs you):** open Plugins → Composio → MCP clients → "Shared agent
+access", generate the endpoint, switch the selector to "Shared project
+session", and Wire selected — every integrated agent then sees the same
+connected apps. Scoped project keys need Session management enabled
+(Dashboard → Settings → API keys).
 
 ## 2026-11-16 — Universal Shared Skill Registry (Phases 2–9) + img2threejs
 

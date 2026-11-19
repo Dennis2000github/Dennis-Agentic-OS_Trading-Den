@@ -644,6 +644,138 @@ def connections():
 
 
 # ---------------------------------------------------------------------------
+# Connection management: shared across agents, never per-agent
+# ---------------------------------------------------------------------------
+PURGEABLE_STATUSES = ("EXPIRED", "FAILED", "DELETED")
+
+
+def remove_connection(account_id):
+    """Delete one connected account (DELETE /connected_accounts/{id})."""
+    account_id = str(account_id or "").strip()
+    if not account_id or not re.match(r"^[A-Za-z0-9_.-]{1,120}$", account_id):
+        raise ComposioError("A connected account id is required.", "account_id_invalid")
+    if not keys()["api"]:
+        raise ComposioError("Add a project API key to manage connected accounts.", "not_configured", 409)
+    _http_json("/connected_accounts/%s" % account_id, method="DELETE")
+    return {"removed": account_id}
+
+
+def purge_expired(statuses=("EXPIRED",)):
+    """Delete the dead connected accounts (EXPIRED by default) that clutter the panel."""
+    if not keys()["api"]:
+        raise ComposioError("Add a project API key to manage connected accounts.", "not_configured", 409)
+    wanted = {str(s).strip().upper() for s in (statuses or ()) if str(s).strip()} or {"EXPIRED"}
+    unknown = wanted - set(PURGEABLE_STATUSES)
+    if unknown:
+        raise ComposioError(
+            "Only %s accounts can be purged; refusing %s."
+            % ("/".join(PURGEABLE_STATUSES), ", ".join(sorted(unknown))),
+            "status_not_purgeable")
+    accounts = _live_connections()
+    stale = [a for a in accounts if str(a.get("status") or "").upper() in wanted and a.get("id")]
+    removed, failed = [], []
+    for account in stale:
+        try:
+            _http_json("/connected_accounts/%s" % account["id"], method="DELETE")
+            removed.append({"id": account["id"], "toolkit": account.get("toolkit", "")})
+        except ComposioError as exc:
+            failed.append({"id": account["id"], "toolkit": account.get("toolkit", ""), "error": str(exc)})
+    return {
+        "removed": removed,
+        "failed": failed,
+        "requested_statuses": sorted(wanted),
+        "checked": len(accounts),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Shared agent access: one project-scoped MCP endpoint for every agent
+# ---------------------------------------------------------------------------
+def session_mcp(force=False):
+    """Create (or reuse) the shared session MCP endpoint.
+
+    The endpoint is backed by this project's connected accounts (user
+    ``dennis-os-local``), so every agent wired with it sees the same apps --
+    connections live in the project, not in any single agent. Scoped project
+    keys need Session management enabled (Dashboard -> Settings -> API keys).
+    """
+    if not keys()["api"]:
+        raise ComposioError("Add a project API key first.", "not_configured", 409,
+                            details={"signup_url": DASHBOARD_URL})
+    store = _read_store()
+    entry = store.get("session_mcp")
+    if not force and isinstance(entry, dict) and entry.get("url"):
+        return dict(entry, reused=True)
+    created = _http_json("/tool_router/session", method="POST", body={"user_id": CONNECT_USER_ID})
+    mcp = created.get("mcp") if isinstance(created, dict) else {}
+    url = str((mcp or {}).get("url") or "")
+    if not url:
+        raise ComposioError(
+            "Composio did not return a session MCP endpoint (mcp.url). Check that the "
+            "project key allows Session management.", "session_mcp_missing", 502)
+    entry = {
+        "url": url,
+        "session_id": str(created.get("session_id") or ""),
+        "user_id": CONNECT_USER_ID,
+        "created_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+    }
+    store["session_mcp"] = entry
+    store["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+    _write_store(store)
+    return dict(entry, reused=False)
+
+
+def _project_session():
+    store = _read_store()
+    entry = store.get("session_mcp")
+    if not isinstance(entry, dict) or not entry.get("url"):
+        raise ComposioError(
+            "Generate the shared project endpoint first (Plugins tab -> MCP clients -> "
+            "Shared agent access).", "session_mcp_missing", 409)
+    return entry
+
+
+def _project_key(client):
+    data = keys()
+    if data["api"]:
+        return data["api"]
+    if client == "opencode":
+        return "{env:%s}" % API_ENV
+    if client == "cursor":
+        return "${env:%s}" % API_ENV
+    return "${%s}" % API_ENV
+
+
+def agents_access():
+    """How every integrated agent reaches the shared connections.
+
+    The connections belong to the OS's Composio project -- never to one agent.
+    Three access paths, all agent-agnostic: the OS owner-gated HTTP API, the
+    shared project session MCP endpoint, and the portable skill pack.
+    """
+    store = _read_store()
+    session = store.get("session_mcp")
+    wired = {c["id"]: c["wired"] for c in clients()}
+    plugin = plugin_status()
+    agents = []
+    for agent in sorted(set(list(plugins.AGENT_SKILL_DIRS) + ["generic"])):
+        agents.append({
+            "agent": agent,
+            "os_api": True,
+            "skill_pack": bool(plugin.get("installed")),
+            "mcp": "wired" if wired.get(agent) else ("available" if agent in wired else "not_applicable"),
+        })
+    return {
+        "model": ("Connections live in the OS's Composio project (user dennis-os-local), "
+                  "not in any single agent. Every agent reaches the same apps through the "
+                  "OS HTTP API, the shared project session MCP endpoint, and the portable "
+                  "composio skill pack."),
+        "session_mcp_configured": bool(isinstance(session, dict) and session.get("url")),
+        "agents": agents,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Connect flow (auth config -> hosted Connect Link)
 # ---------------------------------------------------------------------------
 CONNECT_USER_ID = "dennis-os-local"
@@ -844,36 +976,46 @@ def _mcp_key(client):
     return "${%s}" % CONSUMER_ENV
 
 
-def mcp_block(client="generic"):
+def mcp_block(client="generic", endpoint="consumer"):
     client = (client or "generic").strip().lower()
-    key = _mcp_key(client)
-    headers = {CONSUMER_HEADER: key}
+    endpoint = (endpoint or "consumer").strip().lower()
+    if endpoint == "project":
+        url = str(_project_session().get("url") or "")
+        headers = {API_HEADER: _project_key(client)}
+    else:
+        url = MCP_URL
+        headers = {CONSUMER_HEADER: _mcp_key(client)}
     if client == "opencode":
         return {"mcp": {"composio": {
-            "type": "remote", "url": MCP_URL, "headers": headers, "enabled": True}}}
+            "type": "remote", "url": url, "headers": headers, "enabled": True}}}
     if client == "gemini-cli":
-        return {"mcpServers": {"composio": {"httpUrl": MCP_URL, "headers": headers}}}
+        return {"mcpServers": {"composio": {"httpUrl": url, "headers": headers}}}
     if client == "antigravity":
-        return {"mcpServers": {"composio": {"serverUrl": MCP_URL, "headers": headers}}}
+        return {"mcpServers": {"composio": {"serverUrl": url, "headers": headers}}}
     if client == "cursor":
-        return {"mcpServers": {"composio": {"url": MCP_URL, "headers": headers}}}
+        return {"mcpServers": {"composio": {"url": url, "headers": headers}}}
     return {"mcpServers": {"composio": {
-        "type": "http", "url": MCP_URL, "headers": headers}}}
+        "type": "http", "url": url, "headers": headers}}}
 
 
-def mcp_snippet(client="generic"):
+def mcp_snippet(client="generic", endpoint="consumer"):
     client = (client or "generic").strip().lower()
+    endpoint = (endpoint or "consumer").strip().lower()
     if client == "codex":
+        if endpoint == "project":
+            url, header, key = str(_project_session().get("url") or ""), API_HEADER, _project_key(client)
+        else:
+            url, header, key = MCP_URL, CONSUMER_HEADER, _mcp_key(client)
         text = ("[mcp_servers.composio]\n"
                 "url = \"%s\"\n"
                 "http_headers = { \"%s\" = \"%s\" }\n"
-                % (MCP_URL, CONSUMER_HEADER, _mcp_key(client)))
+                % (url, header, key))
         return {"client": client, "language": "toml", "snippet": text, "path": ""}
     target = _CLIENTS.get(client)
     return {
         "client": client,
         "language": "json",
-        "snippet": json.dumps(mcp_block(client), indent=2) + "\n",
+        "snippet": json.dumps(mcp_block(client, endpoint=endpoint), indent=2) + "\n",
         "path": target["path"] if target else "",
     }
 
@@ -1047,7 +1189,7 @@ def _atomic_write(path, text):
     os.replace(tmp, path)
 
 
-def _wire_one(client_id, remove=False):
+def _wire_one(client_id, remove=False, endpoint="consumer"):
     spec = _CLIENTS[client_id]
     path, fmt = spec["path"], spec["format"]
     try:
@@ -1066,7 +1208,7 @@ def _wire_one(client_id, remove=False):
     if not isinstance(container, dict):
         container = {}
         node[container_key] = container
-    entry = mcp_block(client_id)
+    entry = mcp_block(client_id, endpoint=endpoint)
     for key in spec["nested"]:
         entry = entry[key]
     value = entry["composio"]
@@ -1093,11 +1235,11 @@ def _wire_one(client_id, remove=False):
     return {"client": client_id, "ok": True, "action": action, "path": path, "backup": backup}
 
 
-def wire(clients_list=None, remove=False):
+def wire(clients_list=None, remove=False, endpoint="consumer"):
     chosen = [c for c in (clients_list or list(_CLIENTS)) if c in _CLIENTS]
     if not chosen:
         raise ComposioError("Select at least one MCP client.", "client_missing")
-    results = [_wire_one(client_id, remove=remove) for client_id in chosen]
+    results = [_wire_one(client_id, remove=remove, endpoint=endpoint) for client_id in chosen]
     return {
         "results": results,
         "ok": all(item.get("ok") for item in results),
@@ -1160,16 +1302,30 @@ def overview():
         conns = connections()
     if conns.get("warning") and not warning:
         warning = conns["warning"]
+    all_connections = conns.get("connections", [])
+    expired = [c for c in all_connections
+               if str(c.get("status") or "").upper() == "EXPIRED"]
+    session = _read_store().get("session_mcp")
+    session = session if isinstance(session, dict) else {}
     return {
         "status": key_state,
         "catalog": catalog_data,
-        "connections": conns.get("connections", []),
+        "connections": all_connections,
+        "expired": {"count": len(expired), "items": expired},
         "warning": warning,
         "mcp": {
             "url": MCP_URL,
             "header": CONSUMER_HEADER,
             "snippet": mcp_snippet("generic"),
+            "project_url": session.get("url") or "",
         },
+        "session_mcp": {
+            "configured": bool(session.get("url")),
+            "url": session.get("url") or "",
+            "user_id": session.get("user_id") or "",
+            "created_at": session.get("created_at") or "",
+        },
+        "agents": agents_access(),
         "clients": clients(),
         "plugin": plugin_status(),
         "runtime": runtime_status(),

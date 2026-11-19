@@ -2133,8 +2133,10 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
             owner = self._require_owner(parsed)
             if not owner:
                 return
-            client = parse_qs(parsed.query).get('client', ['generic'])[0]
-            return self.send_json(dennis_composio.mcp_snippet(client))
+            query = parse_qs(parsed.query)
+            client = query.get('client', ['generic'])[0]
+            endpoint = query.get('endpoint', ['consumer'])[0]
+            return self.send_json(dennis_composio.mcp_snippet(client, endpoint=endpoint))
 
         # ==================================================================
         # API MEGA LIST: the real upstream repository workspace.
@@ -4159,7 +4161,27 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
                 return self.send_json(dennis_composio.wire(
                     clients_list=body.get("clients"),
                     remove=bool(body.get("remove")),
+                    endpoint=str(body.get("endpoint") or "consumer"),
                 ))
+            except dennis_composio.ComposioError as e:
+                return self.send_json({"error": str(e), "code": e.code}, e.status)
+
+        if path == '/api/composio/purge-expired':
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            try:
+                return self.send_json(dennis_composio.purge_expired(
+                    statuses=body.get("statuses") or ["EXPIRED"]))
+            except dennis_composio.ComposioError as e:
+                return self.send_json({"error": str(e), "code": e.code}, e.status)
+
+        if path == '/api/composio/session-mcp':
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            try:
+                return self.send_json(dennis_composio.session_mcp(force=bool(body.get("force"))))
             except dennis_composio.ComposioError as e:
                 return self.send_json({"error": str(e), "code": e.code}, e.status)
 
