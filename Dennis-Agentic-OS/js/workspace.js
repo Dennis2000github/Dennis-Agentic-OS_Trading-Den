@@ -616,7 +616,13 @@
       if (view._disposed) return;
       if (view.ws && (view.ws.readyState === 0 || view.ws.readyState === 1)) return;
       var ws;
-      try { ws = new WebSocket(wsUrl(sessionId)); } catch (e) { return; }
+      try {
+        ws = new WebSocket(wsUrl(sessionId));
+      } catch (e) {
+        if (view.onConnectionError) view.onConnectionError(e);
+        view.scheduleReconnect();
+        return;
+      }
       view.ws = ws;
       ws.onmessage = function (ev) {
         var msg;
@@ -640,6 +646,7 @@
       };
       ws.onopen = function () {
         view._reconnectAttempts = 0;
+        if (view.onOpen) view.onOpen();
         view.flushNow();
         view.fitNow();
         if (view._pingTimer) clearInterval(view._pingTimer);
@@ -654,6 +661,7 @@
       ws.onclose = function () {
         if (view._pingTimer) { clearInterval(view._pingTimer); view._pingTimer = null; }
         if (view.ws === ws) view.ws = null;
+        if (view.onDisconnect) view.onDisconnect();
         view.scheduleReconnect();
       };
       ws.onerror = function () { /* onclose drives the retry */ };
@@ -2881,11 +2889,38 @@
 
   function attachView(id, s, hidden) {
     var host = dashboardsHost();
-    if (!host) return;
+    if (!host) {
+      if (!hidden && state.sessionId === id) {
+        state.screen.starting = false;
+        state.screen.exited = true;
+        setStatus("stopped");
+        note("Terminal container is unavailable. Reload the DENNIS workspace and try again.");
+        renderScreen();
+      }
+      return;
+    }
     ensureRegistry();
     var rec = registry.ensure({ sessionId: id, agentId: s.agent_id || state.agentId }, host);
     var view = rec.view;
     views[id] = view;
+    view.onOpen = function () {
+      if (state.sessionId !== id) return;
+      state.screen.starting = false;
+      state.screen.hasSession = true;
+      renderScreen();
+    };
+    view.onConnectionError = function () {
+      if (state.sessionId !== id || !state.screen.starting) return;
+      state.screen.starting = false;
+      note("Terminal connection could not be created. DENNIS will retry automatically.");
+      renderScreen();
+    };
+    view.onDisconnect = function () {
+      if (state.sessionId !== id || !state.screen.starting) return;
+      state.screen.starting = false;
+      note("Terminal connection was interrupted. DENNIS is reconnecting.");
+      renderScreen();
+    };
     view.onStatus = function (status) {
       var wi = windowIndexForSession(id);
       if (wi !== -1 && state.windows[wi].status !== status) {

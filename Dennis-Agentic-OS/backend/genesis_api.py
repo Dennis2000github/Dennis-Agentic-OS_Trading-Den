@@ -15,6 +15,7 @@ from . import genesis
 from . import genesis_publish as publish_service
 from . import genesis_render as render_service
 from . import genesis_store as store
+from . import studio_workspaces
 
 PREFIX = "/api/cosmos/genesis"
 
@@ -30,6 +31,8 @@ def _fail(exc):
     if isinstance(exc, render_service.RenderError):
         return exc.status if 400 <= exc.status <= 599 else 400, {"error": exc.message, "code": exc.code}
     if isinstance(exc, publish_service.PublishError):
+        return exc.status if 400 <= exc.status <= 599 else 400, {"error": exc.message, "code": exc.code}
+    if isinstance(exc, studio_workspaces.WorkspaceError):
         return exc.status if 400 <= exc.status <= 599 else 400, {"error": exc.message, "code": exc.code}
     return 500, {"error": common.clean_text(str(exc), "Error", 500) or "genesis_error", "code": "genesis_error"}
 

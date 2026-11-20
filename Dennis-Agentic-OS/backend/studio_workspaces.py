@@ -66,10 +66,7 @@ YOUTUBE_SECTIONS = (
     {"id": "create", "label": "Create", "stage": 2, "available": True},
     {"id": "templates", "label": "Templates", "stage": 3, "available": False},
     {"id": "projects", "label": "Projects", "stage": 2, "available": True},
-    {"id": "backlog", "label": "Topic Backlog", "stage": 2, "available": True},
-    {"id": "publishing", "label": "Publishing", "stage": 10, "available": False},
     {"id": "analytics", "label": "Analytics", "stage": 10, "available": False},
-    {"id": "intelligence", "label": "YouTube Intelligence", "stage": 9, "available": True},
     {"id": "settings", "label": "Settings", "stage": 2, "available": True},
 )
 
@@ -82,7 +79,6 @@ WORKSPACES = {
         "legacy_tabs": [
             "fashion",
             "create",
-            "backlog",
             "assets",
             "library",
             "playlists",

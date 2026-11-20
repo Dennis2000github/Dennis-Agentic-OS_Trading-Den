@@ -253,7 +253,10 @@ def build_manifest(project, allow_generation=False):
                 raise RenderError("audio_missing", "%s media %s is missing." % (key, media_id))
             audio_tracks[key] = {"media_id": media_id, "path": path}
 
-    captions_srt = audio.get("captions_srt")
+    # Inline SRT wins; otherwise an attached captions media file is read and
+    # burned exactly like inline text. A broken attachment is a render error,
+    # never a silently caption-less video.
+    captions_srt = caption_text(audio)
     captions_media = None
     if audio.get("captions_media_id"):
         captions_media = studio_media.find(audio["captions_media_id"])
@@ -669,6 +672,111 @@ def _probe_clip(path):
             except (TypeError, ValueError):
                 pass
     return {"has_audio": has_audio, "duration": duration}
+
+
+_SRT_TIME = re.compile(
+    r"(\d{1,2}):(\d{2}):(\d{2})[,.](\d{1,3})\s*-->\s*(\d{1,2}):(\d{2}):(\d{2})[,.](\d{1,3})"
+)
+
+
+def _srt_seconds(hours, minutes, seconds, fraction):
+    return (
+        int(hours) * 3600
+        + int(minutes) * 60
+        + int(seconds)
+        + int(str(fraction).ljust(3, "0")[:3]) / 1000.0
+    )
+
+
+def parse_srt_cues(text):
+    """Parse SRT cue timings without trusting or rewriting the text."""
+    cues = []
+    for block in re.split(r"\r?\n\s*\r?\n", str(text or "").strip()):
+        match = _SRT_TIME.search(block)
+        if not match:
+            continue
+        groups = match.groups()
+        start = _srt_seconds(*groups[:4])
+        end = _srt_seconds(*groups[4:])
+        body = block[match.end():].strip().replace("\r", "")
+        cues.append({"start": start, "end": end, "text": body})
+    return cues
+
+
+def caption_text(audio):
+    """Return the SRT text for a project, reading an attached captions file.
+
+    Raises ``RenderError`` when the referenced media is missing, unreadable
+    or is not UTF-8 SRT. Nothing is silently ignored: a captions file the
+    owner attached must either be burned or reported as a real failure.
+    """
+    audio = audio or {}
+    text = audio.get("captions_srt")
+    if text:
+        return str(text)
+    media_id = audio.get("captions_media_id")
+    if not media_id:
+        return None
+    record = studio_media.find(media_id)
+    if record is None:
+        raise RenderError(
+            "captions_missing",
+            "Captions media %s is missing from the library." % media_id,
+        )
+    try:
+        path, _ = studio_media.open_path(media_id)
+    except studio_media.MediaError as exc:
+        raise RenderError("captions_missing", str(exc))
+    try:
+        size = os.path.getsize(path)
+        if size > 2 * 1024 * 1024:
+            raise RenderError("captions_invalid", "Captions file is larger than 2 MB.")
+        with open(path, "rb") as handle:
+            raw = handle.read(2 * 1024 * 1024 + 1)
+    except OSError as exc:
+        raise RenderError("captions_missing", "Captions file could not be read: %s" % exc)
+    try:
+        text = raw.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise RenderError("captions_invalid", "Captions file must be UTF-8 SRT text.")
+    text = text.replace("\r\n", "\n").replace("\r", "\n").strip()
+    if "-->" not in text or not parse_srt_cues(text):
+        raise RenderError(
+            "captions_invalid",
+            "Captions media %s is not a valid SRT file (no cue timings found)." % media_id,
+        )
+    return text + "\n"
+
+
+def caption_sync(text, duration=None):
+    """Check cue timings against the rendered duration.
+
+    Returns ``(status, detail)`` using the same pass/warn/fail vocabulary as
+    the quality review. This is evidence from the caption file and the real
+    probe, not an estimate.
+    """
+    cues = parse_srt_cues(text)
+    if not cues:
+        return "fail", "No valid SRT cues were found."
+    invalid = [cue for cue in cues if cue["end"] <= cue["start"]]
+    if invalid:
+        return "fail", "%d cue(s) have an end time at or before their start time." % len(invalid)
+    first = min(cue["start"] for cue in cues)
+    last = max(cue["end"] for cue in cues)
+    if duration:
+        if last > duration + 1.0:
+            return "warn", (
+                "Last caption ends at %.2fs but the video is %.2fs — late cues will not display."
+                % (last, duration)
+            )
+        if first > 2.0 and duration > 3.0:
+            return "warn", (
+                "First caption starts at %.2fs; the opening has no captions." % first
+            )
+        return "pass", "%d cue(s); %.2fs–%.2fs within the %.2fs video." % (
+            len(cues), first, last, duration
+        )
+    return "pass", "%d cue(s); timings are internally valid." % len(cues)
 
 
 def _escape_filter_path(path):

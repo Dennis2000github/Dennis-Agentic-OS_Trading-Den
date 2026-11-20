@@ -50,17 +50,18 @@ class WorkspaceStoreTests(unittest.TestCase):
             workspaces.descriptor("nope")
         self.assertEqual(ctx.exception.status, 404)
 
-    def test_youtube_descriptor_has_stage_sections(self):
+    def test_youtube_descriptor_has_only_retained_sections(self):
         descriptor = workspaces.descriptor("youtube")
         section_ids = [s["id"] for s in descriptor["sections"]]
-        self.assertIn("create", section_ids)
-        self.assertIn("templates", section_ids)
-        self.assertIn("backlog", section_ids)
-        self.assertIn("intelligence", section_ids)
-        self.assertIn("settings", section_ids)
-        self.assertIn("publishing", section_ids)
+        self.assertEqual(
+            section_ids, ["create", "templates", "projects", "analytics", "settings"]
+        )
+        self.assertNotIn("backlog", section_ids)
+        self.assertNotIn("publishing", section_ids)
+        self.assertNotIn("intelligence", section_ids)
         ads = workspaces.descriptor("ads")
         self.assertEqual(ads["sections"], [])
+        self.assertNotIn("backlog", ads["legacy_tabs"])
 
     # -- isolation ---------------------------------------------------------
     def test_projects_are_isolated_per_workspace(self):

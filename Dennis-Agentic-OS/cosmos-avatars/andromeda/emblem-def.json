@@ -1,0 +1,261 @@
+{
+  "targetName": "ANDROMEDA spiral galaxy avatar",
+  "targetId": "andromeda",
+  "scores": {
+    "silhouetteComplexity": 2,
+    "componentCount": 2,
+    "hierarchyDepth": 2,
+    "repetitionDensity": 3,
+    "materialLayerCount": 2,
+    "localDetailDensity": 2,
+    "occlusionRisk": 1,
+    "actionReadinessNeed": 0
+  },
+  "lookDevHueRamp": "Arms ramp cyan rgba(127,212,255) inner → blue rgba(79,125,255) mid → violet rgba(155,92,255) outer as ordered stops along the winding; core stays warm (#fff7d9 → #ff8a3c).",
+  "silhouette": {
+    "boundingShape": "flattened oblate disc (diameter 2.0, thickness 0.55) with spiral arms extending to an irregular envelope",
+    "aspectRatios": [{"subject": "disc diameter : disc thickness", "ratio": 3.6}],
+    "symmetry": "radial two-arm spiral (asymmetric chirality: arms trail counter-clockwise outward)",
+    "dominantCurves": ["logarithmic spiral arms, ~1.5 visible windings", "circular core bloom"],
+    "negativeSpaces": ["dark gaps between arms", "near-black space outside the envelope"],
+    "landmarks": [
+      "warm golden core at center",
+      "brightest arm knots at mid-radius, upper-left and lower-right of the core",
+      "violet outer arm tips at the envelope edge"
+    ]
+  },
+  "components": [
+    {
+      "id": "galaxy-root", "name": "Galaxy root (pivot + backdrop)", "level": "macro", "role": "body",
+      "primitive": "instanced-cluster", "topology": "material-only",
+      "rationale": "The root carries the deep-space backdrop star layer and the shared rotation pivot; it has no solid surface of its own — decision-tree step 1 (material-only, stop).",
+      "dims": {"width": 2.6, "height": 2.6, "depth": 2.6},
+      "importance": 0.4, "confidence": 0.9,
+      "recipe": {"dominant": "050510", "secondary": "0a0a18", "alpha": 1.0, "materialClass": "glass", "materialClassConfidence": 0.6,
+        "stops": [[0.0, "050510", 1.0], [1.0, "0a0a18", 1.0]], "gradientType": "radial"},
+      "localFeatures": [
+        {"id": "rotation-pivot", "kind": "contour", "description": "Root group pivot at the galactic core; slow rigid Y rotation preserves spiral chirality"}
+      ]
+    },
+    {
+      "id": "space-backdrop", "name": "Deep space backdrop vignette", "level": "meso", "role": "detail",
+      "primitive": "plane-card", "topology": "material-only",
+      "rationale": "A screen-facing gradient carrier behind all layers — no volume of its own (decision-tree step 1).",
+      "dims": {"width": 2.6, "height": 2.6, "depth": 0.01},
+      "importance": 0.3, "confidence": 0.85,
+      "parent": "galaxy-root",
+      "recipe": {"dominant": "0a0a18", "secondary": "050510", "alpha": 1.0, "materialClass": "glass", "materialClassConfidence": 0.6,
+        "stops": [[0.0, "0a0a18", 1.0], [1.0, "050510", 1.0]], "gradientType": "radial"},
+      "attachment": {"parentId": "galaxy-root", "parentSocket": "space-volume", "contactType": "overlap",
+        "localStart": [0, 0, 0], "localEnd": [0, 0, 0], "gapTolerance": 0.05, "overlap": 0.5},
+      "materialRefs": ["space-vignette"],
+      "localFeatures": [
+        {"id": "space-vignette", "kind": "decal", "description": "Slight radial vignette from #0a0a18 center to #050510 edges behind all layers"}
+      ]
+    },
+    {
+      "id": "galaxy-disc", "name": "Spiral disc (two-arm system)", "level": "macro", "role": "body",
+      "primitive": "instanced-cluster", "topology": "continuous-sculpt",
+      "rationale": "One continuous smoothly-varying particulate mass whose silhouette is the arm envelope; built as an instanced cluster of additive sprites, never a box (Flat-Projection rule).",
+      "dims": {"width": 2.0, "height": 0.55, "depth": 2.0},
+      "importance": 1.0, "confidence": 0.92,
+      "recipe": {"dominant": "4f7dff", "secondary": "9b5cff", "alpha": 0.9, "materialClass": "glass", "materialClassConfidence": 0.75,
+        "stops": [[0.0, "7fd4ff", 0.85], [0.5, "4f7dff", 0.9], [1.0, "9b5cff", 0.95]], "gradientType": "radial"},
+      "attachment": {"parentId": "galaxy-root", "parentSocket": "disc-origin", "contactType": "embed",
+        "localStart": [0, 0, 0], "localEnd": [0, 0, 0], "gapTolerance": 0.02, "embedDepth": 0.1},
+      "materialRefs": ["arm-glow", "dust-filament"],
+      "localFeatures": [
+        {"id": "two-arm-chirality", "kind": "emissive", "description": "Two dominant arms trail counter-clockwise outward from a short bar, ~1.5 visible windings each"},
+        {"id": "arm-hue-ramp", "kind": "emissive", "description": "Cyan #7fd4ff inner → blue #4f7dff mid → violet #9b5cff outer, ordered radial stops"},
+        {"id": "arm-falloff", "kind": "emissive", "description": "Arm width widens and brightness falls with radius; gaps expose dark space"}
+      ]
+    },
+    {
+      "id": "arm-hotspots", "name": "Arm hotspot knots", "level": "meso", "role": "detail",
+      "primitive": "instanced-cluster", "topology": "material-only",
+      "rationale": "Bright knots ride inside the arm volume with no footprint of their own — material layer on the parent disc.",
+      "dims": {"width": 1.4, "height": 0.3, "depth": 1.4},
+      "importance": 0.8, "confidence": 0.85,
+      "parent": "galaxy-disc",
+      "recipe": {"dominant": "eaffff", "secondary": "bfe9ff", "alpha": 0.95, "materialClass": "glass", "materialClassConfidence": 0.8,
+        "stops": [[0.0, "ffffff", 1.0], [1.0, "bfe9ff", 0.4]], "gradientType": "radial"},
+      "attachment": {"parentId": "galaxy-disc", "parentSocket": "arm-midradius", "contactType": "embed",
+        "localStart": [0, 0, 0], "localEnd": [0, 0, 0], "gapTolerance": 0.02, "embedDepth": 0.05},
+      "materialRefs": ["hotspot-glow"],
+      "localFeatures": [
+        {"id": "hotspot-tracing", "kind": "emissive", "description": "White-cyan knots traced along both arms, denser at mid-radius, individually resolvable at 512 px"}
+      ]
+    },
+    {
+      "id": "galactic-bulge", "name": "Galactic bulge and core", "level": "macro", "role": "body",
+      "primitive": "ellipsoid", "topology": "continuous-sculpt",
+      "rationale": "A smooth glowing central mass — one continuous varying volume; ellipsoid is the observed form (not box/cylinder/cone).",
+      "dims": {"width": 0.44, "height": 0.4, "depth": 0.44},
+      "importance": 1.0, "confidence": 0.95,
+      "parent": "galaxy-root",
+      "recipe": {"dominant": "fff7d9", "secondary": "ff8a3c", "alpha": 1.0, "materialClass": "glass", "materialClassConfidence": 0.85,
+        "stops": [[0.0, "fff7d9", 1.0], [0.45, "ffc46b", 0.95], [1.0, "ff8a3c", 0.5]], "gradientType": "radial"},
+      "attachment": {"parentId": "galaxy-root", "parentSocket": "disc-origin", "contactType": "embed",
+        "localStart": [0, 0, 0], "localEnd": [0, 0, 0], "gapTolerance": 0.01, "embedDepth": 0.08},
+      "materialRefs": ["core-bloom"],
+      "localFeatures": [
+        {"id": "core-gradient", "kind": "emissive", "description": "#fff7d9 → #ffc46b → #ff8a3c center→rim; core diameter ≈ 0.22 of disc diameter"},
+        {"id": "core-diffraction", "kind": "emissive", "description": "Subtle 4-point diffraction cross over the core bloom"}
+      ]
+    },
+    {
+      "id": "dust-lanes", "name": "Dark dust filaments", "level": "meso", "role": "detail",
+      "primitive": "instanced-cluster", "topology": "fiber-strand",
+      "rationale": "Many repeated thin dark strands following the arm paths — fiber-strand built as an instanced cluster (never box/plane-card).",
+      "dims": {"width": 1.6, "height": 0.2, "depth": 1.6},
+      "importance": 0.6, "confidence": 0.7,
+      "parent": "galaxy-disc",
+      "recipe": {"dominant": "101226", "secondary": "1a1d3a", "alpha": 0.55, "materialClass": "unknown", "materialClassConfidence": 0.5,
+        "stops": [[0.0, "101226", 0.6], [1.0, "1a1d3a", 0.2]], "gradientType": "linear"},
+      "attachment": {"parentId": "galaxy-disc", "parentSocket": "arm-inner-edge", "contactType": "overlap",
+        "localStart": [0, 0, 0], "localEnd": [0, 0, 0], "gapTolerance": 0.03, "overlap": 0.06},
+      "materialRefs": ["dust-filament"],
+      "localFeatures": [
+        {"id": "inner-edge-dust", "kind": "decal", "description": "Semi-opaque #101226 filaments riding the inner arm edges; never covering arm glow entirely"}
+      ]
+    },
+    {
+      "id": "star-field", "name": "Star field (backdrop + foreground)", "level": "meso", "role": "detail",
+      "primitive": "instanced-cluster", "topology": "material-only",
+      "rationale": "Scattered point sprites around the disc — no volume of their own; a material/decal layer in the root space.",
+      "dims": {"width": 2.6, "height": 2.6, "depth": 2.6},
+      "importance": 0.5, "confidence": 0.9,
+      "parent": "galaxy-root",
+      "recipe": {"dominant": "ffffff", "secondary": "9fd8ff", "alpha": 0.9, "materialClass": "glass", "materialClassConfidence": 0.7,
+        "stops": [[0.0, "ffffff", 1.0], [1.0, "9fd8ff", 0.3]], "gradientType": "radial"},
+      "attachment": {"parentId": "galaxy-root", "parentSocket": "space-volume", "contactType": "overlap",
+        "localStart": [0, 0, 0], "localEnd": [0, 0, 0], "gapTolerance": 0.05, "overlap": 0.2},
+      "materialRefs": ["star-point"],
+      "localFeatures": [
+        {"id": "diffraction-crosses", "kind": "emissive", "description": "Foreground stars carry 4-point diffraction crosses; backdrop stars are plain points"},
+        {"id": "size-brightness-spread", "kind": "emissive", "description": "Power-law size/brightness spread: few large bright, many faint"}
+      ]
+    },
+    {
+      "id": "core-bloom-card", "name": "Core bloom sprite", "level": "micro", "role": "detail",
+      "primitive": "plane-card", "topology": "material-only",
+      "rationale": "A screen-facing additive carrier for the core glow gradient — material-only by decision-tree step 1.",
+      "dims": {"width": 0.7, "height": 0.7, "depth": 0.01},
+      "importance": 0.7, "confidence": 0.85,
+      "parent": "galactic-bulge",
+      "recipe": {"dominant": "fff7d9", "secondary": "ffc46b", "alpha": 0.9, "materialClass": "glass", "materialClassConfidence": 0.8,
+        "stops": [[0.0, "fff7d9", 1.0], [1.0, "ffc46b", 0.0]], "gradientType": "radial"},
+      "attachment": {"parentId": "galactic-bulge", "parentSocket": "core-center", "contactType": "overlap",
+        "localStart": [0, 0, 0], "localEnd": [0, 0, 0], "gapTolerance": 0.01, "overlap": 0.3},
+      "materialRefs": ["core-bloom"],
+      "localFeatures": [
+        {"id": "bloom-falloff", "kind": "emissive", "description": "Additive radial falloff to transparent at the card edge"}
+      ]
+    }
+  ],
+  "materials": [
+    {"id": "arm-glow", "name": "Arm particle glow",
+     "base": "#4f7dff",
+     "gradient_stops": [[0.0, "7fd4ff", 0.85], [0.5, "4f7dff", 0.9], [1.0, "9b5cff", 0.95]],
+     "note": "Hue ramp sampled from arm regions: cyan inner, blue mid, violet outer (image-analysis Layer 6)."},
+    {"id": "core-bloom", "name": "Core bloom gradient",
+     "base": "#fff7d9",
+     "gradient_stops": [[0.0, "fff7d9", 1.0], [0.45, "ffc46b", 0.95], [1.0, "ff8a3c", 0.4]],
+     "note": "Warm core sampled from the bulge crop; R>B everywhere in the core region (visualDeltaCheck)."},
+    {"id": "hotspot-glow", "name": "Arm hotspot knots",
+     "base": "#eaffff",
+     "gradient_stops": [[0.0, "ffffff", 1.0], [1.0, "bfe9ff", 0.35]],
+     "note": "White-cyan knots along arms; small radius so they stay resolvable, not smeared."},
+    {"id": "star-point", "name": "Star field points",
+     "base": "#ffffff",
+     "gradient_stops": [[0.0, "ffffff", 1.0], [1.0, "9fd8ff", 0.25]],
+     "note": "White-blue points; a seeded subset gets a 4-point diffraction cross texture."},
+    {"id": "dust-filament", "name": "Dark dust filaments",
+     "base": "#101226",
+     "gradient_stops": [[0.0, "101226", 0.6], [1.0, "1a1d3a", 0.15]],
+     "note": "Absorptive streaks (normal blend, not additive) along arm inner edges."},
+    {"id": "space-vignette", "name": "Deep space vignette",
+     "base": "#0a0a18",
+     "gradient_stops": [[0.0, "0a0a18", 1.0], [1.0, "050510", 1.0]],
+     "note": "Near-black space sampled from frame corners; vignette keeps the emblem edge soft."}
+  ],
+  "materialExtras": [
+    {"id": "arm-glow", "patch": {"localOverrides": [
+      {"id": "inner-arm-cyan", "region": "radius 0.15–0.45 of arm length", "change": "hue pushed to #7fd4ff, alpha 0.85", "evidence": "image-analysis Layer 6 inner-arm crop"},
+      {"id": "outer-arm-violet", "region": "radius 0.75–1.0 of arm length", "change": "hue pushed to #9b5cff, alpha 0.95", "evidence": "violet outer tips at the envelope edge"},
+      {"id": "mid-arm-blue", "region": "radius 0.45–0.75 of arm length", "change": "hue held at #4f7dff", "evidence": "mid-radius arm band"}
+    ]}},
+    {"id": "core-bloom", "patch": {"localOverrides": [
+      {"id": "rim-amber", "region": "core rim (outer 25% of bloom radius)", "change": "gradient stop #ff8a3c at alpha 0.4, soft falloff to transparent", "evidence": "warm core rim vs cool disc boundary"}
+    ]}}
+  ],
+  "repetitionSystems": [
+    {
+      "id": "arm-particle-band",
+      "kind": "instanced-cluster",
+      "componentRef": "galaxy-disc",
+      "count": "420 point sprites (seeded)",
+      "distribution": "logarithmic spiral r = a·e^(b·θ), two arms offset by π; gaussian scatter across arm width widening with radius; brightness falls with radius",
+      "seed": 1101,
+      "variation": "per-sprite size 0.01–0.05, per-sprite hue sampled from the arm ramp by radius, additive blending"
+    },
+    {
+      "id": "star-field-spread",
+      "kind": "instanced-cluster",
+      "componentRef": "star-field",
+      "count": "160 point sprites (seeded): 120 backdrop + 40 foreground",
+      "distribution": "uniform over the 2.6³ volume with rejection near the core; power-law size/brightness spread",
+      "seed": 1102,
+      "variation": "12 of the foreground stars use the 4-point diffraction cross texture"
+    },
+    {
+      "id": "hotspot-chain",
+      "kind": "instanced-cluster",
+      "componentRef": "arm-hotspots",
+      "count": "26 knot sprites (seeded)",
+      "distribution": "along both arm curves at mid-radius band (0.45–0.75 of arm length), gaussian jitter across arm width",
+      "seed": 1103,
+      "variation": "size 0.03–0.06, brightest at mid-radius"
+    },
+    {
+      "id": "dust-filament-row",
+      "kind": "instanced-cluster",
+      "componentRef": "dust-lanes",
+      "count": "54 streak sprites (seeded)",
+      "distribution": "stretched sprites aligned to the arm tangent on inner edges, length 0.08–0.2",
+      "seed": 1104,
+      "variation": "normal (subtractive-looking) blending, opacity 0.2–0.6"
+    }
+  ],
+  "featureReviewTargets": [
+    {"id": "spiral-structure", "name": "Two-arm logarithmic spiral with counter-clockwise chirality",
+     "tier": "critical", "passIds": ["structural-pass", "form-refinement"], "minimumScore": 0.8,
+     "componentRefs": ["galaxy-disc"], "evidenceRefs": ["full-object"]},
+    {"id": "core-contrast", "name": "Warm bulge/core against cool disc",
+     "tier": "critical", "passIds": ["material-pass"], "minimumScore": 0.8,
+     "componentRefs": ["galactic-bulge", "core-bloom-card"], "evidenceRefs": ["center-crop"]},
+    {"id": "arm-hue-and-hotspots", "name": "Arm hue ramp with traced hotspots",
+     "tier": "critical", "passIds": ["material-pass", "surface-pass"], "minimumScore": 0.8,
+     "componentRefs": ["galaxy-disc", "arm-hotspots"], "evidenceRefs": ["arm-regions"]},
+    {"id": "star-field-and-dust", "name": "Star field depth and inner-edge dust",
+     "tier": "important", "passIds": ["surface-pass"], "minimumScore": 0.75,
+     "componentRefs": ["star-field", "dust-lanes"], "evidenceRefs": ["corners-and-arm-edges"]}
+  ],
+  "proceduralStrategy": [
+    "All placement is seeded (mulberry32): spiral arm sampling, star field, hotspots, dust streaks.",
+    "Sprite textures are generated on a canvas at boot (radial falloff, diffraction cross); no external art.",
+    "Arms are THREE.Points with a generated sprite texture; dust uses a second Points system with normal blending.",
+    "Core is one ellipsoid mesh + one additive plane-card; everything else is instanced sprites."
+  ],
+  "assumptions": [
+    "Far-side arm wrap continues the same two-arm logarithmic winding (occluded in the single view) — documented stylization.",
+    "Dust-lane topology is artistic, reproduced as tangent-aligned streaks with seed 1104.",
+    "Foreground/backdrop star depth order is a size/brightness heuristic fixed by seed 1102."
+  ],
+  "risks": [
+    "Additive overdraw at 96 px could wash the disc to white — mitigated by per-sprite alpha falloff and draw-order (dust last).",
+    "Spiral chirality could flip if the placement parametrization sign is wrong — gated by featureReviewTarget spiral-structure.",
+    "Core bloom could clip to pure white at small sizes — gated by emission-balance lookDevTarget."
+  ],
+  "pulseTarget": "galactic-bulge"
+}

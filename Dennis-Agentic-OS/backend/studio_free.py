@@ -218,7 +218,7 @@ def upload_once(data, content_type, filename):
             with _UPLOAD_CACHE_LOCK:
                 _UPLOAD_HASH_CACHE.pop(digest, None)
     record = media.add_bytes(
-        data, content_type, kind="image", filename=filename,
+        data, content_type, filename=filename,
         meta={"provider": "free", "role": "input", "title": filename,
               "sha256": digest},
     )

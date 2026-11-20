@@ -424,9 +424,9 @@
       }).join("") + "</div>",
       '  <input type="search" class="genesis-search" placeholder="Search the queue…" value="' + attr(S.queueQuery) + '" data-cg-queue-search>',
       "</div>",
-      '<p class="cosmos-muted">' + esc(S.queueTotal) + " eligible item(s). Only approved Ads products and scripted YouTube topics can enter production — the existing lifecycle gates are enforced by the backend.</p>",
+      '<p class="cosmos-muted">' + esc(S.queueTotal) + " eligible item(s). Intake covers approved Ads products, handed-off Ads briefs, approved Ads/YouTube Studio projects, and scripted YouTube topics. Sources already in an active production project are hidden, and every lifecycle gate is enforced by the backend.</p>",
       S.queue.length ? '<div class="genesis-queue">' + S.queue.map(queueItem).join("") + "</div>"
-        : emptyBlock("Queue is empty", "Approved Ads products and scripted YouTube topics will appear here for production intake.")
+        : emptyBlock("Queue is empty", "Approved Ads products and briefs, approved Studio projects, and scripted YouTube topics will appear here for production intake.")
     ].join("\n");
   }
 
@@ -434,15 +434,17 @@
     var provenance = item.provenance || {};
     var assets = item.assets || {};
     var origin = [];
+    if (item.origin) origin.push(item.origin);
     if (provenance.agent_id) origin.push("agent " + String(provenance.agent_id).toUpperCase());
     if (provenance.recommendation_id) origin.push("recommendation " + provenance.recommendation_id);
     var assetNote = [];
     if (item.division === "ads") {
       if (assets.image_url) assetNote.push("product image available");
       if (assets.affiliate_status) assetNote.push("affiliate: " + assets.affiliate_status);
+      if (assets.brief_id) assetNote.push("brief " + assets.brief_id);
     } else {
       if (assets.script_id) assetNote.push("script: " + (assets.script_title || assets.script_id) + " (" + (assets.script_sections || 0) + " sections)");
-      else assetNote.push("no script linked");
+      else if (item.source_kind === "youtube_topic") assetNote.push("no script linked");
     }
     return [
       '<article class="genesis-queue-item">',
@@ -450,8 +452,9 @@
       '    <div class="genesis-queue-title">' + divisionChip(item.division) + "<b>" + esc(item.title) + "</b>" + badge(item.status) + "</div>",
       '    <p class="cosmos-muted">' + esc(item.subtitle || "") + (assetNote.length ? " · " + esc(assetNote.join(" · ")) : "") + "</p>",
       origin.length ? '<p class="genesis-provenance">Origin: ' + esc(origin.join(" · ")) + "</p>" : "",
+      item.destination ? '<p class="genesis-provenance">Destination: ' + esc(item.destination) + "</p>" : "",
       "  </div>",
-      '  <button type="button" class="cosmos-btn is-primary" data-cg-start="' + attr(item.source_kind) + "|" + attr(item.source_id) + '">Start production</button>',
+      '  <button type="button" class="cosmos-btn is-primary" data-cg-start="' + attr(item.source_kind) + "|" + attr(item.source_id) + "|" + attr(provenance.channel_id || "") + '">Start production</button>',
       "</article>"
     ].join("\n");
   }
@@ -889,13 +892,15 @@
       });
   }
 
-  function startProduction(sourceKind, sourceId) {
+  function startProduction(sourceKind, sourceId, channelId) {
     var key = "start|" + sourceKind + "|" + sourceId;
     if (S.busy[key]) return;
     S.busy[key] = true;
+    var body = { source_kind: sourceKind, source_id: sourceId };
+    if (channelId) body.channel_id = channelId;
     api("/api/cosmos/genesis/projects", {
       method: "POST",
-      body: { source_kind: sourceKind, source_id: sourceId }
+      body: body
     }).then(function (data) {
       S.busy[key] = false;
       S.project = data.project;
@@ -914,7 +919,8 @@
     S.attach = ctx;
     var modal = window.Cosmos;
     var kindDefault = ctx.target === "thumbnail" ? "image"
-      : (ctx.target === "voiceover" || ctx.target === "music" || ctx.target === "captions_media") ? "audio" : "video";
+      : (ctx.target === "voiceover" || ctx.target === "music") ? "audio"
+      : ctx.target === "captions_media" ? "file" : "video";
     S.mediaKind = kindDefault;
     var load = function () {
       return loadMedia().then(function () {
@@ -929,7 +935,7 @@
         }).join("");
         var body = '<div class="genesis-picker">' +
           '<div class="genesis-toolbar"><div class="genesis-chips">' +
-          ["video", "image", "audio", "all"].map(function (kind) {
+          ["video", "image", "audio", "file", "all"].map(function (kind) {
             return '<button type="button" class="genesis-chip' + (S.mediaKind === kind ? " is-active" : "") + '" data-cg-media-kind="' + kind + '">' + kind + "</button>";
           }).join("") + "</div>" +
           '<input type="search" class="genesis-search" placeholder="Search the media library…" data-cg-media-search value="' + attr(S.mediaQuery) + '"></div>' +
@@ -1168,7 +1174,7 @@
       var start = button.getAttribute("data-cg-start");
       if (start) {
         var bits = start.split("|");
-        return startProduction(bits[0], bits[1]);
+        return startProduction(bits[0], bits[1], bits[2] || null);
       }
       if (button.hasAttribute("data-cg-back")) { S.project = null; S.activeProjectId = null; repaint(); return; }
       var save = button.getAttribute("data-cg-save");

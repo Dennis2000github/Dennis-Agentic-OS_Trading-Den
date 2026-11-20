@@ -38,6 +38,8 @@ ALLOWED_CONTENT_TYPES = {
     "video/mp4", "video/quicktime", "video/webm",
     "audio/wav", "audio/x-wav", "audio/mpeg", "audio/mp4", "audio/ogg",
     "application/zip",
+    # Caption sidecars. GENESIS burns these into the final render.
+    "text/plain", "text/srt", "application/x-subrip",
 }
 
 _lock = threading.RLock()

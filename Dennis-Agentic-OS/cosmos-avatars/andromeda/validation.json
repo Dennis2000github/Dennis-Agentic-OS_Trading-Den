@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "/Users/macbookpro/.img2threejs/releases/0c0c49bc168e648dbaf9c8c080474de0b3a941b6/img2threejs/forge/stage2_spec/validate_sculpt_spec.py", line 2896, in <module>
+    raise SystemExit(main(sys.argv[1:]))
+                     ~~~~^^^^^^^^^^^^^^
+  File "/Users/macbookpro/.img2threejs/releases/0c0c49bc168e648dbaf9c8c080474de0b3a941b6/img2threejs/forge/stage2_spec/validate_sculpt_spec.py", line 2861, in main
+    errors, warnings = validate_spec(spec)
+                       ~~~~~~~~~~~~~^^^^^^
+  File "/Users/macbookpro/.img2threejs/releases/0c0c49bc168e648dbaf9c8c080474de0b3a941b6/img2threejs/forge/stage2_spec/validate_sculpt_spec.py", line 2809, in validate_spec
+    if suitability not in VALID_SUITABILITY:
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: cannot use 'dict' as a set element (unhashable type: 'dict')

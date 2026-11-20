@@ -1,0 +1,2010 @@
+{
+  "targetName": "ANDROMEDA spiral galaxy avatar",
+  "targetId": "andromeda",
+  "schemaVersion": "1.5",
+  "terminologyProfile": {
+    "geometryTerms": [
+      "point sprite volume",
+      "additive blended plane-card",
+      "instanced cluster",
+      "logarithmic spiral placement",
+      "radial gradient sprite"
+    ],
+    "materialTerms": [
+      "emissive",
+      "additive blending",
+      "radial falloff sprite",
+      "hue ramp stops",
+      "absorptive dark filament"
+    ],
+    "lightingTerms": [
+      "self-emissive scene",
+      "bloom balance",
+      "no scene lights",
+      "core pulse"
+    ]
+  },
+  "sourceImage": "../references/andromeda-admission.png",
+  "referenceCamera": {
+    "projection": "perspective",
+    "fovDegrees": 40,
+    "azimuthDegrees": 0,
+    "elevationDegrees": 22,
+    "distance": 3.2,
+    "framing": "emblem fills ~0.85 of frame width, centered",
+    "confidence": 0.9,
+    "basis": "single stylized space-art view; framing chosen to match the emblem crop"
+  },
+  "suitability": "pass",
+  "scores": {
+    "silhouetteComplexity": 2,
+    "componentCount": 2,
+    "hierarchyDepth": 2,
+    "repetitionDensity": 3,
+    "materialLayerCount": 2,
+    "localDetailDensity": 2,
+    "occlusionRisk": 1,
+    "actionReadinessNeed": 0
+  },
+  "preSpecAssessment": {
+    "objectClass": {
+      "primaryType": "spiral galaxy emblem \u2014 volumetric astronomical scene (particle-dominant)",
+      "primaryDomain": "object",
+      "formLanguage": [
+        "organic",
+        "amorphous (particle-dominant)",
+        "sculptural"
+      ],
+      "structureKind": [
+        "layered shell (disc plane)",
+        "repeated modules (arm particles, star sprites)",
+        "single body (bulge)"
+      ],
+      "motionPotential": [
+        "whole-object transform (slow rigid disc rotation)",
+        "effect-emitter (subtle core pulse / twinkle)"
+      ],
+      "materialFamilies": [
+        "emissive particulate medium",
+        "glass-like glow sprites",
+        "absorptive dust streaks"
+      ],
+      "notes": "No character anatomy. Identity lives in the two-arm spiral winding, the warm core against the cool blue/violet disc, and the traced arm hotspots \u2014 all emissive; no matte/metallic surfaces."
+    },
+    "complexity": {
+      "tier": "moderate",
+      "scores": {
+        "silhouetteComplexity": 2,
+        "componentCount": 2,
+        "hierarchyDepth": 2,
+        "repetitionDensity": 3,
+        "materialLayerCount": 2,
+        "localDetailDensity": 2,
+        "occlusionRisk": 1,
+        "actionReadinessNeed": 0
+      },
+      "estimatedCounts": {
+        "macroComponents": 3,
+        "mesoComponents": 6,
+        "microFeatureGroups": 5,
+        "materialLayers": 3,
+        "repetitionSystems": 2
+      },
+      "reasoning": [
+        "Silhouette irregular (spiral arms extend past the disc) but bounding volume is a single tilted disc \u2014 2/3.",
+        "Three macro assemblies (disc/spiral system, bulge+core, star-field backdrop); arms and sprite layers are meso; hotspots/dust/diffraction crosses are micro.",
+        "Repetition density is high by construction: hundreds of additive point sprites form the arms and backdrop \u2014 3/3.",
+        "Materials are emission-dominated (arms, core, stars) plus dark absorptive dust streaks; no PBR dielectric/metal surface.",
+        "Occlusion limited to the disc's far side; single-view ambiguity resolved by deterministic seeding and documented as stylization.",
+        "Avatar use: static framing, slow rigid rotation only \u2014 no sockets, articulation or destruction seams."
+      ]
+    },
+    "specDepthDecision": {
+      "requiredDepth": "moderate",
+      "minimumComponentLevels": [
+        "macro",
+        "meso",
+        "micro"
+      ],
+      "needsRepetitionSystems": true,
+      "needsMaterialLocalOverrides": true,
+      "needsMultipleReviewViews": true,
+      "needsActionReadyHierarchy": false,
+      "rationale": "Particle repetition systems and per-region emissive overrides ARE the identity; the avatar is a static camera subject, so action-rigging depth is intentionally shallow (root group pivot only)."
+    },
+    "unknownsToResolveBeforeImplementation": [],
+    "detailInventory": {
+      "scanMethod": "agent-vision grid 3x3 (identity features from Layer 7)",
+      "targetMinDetails": 6,
+      "note": "Enumerate every identity-defining small detail before authoring the spec. Each detail must map to a component.localFeatures entry or material.localOverrides entry, never prose only. Use forge/stage1_intake/build_detail_inventory.py to scan zones.",
+      "details": [
+        {
+          "id": "two-arm-chirality",
+          "kind": "contour",
+          "zone": "disc",
+          "observation": "Two dominant arms trail counter-clockwise outward from a short bar; ~1.5 visible windings each",
+          "mapsTo": {
+            "ref": "two-arm-chirality"
+          }
+        },
+        {
+          "id": "core-gradient",
+          "kind": "emissive",
+          "zone": "bulge",
+          "observation": "Core gradient #fff7d9 \u2192 #ffc46b \u2192 #ff8a3c center\u2192rim, cross-shaped diffraction bloom",
+          "mapsTo": {
+            "ref": "core-gradient"
+          }
+        },
+        {
+          "id": "arm-hue-ramp",
+          "kind": "emissive",
+          "zone": "disc",
+          "observation": "Arms ramp cyan #7fd4ff (inner) \u2192 blue #4f7dff \u2192 violet #9b5cff (outer)",
+          "mapsTo": {
+            "ref": "arm-hue-ramp"
+          }
+        },
+        {
+          "id": "hotspot-tracing",
+          "kind": "emissive",
+          "zone": "disc",
+          "observation": "Bright white-cyan knots traced along both arms, denser at mid-radius",
+          "mapsTo": {
+            "ref": "hotspot-tracing"
+          }
+        },
+        {
+          "id": "diffraction-crosses",
+          "kind": "emissive",
+          "zone": "backdrop",
+          "observation": "Foreground stars carry 4-point diffraction crosses; backdrop stars are plain points",
+          "mapsTo": {
+            "ref": "diffraction-crosses"
+          }
+        },
+        {
+          "id": "inner-edge-dust",
+          "kind": "decal",
+          "zone": "disc",
+          "observation": "Dark #101226 filaments ride the inner edges of both arms, semi-opaque",
+          "mapsTo": {
+            "ref": "inner-edge-dust"
+          }
+        }
+      ]
+    },
+    "anatomy": {
+      "applies": false,
+      "styleHeads": 0.0,
+      "proportions": {
+        "headUnit": 0.0,
+        "torso": 0.0,
+        "legs": 0.0,
+        "shoulderWidth": 0.0,
+        "hipWidth": 0.0
+      },
+      "pose": {
+        "type": "unassessed",
+        "jointAngles": {}
+      },
+      "faceLandmarks": {
+        "eyeLine": 0.0,
+        "eyeSpacing": 0.0,
+        "noseBase": 0.0,
+        "mouthLine": 0.0,
+        "hairline": 0.0
+      },
+      "features": [],
+      "confidence": 0.0,
+      "note": "Only meaningful when objectClass.primaryDomain is character or hybrid. Set applies=true and fill from forge/stage1_intake/extract_landmarks.py. See grimoire/character/reconstruction.md and grimoire/character/likeness_maximization.md."
+    },
+    "sourceImage": "../references/andromeda-admission.png"
+  },
+  "qualityContract": {
+    "qualityBar": "moderate",
+    "definitionOfDone": [
+      "At dashboard avatar size (30\u201396 px) and at review size (512 px), the model reads as the reference: a two-arm spiral galaxy with a warm golden core inside a cool blue\u2192violet disc on near-black space.",
+      "Spiral chirality matches the reference (arms trail counter-clockwise outward); arm count is two dominant plus faint outer fragments.",
+      "Core-to-arm contrast reads warm-vs-cool at a glance; the arm hue ramp runs cyan (inner) \u2192 violet (outer).",
+      "All placement noise is seeded; the model renders identically across reloads.",
+      "The avatar renders at \u22646k triangles plus point sprites and holds \u226530 fps in the shared avatar runtime."
+    ],
+    "minimumSpecDepth": {
+      "macroComponents": 3,
+      "mesoComponents": 4,
+      "microFeatureGroups": 4,
+      "materialLayers": 3,
+      "repetitionSystems": 2,
+      "reviewViewpoints": 3
+    },
+    "featureGroups": [
+      {
+        "id": "spiral-structure",
+        "name": "Two-arm logarithmic spiral with correct chirality",
+        "required": true,
+        "qualityCriteria": [
+          "Arms originate at the bulge ends of a short bar and wind outward counter-clockwise, ~1.5 visible windings.",
+          "Arm width widens and brightness falls with radius; gaps between arms expose dark space.",
+          "Faint outer arm fragments extend past the dominant pair without forming a ring."
+        ],
+        "evidenceRefs": [
+          "references/andromeda-admission.png#full-frame"
+        ],
+        "failureModes": [
+          "arms wind clockwise (chirality flip)",
+          "arms read as concentric rings instead of a spiral",
+          "a third dominant arm appears"
+        ]
+      },
+      {
+        "id": "core-contrast",
+        "name": "Warm bulge/core against cool disc",
+        "required": true,
+        "qualityCriteria": [
+          "Core gradient runs #fff7d9 \u2192 #ffc46b \u2192 #ff8a3c center\u2192rim with a soft additive bloom and a subtle 4-point diffraction cross.",
+          "Core diameter \u2248 0.18\u20130.24 of disc diameter; bloom never washes out the inner arm region."
+        ],
+        "evidenceRefs": [
+          "references/andromeda-admission.png#center-crop"
+        ],
+        "failureModes": [
+          "core reads white/blue (loses warm-vs-cool identity)",
+          "core bloom covers > 0.35 of the disc",
+          "core missing entirely"
+        ]
+      },
+      {
+        "id": "arm-hue-and-hotspots",
+        "name": "Arm hue ramp and traced hotspots",
+        "required": true,
+        "qualityCriteria": [
+          "Arm particles ramp cyan #7fd4ff (inner) \u2192 blue #4f7dff \u2192 violet #9b5cff (outer) as ordered stops, not a single flat blue.",
+          "White-cyan hotspot knots trace both arms, denser at mid-radius, individually resolvable at 512 px review size."
+        ],
+        "evidenceRefs": [
+          "references/andromeda-admission.png#arm-regions"
+        ],
+        "failureModes": [
+          "single flat arm color (ramp missing)",
+          "hotspots scattered uniformly instead of tracing arms"
+        ]
+      },
+      {
+        "id": "star-field-and-dust",
+        "name": "Star field backdrop and dark dust filaments",
+        "required": true,
+        "qualityCriteria": [
+          "Backdrop: scattered white-blue points (a few with 4-point diffraction crosses) over #050510\u2013#0a0a18 space with slight vignette.",
+          "Dark dust streaks ride the inner edges of the arms, semi-opaque #101226, never covering arm glow entirely."
+        ],
+        "evidenceRefs": [
+          "references/andromeda-admission.png#corners-and-arm-edges"
+        ],
+        "failureModes": [
+          "flat black background with no star field",
+          "dust lanes read as grey smears across the whole disc"
+        ]
+      }
+    ],
+    "visualDeltaChecks": [
+      "Silhouette IoU of the luminous envelope vs the reference \u2265 0.55 at review size (emissive scenes have soft envelopes; this is not a hard-object gate).",
+      "Core region hue stays warm (R channel > B channel in the core crop).",
+      "Arm region hue stays cool (B \u2265 R in the arm crop)."
+    ],
+    "antiShallowSpecRules": [
+      "No single-sprite 'galaxy texture' planes \u2014 the spiral must be constructed from placed particles.",
+      "No unseeded Math.random anywhere; every stochastic placement records its seed."
+    ]
+  },
+  "qualityTargets": {
+    "reviewViewpoints": [
+      "front \u2014 Front \u2014 the reference framing",
+      "tilted \u2014 Tilted 30\u00b0 \u2014 reveals disc thickness and layer depth",
+      "edge \u2014 Near-edge \u2014 disc plane thickness and dust layering"
+    ],
+    "reviewSizePx": 512,
+    "avatarSizePx": 96
+  },
+  "selfCorrectLoop": {
+    "maxPerPass": 3,
+    "maxTotal": 6,
+    "visualAcceptance": {
+      "reviewer": "agent vision (structured comparison sheet + per-feature scoring)",
+      "threshold": 0.8,
+      "featureThreshold": 0.8,
+      "featureReviewPolicy": {
+        "enabled": true,
+        "adaptiveEscalation": true,
+        "rule": "every critical featureReviewTarget must reach its minimumScore; a failed critical feature blocks continue even when the global score passes"
+      },
+      "layers": [
+        "silhouette",
+        "structure",
+        "materials",
+        "micro-features"
+      ]
+    },
+    "screenshotPolicy": {
+      "perPass": "capture at review viewpoint 512 px before every review decision",
+      "turntable": "4 azimuths (0/90/180/270) at final pass",
+      "storage": "cosmos-avatars/<emblem>/renders/"
+    }
+  },
+  "featureReviewTargets": [
+    {
+      "id": "spiral-structure",
+      "name": "Two-arm logarithmic spiral with counter-clockwise chirality",
+      "tier": "critical",
+      "passIds": [
+        "structural-pass",
+        "form-refinement"
+      ],
+      "minimumScore": 0.8,
+      "mustPass": true,
+      "componentRefs": [
+        "galaxy-disc"
+      ],
+      "evidenceRefs": [
+        "full-object"
+      ]
+    },
+    {
+      "id": "core-contrast",
+      "name": "Warm bulge/core against cool disc",
+      "tier": "critical",
+      "passIds": [
+        "material-pass"
+      ],
+      "minimumScore": 0.8,
+      "mustPass": true,
+      "componentRefs": [
+        "galactic-bulge",
+        "core-bloom-card"
+      ],
+      "evidenceRefs": [
+        "center-crop"
+      ]
+    },
+    {
+      "id": "arm-hue-and-hotspots",
+      "name": "Arm hue ramp with traced hotspots",
+      "tier": "critical",
+      "passIds": [
+        "material-pass",
+        "surface-pass"
+      ],
+      "minimumScore": 0.8,
+      "mustPass": true,
+      "componentRefs": [
+        "galaxy-disc",
+        "arm-hotspots"
+      ],
+      "evidenceRefs": [
+        "arm-regions"
+      ]
+    },
+    {
+      "id": "star-field-and-dust",
+      "name": "Star field depth and inner-edge dust",
+      "tier": "important",
+      "passIds": [
+        "surface-pass"
+      ],
+      "minimumScore": 0.75,
+      "mustPass": true,
+      "componentRefs": [
+        "star-field",
+        "dust-lanes"
+      ],
+      "evidenceRefs": [
+        "corners-and-arm-edges"
+      ]
+    }
+  ],
+  "sculptPipeline": {
+    "passOrder": [
+      "blockout",
+      "structural-pass",
+      "form-refinement",
+      "material-pass",
+      "surface-pass",
+      "lighting-pass",
+      "interaction-pass",
+      "optimization-pass"
+    ],
+    "passGateMode": "locked-sequential",
+    "note": "Particle-first: spiral structure and silhouette land in structural/form passes; materials are emission gradients, not PBR surfaces."
+  },
+  "lookDevTargets": {
+    "materialPass": {
+      "minimumTextureResolution": 256,
+      "note": "Sprite textures are generated canvas gradients; 256 px is sufficient at avatar scale."
+    },
+    "targets": [
+      {
+        "id": "emission-balance",
+        "goal": "Core bloom and arm glow read as one scene at 96 px without clipping to white."
+      },
+      {
+        "id": "hue-ramp",
+        "goal": "Arms ramp cyan rgba(127,212,255) inner \u2192 blue rgba(79,125,255) mid \u2192 violet rgba(155,92,255) outer as ordered stops along the winding; core stays warm (#fff7d9 \u2192 #ff8a3c)."
+      },
+      {
+        "id": "depth-order",
+        "goal": "Backdrop stars behind disc glow; foreground diffraction stars in front."
+      }
+    ]
+  },
+  "actionReadiness": {
+    "required": false,
+    "rationale": "Avatar: static camera, one rigid rotation pivot on the root group; no sockets, articulation, destruction or colliders.",
+    "anchors": [
+      {
+        "id": "idle-spin",
+        "kind": "rotation",
+        "axis": "y",
+        "rateRadPerSec": 0.15,
+        "note": "slow rigid disc rotation preserving spiral chirality"
+      }
+    ]
+  },
+  "assumptions": [
+    "Far-side arm wrap continues the same two-arm logarithmic winding (occluded in the single view) \u2014 documented stylization.",
+    "Dust-lane topology is artistic, reproduced as tangent-aligned streaks with seed 1104.",
+    "Foreground/backdrop star depth order is a size/brightness heuristic fixed by seed 1102."
+  ],
+  "coordinateFrame": {
+    "up": "+Y",
+    "forward": "+Z",
+    "units": "relative (disc diameter = 2.0)",
+    "origin": "emblem center (galactic core)"
+  },
+  "silhouette": {
+    "boundingShape": "flattened oblate disc (diameter 2.0, thickness 0.55) with spiral arms extending to an irregular envelope",
+    "aspectRatios": [
+      {
+        "subject": "disc diameter : disc thickness",
+        "ratio": 3.6
+      }
+    ],
+    "symmetry": "radial two-arm spiral (asymmetric chirality: arms trail counter-clockwise outward)",
+    "dominantCurves": [
+      "logarithmic spiral arms, ~1.5 visible windings",
+      "circular core bloom"
+    ],
+    "negativeSpaces": [
+      "dark gaps between arms",
+      "near-black space outside the envelope"
+    ],
+    "landmarks": [
+      "warm golden core at center",
+      "brightest arm knots at mid-radius, upper-left and lower-right of the core",
+      "violet outer arm tips at the envelope edge"
+    ]
+  },
+  "viewEvidence": [
+    {
+      "id": "front-reference",
+      "view": "front",
+      "file": "../references/andromeda-admission.png",
+      "note": "single stylized view; far side documented in assumptions; isolation border excluded from judgment"
+    }
+  ],
+  "componentTree": [
+    {
+      "id": "galaxy-root",
+      "name": "Galaxy root (pivot + backdrop)",
+      "level": "macro",
+      "role": "body",
+      "importance": 0.4,
+      "confidence": 0.9,
+      "primitive": "instanced-cluster",
+      "topologyClass": "material-only",
+      "topologyRationale": "The root carries the deep-space backdrop star layer and the shared rotation pivot; it has no solid surface of its own \u2014 decision-tree step 1 (material-only, stop).",
+      "geometryDescriptor": {
+        "topologyIntent": "additive particle/sprite volume; no solid surface",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "unlit additive sprites (normals unused)"
+      },
+      "parent": null,
+      "dimensions": {
+        "width": 2.6,
+        "height": 2.6,
+        "depth": 2.6,
+        "units": "relative"
+      },
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(5, 5, 16, 1.0)",
+        "secondaryAlbedo": "rgba(10, 10, 24, 1.0)",
+        "materialClass": "glass",
+        "materialClassConfidence": 0.6,
+        "colorGradient": {
+          "type": "radial",
+          "stops": [
+            {
+              "color": "rgba(5, 5, 16, 1.0)",
+              "position": 0.0
+            },
+            {
+              "color": "rgba(10, 10, 24, 1.0)",
+              "position": 1.0
+            }
+          ]
+        }
+      },
+      "localFeatures": [
+        {
+          "id": "rotation-pivot",
+          "kind": "contour",
+          "description": "Root group pivot at the galactic core; slow rigid Y rotation preserves spiral chirality"
+        }
+      ],
+      "actionProfile": {
+        "animationRole": "pivot-holder",
+        "pivot": {
+          "mode": "root-origin",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.9
+        },
+        "transformChannels": {
+          "rotationY": true
+        },
+        "sockets": []
+      }
+    },
+    {
+      "id": "space-backdrop",
+      "name": "Deep space backdrop vignette",
+      "level": "meso",
+      "role": "detail",
+      "importance": 0.3,
+      "confidence": 0.85,
+      "primitive": "plane-card",
+      "topologyClass": "material-only",
+      "topologyRationale": "A screen-facing gradient carrier behind all layers \u2014 no volume of its own (decision-tree step 1).",
+      "geometryDescriptor": {
+        "topologyIntent": "additive particle/sprite volume; no solid surface",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "unlit additive sprites (normals unused)"
+      },
+      "parent": "galaxy-root",
+      "dimensions": {
+        "width": 2.6,
+        "height": 2.6,
+        "depth": 0.01,
+        "units": "relative"
+      },
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(10, 10, 24, 1.0)",
+        "secondaryAlbedo": "rgba(5, 5, 16, 1.0)",
+        "materialClass": "glass",
+        "materialClassConfidence": 0.6,
+        "colorGradient": {
+          "type": "radial",
+          "stops": [
+            {
+              "color": "rgba(10, 10, 24, 1.0)",
+              "position": 0.0
+            },
+            {
+              "color": "rgba(5, 5, 16, 1.0)",
+              "position": 1.0
+            }
+          ]
+        }
+      },
+      "localFeatures": [
+        {
+          "id": "space-vignette",
+          "kind": "decal",
+          "description": "Slight radial vignette from #0a0a18 center to #050510 edges behind all layers"
+        }
+      ],
+      "materialRefs": [
+        "space-vignette"
+      ],
+      "attachment": {
+        "parentId": "galaxy-root",
+        "parentSocket": "space-volume",
+        "contactType": "overlap",
+        "localStart": [
+          0,
+          0,
+          0
+        ],
+        "localEnd": [
+          0,
+          0,
+          0
+        ],
+        "gapTolerance": 0.05,
+        "overlap": 0.5
+      },
+      "actionProfile": {
+        "animationRole": "rigid-follower",
+        "pivot": {
+          "mode": "inherit-parent",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.9
+        },
+        "transformChannels": {
+          "rotationY": true
+        },
+        "sockets": []
+      }
+    },
+    {
+      "id": "galaxy-disc",
+      "name": "Spiral disc (two-arm system)",
+      "level": "macro",
+      "role": "body",
+      "importance": 1.0,
+      "confidence": 0.92,
+      "primitive": "instanced-cluster",
+      "topologyClass": "continuous-sculpt",
+      "topologyRationale": "One continuous smoothly-varying particulate mass whose silhouette is the arm envelope; built as an instanced cluster of additive sprites, never a box (Flat-Projection rule).",
+      "geometryDescriptor": {
+        "topologyIntent": "additive particle/sprite volume; no solid surface",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "unlit additive sprites (normals unused)"
+      },
+      "parent": null,
+      "dimensions": {
+        "width": 2.0,
+        "height": 0.55,
+        "depth": 2.0,
+        "units": "relative"
+      },
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(79, 125, 255, 0.9)",
+        "secondaryAlbedo": "rgba(155, 92, 255, 0.9)",
+        "materialClass": "glass",
+        "materialClassConfidence": 0.75,
+        "colorGradient": {
+          "type": "radial",
+          "stops": [
+            {
+              "color": "rgba(127, 212, 255, 0.85)",
+              "position": 0.0
+            },
+            {
+              "color": "rgba(79, 125, 255, 0.9)",
+              "position": 0.5
+            },
+            {
+              "color": "rgba(155, 92, 255, 0.95)",
+              "position": 1.0
+            }
+          ]
+        }
+      },
+      "localFeatures": [
+        {
+          "id": "two-arm-chirality",
+          "kind": "emissive",
+          "description": "Two dominant arms trail counter-clockwise outward from a short bar, ~1.5 visible windings each"
+        },
+        {
+          "id": "arm-hue-ramp",
+          "kind": "emissive",
+          "description": "Cyan #7fd4ff inner \u2192 blue #4f7dff mid \u2192 violet #9b5cff outer, ordered radial stops"
+        },
+        {
+          "id": "arm-falloff",
+          "kind": "emissive",
+          "description": "Arm width widens and brightness falls with radius; gaps expose dark space"
+        }
+      ],
+      "materialRefs": [
+        "arm-glow",
+        "dust-filament"
+      ],
+      "attachment": {
+        "parentId": "galaxy-root",
+        "parentSocket": "disc-origin",
+        "contactType": "embed",
+        "localStart": [
+          0,
+          0,
+          0
+        ],
+        "localEnd": [
+          0,
+          0,
+          0
+        ],
+        "gapTolerance": 0.02,
+        "embedDepth": 0.1
+      },
+      "actionProfile": {
+        "animationRole": "pivot-holder",
+        "pivot": {
+          "mode": "root-origin",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.9
+        },
+        "transformChannels": {
+          "rotationY": true
+        },
+        "sockets": []
+      }
+    },
+    {
+      "id": "arm-hotspots",
+      "name": "Arm hotspot knots",
+      "level": "meso",
+      "role": "detail",
+      "importance": 0.8,
+      "confidence": 0.85,
+      "primitive": "instanced-cluster",
+      "topologyClass": "material-only",
+      "topologyRationale": "Bright knots ride inside the arm volume with no footprint of their own \u2014 material layer on the parent disc.",
+      "geometryDescriptor": {
+        "topologyIntent": "additive particle/sprite volume; no solid surface",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "unlit additive sprites (normals unused)"
+      },
+      "parent": "galaxy-disc",
+      "dimensions": {
+        "width": 1.4,
+        "height": 0.3,
+        "depth": 1.4,
+        "units": "relative"
+      },
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(234, 255, 255, 0.95)",
+        "secondaryAlbedo": "rgba(191, 233, 255, 0.95)",
+        "materialClass": "glass",
+        "materialClassConfidence": 0.8,
+        "colorGradient": {
+          "type": "radial",
+          "stops": [
+            {
+              "color": "rgba(255, 255, 255, 1.0)",
+              "position": 0.0
+            },
+            {
+              "color": "rgba(191, 233, 255, 0.4)",
+              "position": 1.0
+            }
+          ]
+        }
+      },
+      "localFeatures": [
+        {
+          "id": "hotspot-tracing",
+          "kind": "emissive",
+          "description": "White-cyan knots traced along both arms, denser at mid-radius, individually resolvable at 512 px"
+        }
+      ],
+      "materialRefs": [
+        "hotspot-glow"
+      ],
+      "attachment": {
+        "parentId": "galaxy-disc",
+        "parentSocket": "arm-midradius",
+        "contactType": "embed",
+        "localStart": [
+          0,
+          0,
+          0
+        ],
+        "localEnd": [
+          0,
+          0,
+          0
+        ],
+        "gapTolerance": 0.02,
+        "embedDepth": 0.05
+      },
+      "actionProfile": {
+        "animationRole": "rigid-follower",
+        "pivot": {
+          "mode": "inherit-parent",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.9
+        },
+        "transformChannels": {
+          "rotationY": true
+        },
+        "sockets": []
+      }
+    },
+    {
+      "id": "galactic-bulge",
+      "name": "Galactic bulge and core",
+      "level": "macro",
+      "role": "body",
+      "importance": 1.0,
+      "confidence": 0.95,
+      "primitive": "ellipsoid",
+      "topologyClass": "continuous-sculpt",
+      "topologyRationale": "A smooth glowing central mass \u2014 one continuous varying volume; ellipsoid is the observed form (not box/cylinder/cone).",
+      "geometryDescriptor": {
+        "topologyIntent": "additive particle/sprite volume; no solid surface",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "unlit additive sprites (normals unused)"
+      },
+      "parent": "galaxy-root",
+      "dimensions": {
+        "width": 0.44,
+        "height": 0.4,
+        "depth": 0.44,
+        "units": "relative"
+      },
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(255, 247, 217, 1.0)",
+        "secondaryAlbedo": "rgba(255, 138, 60, 1.0)",
+        "materialClass": "glass",
+        "materialClassConfidence": 0.85,
+        "colorGradient": {
+          "type": "radial",
+          "stops": [
+            {
+              "color": "rgba(255, 247, 217, 1.0)",
+              "position": 0.0
+            },
+            {
+              "color": "rgba(255, 196, 107, 0.95)",
+              "position": 0.45
+            },
+            {
+              "color": "rgba(255, 138, 60, 0.5)",
+              "position": 1.0
+            }
+          ]
+        }
+      },
+      "localFeatures": [
+        {
+          "id": "core-gradient",
+          "kind": "emissive",
+          "description": "#fff7d9 \u2192 #ffc46b \u2192 #ff8a3c center\u2192rim; core diameter \u2248 0.22 of disc diameter"
+        },
+        {
+          "id": "core-diffraction",
+          "kind": "emissive",
+          "description": "Subtle 4-point diffraction cross over the core bloom"
+        }
+      ],
+      "materialRefs": [
+        "core-bloom"
+      ],
+      "attachment": {
+        "parentId": "galaxy-root",
+        "parentSocket": "disc-origin",
+        "contactType": "embed",
+        "localStart": [
+          0,
+          0,
+          0
+        ],
+        "localEnd": [
+          0,
+          0,
+          0
+        ],
+        "gapTolerance": 0.01,
+        "embedDepth": 0.08
+      },
+      "actionProfile": {
+        "animationRole": "rigid-follower",
+        "pivot": {
+          "mode": "inherit-parent",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.9
+        },
+        "transformChannels": {
+          "rotationY": true
+        },
+        "sockets": []
+      }
+    },
+    {
+      "id": "dust-lanes",
+      "name": "Dark dust filaments",
+      "level": "meso",
+      "role": "detail",
+      "importance": 0.6,
+      "confidence": 0.7,
+      "primitive": "instanced-cluster",
+      "topologyClass": "fiber-strand",
+      "topologyRationale": "Many repeated thin dark strands following the arm paths \u2014 fiber-strand built as an instanced cluster (never box/plane-card).",
+      "geometryDescriptor": {
+        "topologyIntent": "additive particle/sprite volume; no solid surface",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "unlit additive sprites (normals unused)"
+      },
+      "parent": "galaxy-disc",
+      "dimensions": {
+        "width": 1.6,
+        "height": 0.2,
+        "depth": 1.6,
+        "units": "relative"
+      },
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(16, 18, 38, 0.55)",
+        "secondaryAlbedo": "rgba(26, 29, 58, 0.55)",
+        "materialClass": "unknown",
+        "materialClassConfidence": 0.5,
+        "colorGradient": {
+          "type": "linear",
+          "stops": [
+            {
+              "color": "rgba(16, 18, 38, 0.6)",
+              "position": 0.0
+            },
+            {
+              "color": "rgba(26, 29, 58, 0.2)",
+              "position": 1.0
+            }
+          ]
+        }
+      },
+      "localFeatures": [
+        {
+          "id": "inner-edge-dust",
+          "kind": "decal",
+          "description": "Semi-opaque #101226 filaments riding the inner arm edges; never covering arm glow entirely"
+        }
+      ],
+      "materialRefs": [
+        "dust-filament"
+      ],
+      "attachment": {
+        "parentId": "galaxy-disc",
+        "parentSocket": "arm-inner-edge",
+        "contactType": "overlap",
+        "localStart": [
+          0,
+          0,
+          0
+        ],
+        "localEnd": [
+          0,
+          0,
+          0
+        ],
+        "gapTolerance": 0.03,
+        "overlap": 0.06
+      },
+      "actionProfile": {
+        "animationRole": "rigid-follower",
+        "pivot": {
+          "mode": "inherit-parent",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.9
+        },
+        "transformChannels": {
+          "rotationY": true
+        },
+        "sockets": []
+      }
+    },
+    {
+      "id": "star-field",
+      "name": "Star field (backdrop + foreground)",
+      "level": "meso",
+      "role": "detail",
+      "importance": 0.5,
+      "confidence": 0.9,
+      "primitive": "instanced-cluster",
+      "topologyClass": "material-only",
+      "topologyRationale": "Scattered point sprites around the disc \u2014 no volume of their own; a material/decal layer in the root space.",
+      "geometryDescriptor": {
+        "topologyIntent": "additive particle/sprite volume; no solid surface",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "unlit additive sprites (normals unused)"
+      },
+      "parent": "galaxy-root",
+      "dimensions": {
+        "width": 2.6,
+        "height": 2.6,
+        "depth": 2.6,
+        "units": "relative"
+      },
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(255, 255, 255, 0.9)",
+        "secondaryAlbedo": "rgba(159, 216, 255, 0.9)",
+        "materialClass": "glass",
+        "materialClassConfidence": 0.7,
+        "colorGradient": {
+          "type": "radial",
+          "stops": [
+            {
+              "color": "rgba(255, 255, 255, 1.0)",
+              "position": 0.0
+            },
+            {
+              "color": "rgba(159, 216, 255, 0.3)",
+              "position": 1.0
+            }
+          ]
+        }
+      },
+      "localFeatures": [
+        {
+          "id": "diffraction-crosses",
+          "kind": "emissive",
+          "description": "Foreground stars carry 4-point diffraction crosses; backdrop stars are plain points"
+        },
+        {
+          "id": "size-brightness-spread",
+          "kind": "emissive",
+          "description": "Power-law size/brightness spread: few large bright, many faint"
+        }
+      ],
+      "materialRefs": [
+        "star-point"
+      ],
+      "attachment": {
+        "parentId": "galaxy-root",
+        "parentSocket": "space-volume",
+        "contactType": "overlap",
+        "localStart": [
+          0,
+          0,
+          0
+        ],
+        "localEnd": [
+          0,
+          0,
+          0
+        ],
+        "gapTolerance": 0.05,
+        "overlap": 0.2
+      },
+      "actionProfile": {
+        "animationRole": "rigid-follower",
+        "pivot": {
+          "mode": "inherit-parent",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.9
+        },
+        "transformChannels": {
+          "rotationY": true
+        },
+        "sockets": []
+      }
+    },
+    {
+      "id": "core-bloom-card",
+      "name": "Core bloom sprite",
+      "level": "micro",
+      "role": "detail",
+      "importance": 0.7,
+      "confidence": 0.85,
+      "primitive": "plane-card",
+      "topologyClass": "material-only",
+      "topologyRationale": "A screen-facing additive carrier for the core glow gradient \u2014 material-only by decision-tree step 1.",
+      "geometryDescriptor": {
+        "topologyIntent": "additive particle/sprite volume; no solid surface",
+        "edgeTreatment": {
+          "type": "none",
+          "bevelRadius": 0.0,
+          "segments": 1
+        },
+        "deformationStack": [],
+        "uvStrategy": "generated procedural coordinates",
+        "normalStrategy": "unlit additive sprites (normals unused)"
+      },
+      "parent": "galactic-bulge",
+      "dimensions": {
+        "width": 0.7,
+        "height": 0.7,
+        "depth": 0.01,
+        "units": "relative"
+      },
+      "colorMaterialRecipe": {
+        "dominantAlbedo": "rgba(255, 247, 217, 0.9)",
+        "secondaryAlbedo": "rgba(255, 196, 107, 0.9)",
+        "materialClass": "glass",
+        "materialClassConfidence": 0.8,
+        "colorGradient": {
+          "type": "radial",
+          "stops": [
+            {
+              "color": "rgba(255, 247, 217, 1.0)",
+              "position": 0.0
+            },
+            {
+              "color": "rgba(255, 196, 107, 0.0)",
+              "position": 1.0
+            }
+          ]
+        }
+      },
+      "localFeatures": [
+        {
+          "id": "bloom-falloff",
+          "kind": "emissive",
+          "description": "Additive radial falloff to transparent at the card edge"
+        }
+      ],
+      "materialRefs": [
+        "core-bloom"
+      ],
+      "attachment": {
+        "parentId": "galactic-bulge",
+        "parentSocket": "core-center",
+        "contactType": "overlap",
+        "localStart": [
+          0,
+          0,
+          0
+        ],
+        "localEnd": [
+          0,
+          0,
+          0
+        ],
+        "gapTolerance": 0.01,
+        "overlap": 0.3
+      },
+      "actionProfile": {
+        "animationRole": "rigid-follower",
+        "pivot": {
+          "mode": "inherit-parent",
+          "localPosition": [
+            0,
+            0,
+            0
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "confidence": 0.9
+        },
+        "transformChannels": {
+          "rotationY": true
+        },
+        "sockets": []
+      }
+    }
+  ],
+  "materials": [
+    {
+      "id": "arm-glow",
+      "name": "Arm particle glow",
+      "type": "standard",
+      "shaderModel": "AdditiveBlendedPoints/Sprites (emissive; MeshBasicMaterial-class, unlit)",
+      "baseColor": "#4f7dff",
+      "color": "#4f7dff",
+      "albedo": {
+        "dominant": "#4f7dff",
+        "secondary": [
+          "7fd4ff",
+          "4f7dff",
+          "9b5cff"
+        ],
+        "samplingNotes": "Hue ramp sampled from arm regions: cyan inner, blue mid, violet outer (image-analysis Layer 6)."
+      },
+      "colorVariation": {
+        "palette": [
+          "#4f7dff",
+          "7fd4ff",
+          "4f7dff",
+          "9b5cff"
+        ],
+        "pattern": "radial-gradient",
+        "amplitude": 0.35,
+        "heightCorrelation": 0.0
+      },
+      "textureResolution": 1024,
+      "textureProjection": {
+        "mode": "generated canvas sprite texture (radial falloff), screen-facing",
+        "repeat": [
+          1.0,
+          1.0
+        ]
+      },
+      "roughness": {
+        "base": 1.0,
+        "map": "none \u2014 unlit emissive scene; no specular response by design"
+      },
+      "metalness": {
+        "base": 0.0,
+        "map": "none \u2014 no dielectric/metal response in an emission-only scene"
+      },
+      "ambientOcclusion": {
+        "response": "n/a \u2014 additive blending; occlusion is expressed by layer order and dark dust sprites (dust-filament material), not AO maps"
+      },
+      "surfaceFrequencyBands": [
+        {
+          "id": "macro",
+          "frequency": 1.0,
+          "amplitude": 1.0,
+          "intent": "whole-emblem luminous envelope"
+        },
+        {
+          "id": "meso",
+          "frequency": 6.0,
+          "amplitude": 0.6,
+          "intent": "per-layer structure (arms, knots, ring segments)"
+        },
+        {
+          "id": "micro",
+          "frequency": 24.0,
+          "amplitude": 0.3,
+          "intent": "per-sprite twinkle and edge softness"
+        }
+      ],
+      "emission": {
+        "mode": "additive",
+        "gradientStops": [
+          {
+            "color": "rgba(127, 212, 255, 0.85)",
+            "position": 0.0
+          },
+          {
+            "color": "rgba(79, 125, 255, 0.9)",
+            "position": 0.5
+          },
+          {
+            "color": "rgba(155, 92, 255, 0.95)",
+            "position": 1.0
+          }
+        ]
+      },
+      "localOverrides": [
+        {
+          "id": "inner-arm-cyan",
+          "region": "radius 0.15\u20130.45 of arm length",
+          "change": "hue pushed to #7fd4ff, alpha 0.85",
+          "evidence": "image-analysis Layer 6 inner-arm crop"
+        },
+        {
+          "id": "outer-arm-violet",
+          "region": "radius 0.75\u20131.0 of arm length",
+          "change": "hue pushed to #9b5cff, alpha 0.95",
+          "evidence": "violet outer tips at the envelope edge"
+        },
+        {
+          "id": "mid-arm-blue",
+          "region": "radius 0.45\u20130.75 of arm length",
+          "change": "hue held at #4f7dff",
+          "evidence": "mid-radius arm band"
+        }
+      ]
+    },
+    {
+      "id": "core-bloom",
+      "name": "Core bloom gradient",
+      "type": "standard",
+      "shaderModel": "AdditiveBlendedPoints/Sprites (emissive; MeshBasicMaterial-class, unlit)",
+      "baseColor": "#fff7d9",
+      "color": "#fff7d9",
+      "albedo": {
+        "dominant": "#fff7d9",
+        "secondary": [
+          "fff7d9",
+          "ffc46b",
+          "ff8a3c"
+        ],
+        "samplingNotes": "Warm core sampled from the bulge crop; R>B everywhere in the core region (visualDeltaCheck)."
+      },
+      "colorVariation": {
+        "palette": [
+          "#fff7d9",
+          "fff7d9",
+          "ffc46b",
+          "ff8a3c"
+        ],
+        "pattern": "radial-gradient",
+        "amplitude": 0.35,
+        "heightCorrelation": 0.0
+      },
+      "textureResolution": 1024,
+      "textureProjection": {
+        "mode": "generated canvas sprite texture (radial falloff), screen-facing",
+        "repeat": [
+          1.0,
+          1.0
+        ]
+      },
+      "roughness": {
+        "base": 1.0,
+        "map": "none \u2014 unlit emissive scene; no specular response by design"
+      },
+      "metalness": {
+        "base": 0.0,
+        "map": "none \u2014 no dielectric/metal response in an emission-only scene"
+      },
+      "ambientOcclusion": {
+        "response": "n/a \u2014 additive blending; occlusion is expressed by layer order and dark dust sprites (dust-filament material), not AO maps"
+      },
+      "surfaceFrequencyBands": [
+        {
+          "id": "macro",
+          "frequency": 1.0,
+          "amplitude": 1.0,
+          "intent": "whole-emblem luminous envelope"
+        },
+        {
+          "id": "meso",
+          "frequency": 6.0,
+          "amplitude": 0.6,
+          "intent": "per-layer structure (arms, knots, ring segments)"
+        },
+        {
+          "id": "micro",
+          "frequency": 24.0,
+          "amplitude": 0.3,
+          "intent": "per-sprite twinkle and edge softness"
+        }
+      ],
+      "emission": {
+        "mode": "additive",
+        "gradientStops": [
+          {
+            "color": "rgba(255, 247, 217, 1.0)",
+            "position": 0.0
+          },
+          {
+            "color": "rgba(255, 196, 107, 0.95)",
+            "position": 0.45
+          },
+          {
+            "color": "rgba(255, 138, 60, 0.4)",
+            "position": 1.0
+          }
+        ]
+      },
+      "localOverrides": [
+        {
+          "id": "rim-amber",
+          "region": "core rim (outer 25% of bloom radius)",
+          "change": "gradient stop #ff8a3c at alpha 0.4, soft falloff to transparent",
+          "evidence": "warm core rim vs cool disc boundary"
+        }
+      ]
+    },
+    {
+      "id": "hotspot-glow",
+      "name": "Arm hotspot knots",
+      "type": "standard",
+      "shaderModel": "AdditiveBlendedPoints/Sprites (emissive; MeshBasicMaterial-class, unlit)",
+      "baseColor": "#eaffff",
+      "color": "#eaffff",
+      "albedo": {
+        "dominant": "#eaffff",
+        "secondary": [
+          "ffffff",
+          "bfe9ff"
+        ],
+        "samplingNotes": "White-cyan knots along arms; small radius so they stay resolvable, not smeared."
+      },
+      "colorVariation": {
+        "palette": [
+          "#eaffff",
+          "ffffff",
+          "bfe9ff"
+        ],
+        "pattern": "radial-gradient",
+        "amplitude": 0.35,
+        "heightCorrelation": 0.0
+      },
+      "textureResolution": 1024,
+      "textureProjection": {
+        "mode": "generated canvas sprite texture (radial falloff), screen-facing",
+        "repeat": [
+          1.0,
+          1.0
+        ]
+      },
+      "roughness": {
+        "base": 1.0,
+        "map": "none \u2014 unlit emissive scene; no specular response by design"
+      },
+      "metalness": {
+        "base": 0.0,
+        "map": "none \u2014 no dielectric/metal response in an emission-only scene"
+      },
+      "ambientOcclusion": {
+        "response": "n/a \u2014 additive blending; occlusion is expressed by layer order and dark dust sprites (dust-filament material), not AO maps"
+      },
+      "surfaceFrequencyBands": [
+        {
+          "id": "macro",
+          "frequency": 1.0,
+          "amplitude": 1.0,
+          "intent": "whole-emblem luminous envelope"
+        },
+        {
+          "id": "meso",
+          "frequency": 6.0,
+          "amplitude": 0.6,
+          "intent": "per-layer structure (arms, knots, ring segments)"
+        },
+        {
+          "id": "micro",
+          "frequency": 24.0,
+          "amplitude": 0.3,
+          "intent": "per-sprite twinkle and edge softness"
+        }
+      ],
+      "emission": {
+        "mode": "additive",
+        "gradientStops": [
+          {
+            "color": "rgba(255, 255, 255, 1.0)",
+            "position": 0.0
+          },
+          {
+            "color": "rgba(191, 233, 255, 0.35)",
+            "position": 1.0
+          }
+        ]
+      },
+      "localOverrides": []
+    },
+    {
+      "id": "star-point",
+      "name": "Star field points",
+      "type": "standard",
+      "shaderModel": "AdditiveBlendedPoints/Sprites (emissive; MeshBasicMaterial-class, unlit)",
+      "baseColor": "#ffffff",
+      "color": "#ffffff",
+      "albedo": {
+        "dominant": "#ffffff",
+        "secondary": [
+          "ffffff",
+          "9fd8ff"
+        ],
+        "samplingNotes": "White-blue points; a seeded subset gets a 4-point diffraction cross texture."
+      },
+      "colorVariation": {
+        "palette": [
+          "#ffffff",
+          "ffffff",
+          "9fd8ff"
+        ],
+        "pattern": "radial-gradient",
+        "amplitude": 0.35,
+        "heightCorrelation": 0.0
+      },
+      "textureResolution": 1024,
+      "textureProjection": {
+        "mode": "generated canvas sprite texture (radial falloff), screen-facing",
+        "repeat": [
+          1.0,
+          1.0
+        ]
+      },
+      "roughness": {
+        "base": 1.0,
+        "map": "none \u2014 unlit emissive scene; no specular response by design"
+      },
+      "metalness": {
+        "base": 0.0,
+        "map": "none \u2014 no dielectric/metal response in an emission-only scene"
+      },
+      "ambientOcclusion": {
+        "response": "n/a \u2014 additive blending; occlusion is expressed by layer order and dark dust sprites (dust-filament material), not AO maps"
+      },
+      "surfaceFrequencyBands": [
+        {
+          "id": "macro",
+          "frequency": 1.0,
+          "amplitude": 1.0,
+          "intent": "whole-emblem luminous envelope"
+        },
+        {
+          "id": "meso",
+          "frequency": 6.0,
+          "amplitude": 0.6,
+          "intent": "per-layer structure (arms, knots, ring segments)"
+        },
+        {
+          "id": "micro",
+          "frequency": 24.0,
+          "amplitude": 0.3,
+          "intent": "per-sprite twinkle and edge softness"
+        }
+      ],
+      "emission": {
+        "mode": "additive",
+        "gradientStops": [
+          {
+            "color": "rgba(255, 255, 255, 1.0)",
+            "position": 0.0
+          },
+          {
+            "color": "rgba(159, 216, 255, 0.25)",
+            "position": 1.0
+          }
+        ]
+      },
+      "localOverrides": []
+    },
+    {
+      "id": "dust-filament",
+      "name": "Dark dust filaments",
+      "type": "standard",
+      "shaderModel": "AdditiveBlendedPoints/Sprites (emissive; MeshBasicMaterial-class, unlit)",
+      "baseColor": "#101226",
+      "color": "#101226",
+      "albedo": {
+        "dominant": "#101226",
+        "secondary": [
+          "101226",
+          "1a1d3a"
+        ],
+        "samplingNotes": "Absorptive streaks (normal blend, not additive) along arm inner edges."
+      },
+      "colorVariation": {
+        "palette": [
+          "#101226",
+          "101226",
+          "1a1d3a"
+        ],
+        "pattern": "radial-gradient",
+        "amplitude": 0.35,
+        "heightCorrelation": 0.0
+      },
+      "textureResolution": 1024,
+      "textureProjection": {
+        "mode": "generated canvas sprite texture (radial falloff), screen-facing",
+        "repeat": [
+          1.0,
+          1.0
+        ]
+      },
+      "roughness": {
+        "base": 1.0,
+        "map": "none \u2014 unlit emissive scene; no specular response by design"
+      },
+      "metalness": {
+        "base": 0.0,
+        "map": "none \u2014 no dielectric/metal response in an emission-only scene"
+      },
+      "ambientOcclusion": {
+        "response": "n/a \u2014 additive blending; occlusion is expressed by layer order and dark dust sprites (dust-filament material), not AO maps"
+      },
+      "surfaceFrequencyBands": [
+        {
+          "id": "macro",
+          "frequency": 1.0,
+          "amplitude": 1.0,
+          "intent": "whole-emblem luminous envelope"
+        },
+        {
+          "id": "meso",
+          "frequency": 6.0,
+          "amplitude": 0.6,
+          "intent": "per-layer structure (arms, knots, ring segments)"
+        },
+        {
+          "id": "micro",
+          "frequency": 24.0,
+          "amplitude": 0.3,
+          "intent": "per-sprite twinkle and edge softness"
+        }
+      ],
+      "emission": {
+        "mode": "additive",
+        "gradientStops": [
+          {
+            "color": "rgba(16, 18, 38, 0.6)",
+            "position": 0.0
+          },
+          {
+            "color": "rgba(26, 29, 58, 0.15)",
+            "position": 1.0
+          }
+        ]
+      },
+      "localOverrides": []
+    },
+    {
+      "id": "space-vignette",
+      "name": "Deep space vignette",
+      "type": "standard",
+      "shaderModel": "AdditiveBlendedPoints/Sprites (emissive; MeshBasicMaterial-class, unlit)",
+      "baseColor": "#0a0a18",
+      "color": "#0a0a18",
+      "albedo": {
+        "dominant": "#0a0a18",
+        "secondary": [
+          "0a0a18",
+          "050510"
+        ],
+        "samplingNotes": "Near-black space sampled from frame corners; vignette keeps the emblem edge soft."
+      },
+      "colorVariation": {
+        "palette": [
+          "#0a0a18",
+          "0a0a18",
+          "050510"
+        ],
+        "pattern": "radial-gradient",
+        "amplitude": 0.35,
+        "heightCorrelation": 0.0
+      },
+      "textureResolution": 1024,
+      "textureProjection": {
+        "mode": "generated canvas sprite texture (radial falloff), screen-facing",
+        "repeat": [
+          1.0,
+          1.0
+        ]
+      },
+      "roughness": {
+        "base": 1.0,
+        "map": "none \u2014 unlit emissive scene; no specular response by design"
+      },
+      "metalness": {
+        "base": 0.0,
+        "map": "none \u2014 no dielectric/metal response in an emission-only scene"
+      },
+      "ambientOcclusion": {
+        "response": "n/a \u2014 additive blending; occlusion is expressed by layer order and dark dust sprites (dust-filament material), not AO maps"
+      },
+      "surfaceFrequencyBands": [
+        {
+          "id": "macro",
+          "frequency": 1.0,
+          "amplitude": 1.0,
+          "intent": "whole-emblem luminous envelope"
+        },
+        {
+          "id": "meso",
+          "frequency": 6.0,
+          "amplitude": 0.6,
+          "intent": "per-layer structure (arms, knots, ring segments)"
+        },
+        {
+          "id": "micro",
+          "frequency": 24.0,
+          "amplitude": 0.3,
+          "intent": "per-sprite twinkle and edge softness"
+        }
+      ],
+      "emission": {
+        "mode": "additive",
+        "gradientStops": [
+          {
+            "color": "rgba(10, 10, 24, 1.0)",
+            "position": 0.0
+          },
+          {
+            "color": "rgba(5, 5, 16, 1.0)",
+            "position": 1.0
+          }
+        ]
+      },
+      "localOverrides": []
+    }
+  ],
+  "repetitionSystems": [
+    {
+      "id": "arm-particle-band",
+      "kind": "instanced-cluster",
+      "componentRef": "galaxy-disc",
+      "count": "420 point sprites (seeded)",
+      "distribution": "logarithmic spiral r = a\u00b7e^(b\u00b7\u03b8), two arms offset by \u03c0; gaussian scatter across arm width widening with radius; brightness falls with radius",
+      "seed": 1101,
+      "variation": "per-sprite size 0.01\u20130.05, per-sprite hue sampled from the arm ramp by radius, additive blending"
+    },
+    {
+      "id": "star-field-spread",
+      "kind": "instanced-cluster",
+      "componentRef": "star-field",
+      "count": "160 point sprites (seeded): 120 backdrop + 40 foreground",
+      "distribution": "uniform over the 2.6\u00b3 volume with rejection near the core; power-law size/brightness spread",
+      "seed": 1102,
+      "variation": "12 of the foreground stars use the 4-point diffraction cross texture"
+    },
+    {
+      "id": "hotspot-chain",
+      "kind": "instanced-cluster",
+      "componentRef": "arm-hotspots",
+      "count": "26 knot sprites (seeded)",
+      "distribution": "along both arm curves at mid-radius band (0.45\u20130.75 of arm length), gaussian jitter across arm width",
+      "seed": 1103,
+      "variation": "size 0.03\u20130.06, brightest at mid-radius"
+    },
+    {
+      "id": "dust-filament-row",
+      "kind": "instanced-cluster",
+      "componentRef": "dust-lanes",
+      "count": "54 streak sprites (seeded)",
+      "distribution": "stretched sprites aligned to the arm tangent on inner edges, length 0.08\u20130.2",
+      "seed": 1104,
+      "variation": "normal (subtractive-looking) blending, opacity 0.2\u20130.6"
+    }
+  ],
+  "buildPasses": [
+    {
+      "id": "blockout",
+      "name": "Blockout",
+      "goal": "Frame the emblem's bounding volumes and layer order."
+    },
+    {
+      "id": "structural-pass",
+      "name": "Structure",
+      "goal": "Place every particle system and sprite layer in the scene graph."
+    },
+    {
+      "id": "form-refinement",
+      "name": "Form",
+      "goal": "Tune spiral winding, silhouette envelope and layer density against the reference."
+    },
+    {
+      "id": "material-pass",
+      "name": "Material",
+      "goal": "Wire emissive gradients, additive blending and hue ramps."
+    },
+    {
+      "id": "surface-pass",
+      "name": "Surface",
+      "goal": "Micro features: hotspots, diffraction crosses, dust filaments, twinkle."
+    },
+    {
+      "id": "lighting-pass",
+      "name": "Lighting",
+      "goal": "Self-emissive scene: verify bloom balance without lights."
+    },
+    {
+      "id": "interaction-pass",
+      "name": "Interaction",
+      "goal": "Idle animation: rigid rotation speed, pulse phase, reduced-motion fallback."
+    },
+    {
+      "id": "optimization-pass",
+      "name": "Optimization",
+      "goal": "Triangle/draw-call budget and offscreen-render path for avatar slots."
+    }
+  ],
+  "visualEvidence": [],
+  "reviewHistory": [],
+  "lodPlan": [
+    {
+      "tier": "avatar",
+      "maxTriangles": 3000,
+      "note": "rail tabs 30 px"
+    },
+    {
+      "tier": "header",
+      "maxTriangles": 6000,
+      "note": "agent headers / detail views"
+    }
+  ],
+  "performanceBudget": {
+    "qualityPriority": "visual-identity-at-small-size",
+    "targetTriangles": 6000,
+    "maxDrawCalls": 12,
+    "textureSize": 256,
+    "fpsTarget": 30,
+    "optimizationPolicy": "particles over meshes; shared runtime renders each emblem once per frame and blits to all slots"
+  },
+  "lightingFromPhoto": [
+    "Key: none \u2014 every layer is self-emissive (additive blending); the emission gradients ARE the lighting",
+    "Tone: renderer.toneMapping = ACESFilmicToneMapping, exposure 1.0 \u2014 keeps the core bloom from clipping to flat white",
+    "Depth cue: the dark dust sprites act as the scene's contact shadow layer between arm glow and core (the only occlusion behavior in an additive scene); no ground plane exists"
+  ],
+  "proceduralStrategy": [
+    "All placement is seeded (mulberry32): spiral arm sampling, star field, hotspots, dust streaks.",
+    "Sprite textures are generated on a canvas at boot (radial falloff, diffraction cross); no external art.",
+    "Arms are THREE.Points with a generated sprite texture; dust uses a second Points system with normal blending.",
+    "Core is one ellipsoid mesh + one additive plane-card; everything else is instanced sprites."
+  ],
+  "animationAnchors": [
+    {
+      "id": "idle-spin",
+      "target": "root",
+      "kind": "rotation-y",
+      "rate": 0.15
+    },
+    {
+      "id": "core-pulse",
+      "target": "galactic-bulge",
+      "kind": "scale-pulse",
+      "amplitude": 0.06,
+      "periodSeconds": 4.0
+    }
+  ],
+  "destructionAnchors": [],
+  "risks": [
+    "Additive overdraw at 96 px could wash the disc to white \u2014 mitigated by per-sprite alpha falloff and draw-order (dust last).",
+    "Spiral chirality could flip if the placement parametrization sign is wrong \u2014 gated by featureReviewTarget spiral-structure.",
+    "Core bloom could clip to pure white at small sizes \u2014 gated by emission-balance lookDevTarget."
+  ],
+  "localSpecSearch": {
+    "collection": "core_3d",
+    "query": "ANDROMEDA spiral galaxy avatar emblem Emission Opacity Alpha Color Space sRGB Linear TorusGeometry Rings Scene-Graph Relational Triplets",
+    "index": {
+      "status": "hit",
+      "reason": "current",
+      "fingerprint": "62f2831e1d52eeb6dbb94a87c44fa25b1f4926626a7b1f8c2bcadc63e04e9471"
+    },
+    "matches": [
+      {
+        "record_id": "core.pbr-color-space-srgb-vs-linearnocolorspace",
+        "file_path": "docs/raw/img2threejs-skill-dataset.json",
+        "heading": null,
+        "key_path": "categories.material_pbr[11]",
+        "score": 15.087307050145,
+        "snippets": [
+          "Distinction between human-viewable color data (needs gamma/sRGB) and mathematical data maps (must stay linear/uncorrected). Ph\u00e2n bi\u1ec7t gi\u1eefa d\u1eef li\u1ec7u m\u00e0u \u0111\u1ec3 ng\u01b0\u1eddi xem (c\u1ea7n gamma/sRGB) v\u00e0 c\u00e1c b\u1ea3n \u0111\u1ed3 d\u1eef li\u1ec7u to\u00e1n h\u1ecdc (ph\u1ea3i gi\u1eef tuy\u1ebfn t\u00ednh/kh\u00f4ng hi\u1ec7u ..."
+        ],
+        "source_refs": [
+          {
+            "path": "docs/raw/img2threejs-skill-dataset.json",
+            "heading": null,
+            "key_path": "categories.material_pbr[11]"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "kind": "source",
+            "ref": "docs/raw/img2threejs-skill-dataset.json",
+            "note": "img2threejs NotebookLM research distillation"
+          }
+        ]
+      },
+      {
+        "record_id": "core.shader-mapping-srgb-linear-color-space-assignment",
+        "file_path": "docs/raw/img2threejs-skill-dataset.json",
+        "heading": null,
+        "key_path": "categories.rendering_shader_mapping[12]",
+        "score": 14.442849919202,
+        "snippets": [
+          "The mandatory Three.js r152+ rule for tagging each texture as human-viewable color vs. mathematical data before assigning it to a material slot. Quy t\u1eafc b\u1eaft bu\u1ed9c t\u1eeb Three.js r152+ \u0111\u1ec3 g\u00e1n nh\u00e3n m\u1ed7i texture l\u00e0 m\u00e0u \u0111\u1ec3 ng\u01b0\u1eddi xem hay d\u1eef li\u1ec7u to\u00e1n h\u1ecdc ..."
+        ],
+        "source_refs": [
+          {
+            "path": "docs/raw/img2threejs-skill-dataset.json",
+            "heading": null,
+            "key_path": "categories.rendering_shader_mapping[12]"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "kind": "source",
+            "ref": "docs/raw/img2threejs-skill-dataset.json",
+            "note": "img2threejs NotebookLM research distillation"
+          }
+        ]
+      },
+      {
+        "record_id": "core.pbr-opacity-alpha",
+        "file_path": "docs/raw/img2threejs-skill-dataset.json",
+        "heading": null,
+        "key_path": "categories.material_pbr[8]",
+        "score": 14.268856478809,
+        "snippets": [
+          "Controls material transparency and blend mode; in CS2 workflows the alpha channel of Base Color is repurposed as a non-transparency data channel. Ki\u1ec3m so\u00e1t \u0111\u1ed9 trong su\u1ed1t v\u00e0 ch\u1ebf \u0111\u1ed9 blend c\u1ee7a v\u1eadt li\u1ec7u; trong quy tr\u00ecnh CS2, k\u00eanh alpha c\u1ee7a Base ..."
+        ],
+        "source_refs": [
+          {
+            "path": "docs/raw/img2threejs-skill-dataset.json",
+            "heading": null,
+            "key_path": "categories.material_pbr[8]"
+          }
+        ],
+        "evidence_refs": [
+          {
+            "kind": "source",
+            "ref": "docs/raw/img2threejs-skill-dataset.json",
+            "note": "img2threejs NotebookLM research distillation"
+          }
+        ]
+      }
+    ]
+  },
+  "mustNotDo": [
+    "Do not use a single textured plane as the 'galaxy' \u2014 the spiral is placed particles.",
+    "Do not use unseeded randomness \u2014 every stochastic placement records its seed.",
+    "Do not add scene lights or PBR shading \u2014 the scene is self-emissive.",
+    "Do not exceed the 6k triangle budget \u2014 identity lives in sprites and gradients."
+  ]
+}

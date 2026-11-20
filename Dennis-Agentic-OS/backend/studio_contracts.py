@@ -891,6 +891,9 @@ def extension_for(content_type, kind="image"):
         "audio/x-wav": ".wav",
         "audio/mp4": ".m4a",
         "audio/ogg": ".ogg",
+        "text/plain": ".srt",
+        "text/srt": ".srt",
+        "application/x-subrip": ".srt",
         "application/zip": ".zip",
     }
     if content_type in mapping:

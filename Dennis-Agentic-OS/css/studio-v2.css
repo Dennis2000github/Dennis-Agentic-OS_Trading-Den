@@ -246,6 +246,20 @@
   text-align: left;
 }
 
+#studio-view .studio-runtime-field .studio-model-btn {
+  width: 100%;
+  max-width: none;
+}
+
+#studio-view .studio-runtime-field .studio-model-menu {
+  left: auto;
+  right: 0;
+}
+
+#studio-view .studio-runtime-field .studio-model-note {
+  max-width: 100%;
+}
+
 #studio-view .studio-agent-menu {
   width: min(320px, 88vw);
   left: 0;
@@ -742,6 +756,12 @@
   top: calc(100% + 5px);
   left: 0;
   right: auto;
+}
+
+#studio-view #studio-model-options {
+  max-height: min(52vh, 420px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 #studio-view .studio-model-desc {
@@ -4560,59 +4580,6 @@
   border-color: var(--cl-brand);
   background: var(--cl-brand-soft);
   color: var(--cl-brand);
-}
-
-/* Engine cards */
-#studio-view .collart-engines {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  gap: 14px;
-}
-
-#studio-view .collart-engine {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 16px;
-  border: 1px solid #e4e4ea;
-  border-radius: 16px;
-  background: #ffffff;
-  text-align: left;
-  cursor: pointer;
-  transition: border-color 0.13s, background 0.13s;
-}
-
-#studio-view .collart-engine:hover { border-color: #c9c9d2; }
-
-#studio-view .collart-engine.is-active { border: 2px solid var(--cl-brand); background: rgba(255, 232, 238, 0.25); padding: 15px; }
-
-#studio-view .collart-engine-head { display: flex; align-items: center; gap: 8px; }
-
-#studio-view .collart-engine-avatar {
-  display: grid;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: 999px;
-  background: #18181b;
-  color: #ffffff;
-  font-size: 10px;
-  font-weight: 800;
-}
-
-#studio-view .collart-engine b { color: #18181b; font-size: 12px; font-weight: 700; }
-
-#studio-view .collart-engine p { margin: 0; color: #71717a; font-size: 11px; line-height: 1.5; }
-
-#studio-view .collart-engine-tags { display: flex; flex-wrap: wrap; gap: 6px; }
-
-#studio-view .collart-engine-tag {
-  padding: 2px 8px;
-  border: 1px solid #e4e4ea;
-  border-radius: 6px;
-  color: #71717a;
-  font-size: 9px;
-  font-weight: 500;
 }
 
 /* Template chips */

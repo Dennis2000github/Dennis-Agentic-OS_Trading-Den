@@ -307,6 +307,51 @@ body {
 .ws-menu-item-disabled:hover { background: transparent; }
 .ws-agent-dot { width: 8px; height: 8px; border-radius: 9999px; flex-shrink: 0; }
 
+/* Provider groups inside the Model menu (Workspace pattern: Skill Builder,
+   Studio and the Ads Studio runtime row). */
+.model-provider-group { margin-bottom: 2px; }
+.model-provider-group-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 7px 8px 5px;
+  border-radius: 7px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7dd3fc;
+  text-align: left;
+  transition: background 0.12s, color 0.12s;
+}
+.model-provider-group-head:hover { background: rgba(37, 99, 235, 0.14); color: #bae6fd; }
+.model-provider-group-head .model-provider-group-count {
+  margin-left: auto;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: #64748b;
+  flex-shrink: 0;
+}
+.model-provider-group-head .model-provider-group-caret {
+  flex-shrink: 0;
+  color: #64748b;
+  transition: transform 0.15s ease;
+}
+.model-provider-group[data-open="false"] .model-provider-group-caret { transform: rotate(-90deg); }
+.model-provider-group[data-open="false"] .model-provider-group-body { display: none; }
+.model-provider-group-body { padding-bottom: 3px; }
+.model-provider-group-empty {
+  padding: 2px 12px 8px;
+  font-size: 10px;
+  line-height: 1.4;
+  color: #64748b;
+}
+.model-provider-group-error { color: #fda4af; }
+
 .ws-status {
   display: inline-flex;
   align-items: center;

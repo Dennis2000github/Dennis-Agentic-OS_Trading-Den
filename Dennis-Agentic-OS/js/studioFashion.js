@@ -95,6 +95,16 @@
       "5": { provider: "auto", model: "veo-3.0-fast-generate-001" }
     },
     uploadCache: {},
+    /* Runtime row (Agent · Model, shared by the Create and Generate tabs):
+       zone A = the agent's own provider + integrated custom providers
+       (agent work), zone B = the generation engines (rendering). */
+    runtimeExpanded: {},
+    runtimeQuery: "",
+    agentModels: null,
+    agentModelsFor: null,
+    agentProviders: [],
+    agentModelsLoading: null,
+    agentExpanded: {},
     modelPending: null,
     referencePending: null,
     createRefPending: null
@@ -321,7 +331,7 @@
   }
 
   /* ------------------------------------------------------------------ */
-  /* Shared runtime rail (Agent · Provider · Model)                      */
+  /* Shared runtime row (Agent · Model — provider folded into the menu)  */
   /* ------------------------------------------------------------------ */
   function runtimeGenStep() {
     /* Step 4 is a reference clip; the video model it feeds lives in Step 5. */
@@ -337,119 +347,406 @@
     });
   }
 
-  function renderRuntimeAgent() {
-    var select = $("fashion-runtime-agent");
-    if (!select) return;
-    var roster = (window.Studio && window.Studio.agents) ? window.Studio.agents() : [];
-    var activeId = (window.Studio && window.Studio.agentId) ? window.Studio.agentId() : "";
-    select.innerHTML = "";
-    if (!roster.length) {
-      var empty = document.createElement("option");
-      empty.value = "";
-      empty.textContent = "No agents detected";
-      select.appendChild(empty);
-      select.disabled = true;
-      return;
-    }
-    select.disabled = false;
-    roster.forEach(function (agent) {
-      var option = document.createElement("option");
-      option.value = agent.id;
-      option.textContent = (agent.name || agent.id) +
-        (agent.available === false ? " (not installed)" : "");
-      option.selected = agent.id === activeId;
-      select.appendChild(option);
+  function runtimeProviderLabel(providerId) {
+    var providers = (S.registry && S.registry.providers) || [];
+    var provider = providers.filter(function (p) { return p.id === providerId; })[0];
+    return provider ? (provider.label || provider.id) : (providerId || "Default");
+  }
+
+  function runtimeModelLabel(providerId, kind, modelId) {
+    var models = genCatalogModels(providerId, kind);
+    var model = models.filter(function (m) { return m.id === modelId; })[0];
+    return model ? (model.label || model.id) : (modelId || "—");
+  }
+
+  function closeRuntimeMenus() {
+    ["fashion-runtime-agent-menu", "fashion-runtime-model-menu",
+      "adc-agent-menu", "adc-model-menu"].forEach(function (id) {
+      var menu = $(id);
+      if (menu) menu.classList.add("hidden");
     });
   }
+
+  function toggleRuntimeMenu(menuId) {
+    var menu = $(menuId);
+    if (!menu) return;
+    var willOpen = menu.classList.contains("hidden");
+    closeRuntimeMenus();
+    if (!willOpen) return;
+    menu.classList.remove("hidden");
+    if (menuId.indexOf("-model-menu") !== -1) {
+      ensureRegistry();   // generation engine catalog
+      loadAgentModels();  // agent's own models + custom providers
+      var search = $(menuId.replace(/-menu$/, "-search"));
+      if (search) window.setTimeout(function () { search.focus(); }, 0);
+    }
+  }
+
+  /* The Agent menu mirrors the Workspace roster: available agents ready,
+   * detected-but-not-integrated agents amber, missing agents grey. */
+  function renderRuntimeAgent() {
+    var roster = (window.Studio && window.Studio.agents) ? window.Studio.agents() : [];
+    var activeId = (window.Studio && window.Studio.agentId) ? window.Studio.agentId() : "";
+    var active = roster.filter(function (agent) { return agent.id === activeId; })[0];
+    RUNTIME_ROWS.forEach(function (prefix) {
+      var btn = $(prefix + "-agent-btn");
+      var label = $(prefix + "-agent-label");
+      if (label) label.textContent = "Agent: " + (active ? (active.name || active.id) : "—");
+      if (btn) btn.disabled = !roster.length;
+    });
+    var html;
+    if (!roster.length) {
+      html = '<div class="fashion-runtime-empty">No agents detected.</div>';
+    } else {
+      html = roster.map(function (agent) {
+        var off = agent.available === false;
+        var detected = !off && agent.registered === false;
+        var dot = off ? "#475569" : detected ? "#f59e0b" : "#22c55e";
+        var meta = off ? (agent.reason || "unavailable")
+          : detected ? "detected · setup"
+          : (agent.provider || "");
+        return '<button type="button" class="ws-menu-item' + (agent.id === activeId ? " ws-menu-item-active" : "") +
+          (off ? " ws-menu-item-disabled" : "") + '" data-runtime-agent="' + esc(agent.id) + '"' +
+          (off ? " disabled" : "") + '>' +
+          '<span class="ws-agent-dot" style="background:' + dot + '"></span>' +
+          '<span class="flex-1 min-w-0 text-left truncate">' + esc(agent.name || agent.id) + '</span>' +
+          '<span class="text-[9.5px] text-slate-500 shrink-0 truncate max-w-[45%]">' + esc(meta) + '</span>' +
+          '</button>';
+      }).join("");
+    }
+    ["fashion-runtime-agent-options", "adc-agent-options"].forEach(function (hostId) {
+      var host = $(hostId);
+      if (host) host.innerHTML = html;
+    });
+    icons();
+  }
+
+  function runtimeModelRow(providerId, kind, model) {
+    var gen = genEntry(runtimeGenStep());
+    var active = providerId === gen.provider && model.id === gen.model;
+    return '<button type="button" class="ws-menu-item' + (active ? " ws-menu-item-active" : "") + '"' +
+      ' data-runtime-model="' + esc(model.id) + '" data-runtime-provider="' + esc(providerId) + '">' +
+      '<span class="flex-1 min-w-0 text-left">' +
+        '<span class="block truncate">' + esc(model.label || model.id) + '</span>' +
+        '<span class="block text-[9.5px] text-slate-500 truncate">' +
+          esc(model.mode_label || model.mode || "") +
+        '</span>' +
+      '</span>' +
+      '</button>';
+  }
+
+  /* The Model menu groups every connected provider's models for the step's
+   * kind (image/video). Picking a model inside a group selects that group's
+   * provider too — there is no separate Provider control. */
+  /* One Model menu, two zones: the agent's own provider + integrated
+     custom providers lead (agent work), the generation engines follow
+     (rendering) — the Workspace arrangement, extended with the engines
+     that actually run the image/video jobs. */
+  function runtimeGroupHead(toggleAttr, groupId, label, count, connected, open) {
+    return '<button type="button" class="model-provider-group-head" ' + toggleAttr + '="' + esc(groupId) + '"' +
+        ' aria-expanded="' + (open ? "true" : "false") + '">' +
+        '<span class="ws-agent-dot" style="background:' + (connected ? "#22c55e" : "#475569") + '"></span>' +
+        '<span class="flex-1 min-w-0 truncate">' + esc(label) + '</span>' +
+        '<span class="model-provider-group-count">' + esc(count) + '</span>' +
+        '<i data-lucide="chevron-down" class="model-provider-group-caret w-3 h-3"></i>' +
+      '</button>';
+  }
+
+  function runtimeSectionTitle(text) {
+    return '<div class="fashion-runtime-section">' + esc(text) + '</div>';
+  }
+
+  function renderRuntimeModelOptions() {
+    var hosts = ["fashion-runtime-model-options", "adc-model-options"];
+    var genStep = runtimeGenStep();
+    var kind = genKind(genStep);
+    var gen = genEntry(genStep);
+    var providers = runtimeProviders(kind);
+    var terms = (S.runtimeQuery || "").toLowerCase().trim().split(/\s+/).filter(Boolean);
+    var agent = runtimeAgent();
+
+    var agentModels = S.agentModels || [];
+    var agentLoading = S.agentModelsLoading && S.agentModelsFor === runtimeAgentId();
+    var agentGroups = agentModels.length ? agentModelGroups(terms) : [];
+    var zoneAHtml = "";
+    if (agentLoading) {
+      zoneAHtml = '<div class="fashion-runtime-empty">Loading agent models…</div>';
+    } else if (!agentModels.length) {
+      zoneAHtml = '<div class="fashion-runtime-empty">' +
+        (runtimeAgentId()
+          ? "No agent models reported — integrated custom providers appear here once connected."
+          : "Select an agent to see its models.") + '</div>';
+    } else if (!agentGroups.length) {
+      zoneAHtml = ""; // searching: no agent model matches
+    } else {
+      zoneAHtml = agentGroups.map(function (group) {
+        var remembered = S.agentExpanded[group.id];
+        var open = terms.length ? true : (remembered === undefined ? group.id === agentPreferredProvider() : remembered);
+        var count = terms.length && group.models.length !== group.total
+          ? group.models.length + " / " + group.total + " models"
+          : group.total + (group.total === 1 ? " model" : " models");
+        var stored = storedAgentModel();
+        var body = group.models.map(function (model) {
+          var active = model.id === stored;
+          var off = model.available === false;
+          var description = model.description && model.description !== model.provider ? model.description : "";
+          return '<button type="button" class="ws-menu-item' + (active ? " ws-menu-item-active" : "") +
+            (off ? " ws-menu-item-disabled" : "") + '" data-runtime-agent-model="' + esc(model.id) + '"' +
+            (off ? " disabled" : "") + '>' +
+            '<span class="flex-1 min-w-0 text-left truncate">' + esc(model.name || model.id) + '</span>' +
+            (description ? '<span class="text-[9.5px] text-slate-500 shrink-0 truncate max-w-[40%]">' + esc(description) + '</span>' : '') +
+            '</button>';
+        }).join("");
+        return '<div class="model-provider-group" data-open="' + (open ? "true" : "false") + '">' +
+          runtimeGroupHead("data-runtime-agent-toggle", group.id, group.label, count,
+            group.id === agentPreferredProvider() || group.models.some(function (m) { return m.available !== false; }), open) +
+          '<div class="model-provider-group-body">' + body + '</div>' +
+        '</div>';
+      }).join("");
+      zoneAHtml = runtimeSectionTitle("Agent models" + (agent ? " · " + (agent.name || agent.id) : "")) + zoneAHtml;
+    }
+
+    var engineGroups = providers.map(function (provider) {
+      var all = genCatalogModels(provider.id, kind);
+      var models = all.filter(function (model) {
+        if (!terms.length) return true;
+        var hay = [model.label || model.id, model.id, model.mode_label || model.mode || "",
+          provider.label || provider.id].join(" ").toLowerCase();
+        return terms.every(function (term) { return hay.indexOf(term) !== -1; });
+      });
+      return { provider: provider, models: models, total: all.length };
+    }).filter(function (group) {
+      if (!terms.length) return true;
+      return group.models.length > 0;
+    });
+    var zoneBHtml = "";
+    if (!providers.length) {
+      zoneBHtml = '<div class="fashion-runtime-empty">No connected generation providers yet — add a key in Provider Setup, or refresh.</div>';
+    } else if (!engineGroups.length) {
+      zoneBHtml = ""; // searching: no engine matches
+    } else {
+      zoneBHtml = engineGroups.map(function (group) {
+        var id = group.provider.id;
+        var remembered = S.runtimeExpanded[id];
+        var open = terms.length ? true : (remembered === undefined ? id === gen.provider : remembered);
+        var count = terms.length && group.models.length !== group.total
+          ? group.models.length + " / " + group.total + " models"
+          : group.total + (group.total === 1 ? " model" : " models");
+        var body = group.models.length
+          ? group.models.map(function (model) { return runtimeModelRow(id, kind, model); }).join("")
+          : '<div class="model-provider-group-empty">No models reported for this provider.</div>';
+        var connected = id === "auto" || group.provider.connected;
+        return '<div class="model-provider-group" data-open="' + (open ? "true" : "false") + '">' +
+          runtimeGroupHead("data-runtime-provider-toggle", id, group.provider.label || group.provider.id, count, connected, open) +
+          '<div class="model-provider-group-body">' + body + '</div>' +
+        '</div>';
+      }).join("");
+      zoneBHtml = runtimeSectionTitle("Generation engines · " + (kind === "video" ? "video" : "image")) + zoneBHtml;
+    }
+
+    hosts.forEach(function (hostId) {
+      var host = $(hostId);
+      if (!host) return;
+      if (!zoneAHtml && !zoneBHtml) {
+        host.innerHTML = '<div class="fashion-runtime-empty">' +
+          (terms.length ? "No model matches this search." : "No models available yet.") + '</div>';
+        return;
+      }
+      host.innerHTML = zoneAHtml + zoneBHtml;
+    });
+    icons();
+  }
+
+  /* The Generate row (fashion-runtime-*) and the Create row (adc-*) mirror
+     the same shared state, so both tabs always agree. */
+  var RUNTIME_ROWS = ["fashion-runtime", "adc"];
 
   function renderRuntimeRail() {
     var genStep = runtimeGenStep();
     var kind = genKind(genStep);
     var gen = genEntry(genStep);
+    var providers = runtimeProviders(kind);
 
-    var stepLabel = $("fashion-runtime-step");
-    if (stepLabel) {
-      stepLabel.textContent = "Step " + S.step + " · " + (kind === "video" ? "video" : "image");
-    }
+    var stepLabels = { "fashion-runtime-step": "step " + S.step + (kind === "video" ? " · video" : " · image"), "adc-runtime-step": "create" };
+    Object.keys(stepLabels).forEach(function (id) {
+      var el = $(id);
+      if (el) el.textContent = stepLabels[id];
+    });
 
-    var providerSel = $("fashion-runtime-provider");
-    if (providerSel) {
-      var providers = runtimeProviders(kind);
-      providerSel.innerHTML = "";
-      if (!providers.length) {
-        var loading = document.createElement("option");
-        loading.value = "";
-        loading.textContent = "Loading providers…";
-        providerSel.appendChild(loading);
-        providerSel.disabled = true;
-      } else {
-        providerSel.disabled = false;
-        providers.forEach(function (p) {
-          var option = document.createElement("option");
-          option.value = p.id;
-          option.textContent = p.label || p.id;
-          option.selected = p.id === gen.provider;
-          providerSel.appendChild(option);
-        });
-        if (!providers.some(function (p) { return p.id === gen.provider; })) {
-          gen.provider = "auto";
-          providerSel.value = "auto";
-        }
-      }
-    }
-
-    var modelSel = $("fashion-runtime-model");
-    if (modelSel) {
-      var models = genCatalogModels(gen.provider, kind);
-      if (models.length) {
-        modelSel.innerHTML = genModelOptionsHtml(gen.provider, kind);
-        if (!models.some(function (m) { return m.id === gen.model; })) {
-          gen.model = models[0].id;
-        }
-        modelSel.value = gen.model;
-        modelSel.disabled = false;
-      } else {
-        modelSel.innerHTML = '<option value="">No ' + esc(kind) + ' models</option>';
-        modelSel.disabled = true;
-      }
-    }
-
-    var kindHint = $("fashion-runtime-kind");
-    if (kindHint) {
-      kindHint.textContent = kind === "video"
+    var kindHints = {
+      "fashion-runtime-kind": kind === "video"
         ? "Video model — used by Production."
-        : "Image model for Steps 1–3.";
-    }
+        : "Image model for Steps 1–3.",
+      "adc-runtime-kind": "Agent models on top · generation engines below."
+    };
+    Object.keys(kindHints).forEach(function (id) {
+      var el = $(id);
+      if (el) el.textContent = kindHints[id];
+    });
 
+    RUNTIME_ROWS.forEach(function (prefix) {
+      var btn = $(prefix + "-model-btn");
+      var label = $(prefix + "-model-label");
+      if (btn) btn.disabled = !providers.length;
+      if (label) {
+        var ready = genCatalogModels(gen.provider, kind).length > 0;
+        if (!providers.length) {
+          label.textContent = "Loading models…";
+        } else if (gen.provider === "auto" || !ready) {
+          /* Auto keeps its own pseudo-provider, so the model label alone reads
+             cleaner than "Auto (free engines) · Auto — best free engine". */
+          label.textContent = runtimeModelLabel(gen.provider, kind, gen.model);
+        } else {
+          label.textContent = runtimeProviderLabel(gen.provider) + " · " +
+            runtimeModelLabel(gen.provider, kind, gen.model);
+        }
+      }
+    });
+
+    renderRuntimeModelOptions();
     renderRuntimeAgent();
   }
 
-  function setRuntimeProvider(value) {
+  /* Picking a model from a provider group selects that provider with it. */
+  function chooseRuntimeModel(providerId, modelId) {
     var genStep = runtimeGenStep();
+    var kind = genKind(genStep);
     var gen = S.gen[genStep];
-    if (!gen) return;
-    gen.provider = value;
-    var models = genCatalogModels(value, genKind(genStep));
-    gen.model = models.length ? models[0].id : "auto";
-    if (genStep === "5") S.modelId = gen.model;
-    renderGenSelects();
-    renderStatus();
-    renderEngines();
-  }
-
-  function setRuntimeModel(value) {
-    var genStep = runtimeGenStep();
-    var gen = S.gen[genStep];
-    if (!gen) return;
-    gen.model = value;
+    if (!gen || !providerId || !modelId) return;
+    if (!genCatalogModels(providerId, kind).some(function (m) { return m.id === modelId; })) return;
+    gen.provider = providerId;
+    gen.model = modelId;
     if (genStep === "5") {
-      S.modelId = value;
+      S.modelId = modelId;
       applyModelDefaults(true);
     }
     renderGenSelects();
     renderStatus();
-    renderEngines();
     renderDock();
+    closeRuntimeMenus();
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Zone A — the agent's own models + integrated custom providers       */
+  /* ------------------------------------------------------------------ */
+  function runtimeAgentId() {
+    return (window.Studio && window.Studio.agentId) ? window.Studio.agentId() : "";
+  }
+
+  function runtimeAgent() {
+    var id = runtimeAgentId();
+    return ((window.Studio && window.Studio.agents) ? window.Studio.agents() : [])
+      .filter(function (agent) { return agent.id === id; })[0] || null;
+  }
+
+  function storedAgentModel() {
+    var id = runtimeAgentId();
+    if (!id) return null;
+    if (window.Studio && window.Studio.agentModel) return window.Studio.agentModel(id) || null;
+    return S.agentModelId;
+  }
+
+  /* Same catalog the Workspace and Skill Builder use: the agent CLI's own
+     models plus every model discovered on integrated custom providers
+     (FreeLLMAPI and agent-compatible connections). */
+  function loadAgentModels(force) {
+    var agentId = runtimeAgentId();
+    if (!agentId) return Promise.resolve(null);
+    if (!force && S.agentModelsFor === agentId && S.agentModels) return Promise.resolve(S.agentModels);
+    if (S.agentModelsLoading && S.agentModelsFor === agentId) return S.agentModelsLoading;
+    S.agentModelsFor = agentId;
+    S.agentModelsLoading = fetch("/api/agents/" + encodeURIComponent(agentId) + "/models" + (force ? "?refresh=1" : ""), { cache: "no-store" })
+      .then(function (response) { return response.json(); })
+      .then(function (data) {
+        S.agentModels = (data && Array.isArray(data.models)) ? data.models : [];
+        S.agentProviders = (data && Array.isArray(data.providers)) ? data.providers : [];
+        S.agentModelsLoading = null;
+        renderRuntimeModelOptions();
+        return S.agentModels;
+      })
+      .catch(function () {
+        S.agentModels = [];
+        S.agentProviders = [];
+        S.agentModelsLoading = null;
+        renderRuntimeModelOptions();
+        return [];
+      });
+    return S.agentModelsLoading;
+  }
+
+  function agentProviderName(id) {
+    var provider = (S.agentProviders || []).filter(function (p) { return p.id === id; })[0];
+    if (provider && provider.label) return provider.label;
+    var agent = runtimeAgent();
+    if (agent && agent.provider && agent.provider.toLowerCase() === String(id).toLowerCase()) return agent.provider;
+    return id;
+  }
+
+  /* The agent's own provider group leads (its current or default model's
+     provider, matching the agent's roster provider when possible); the
+     integrated custom providers follow — the Workspace ordering. */
+  function agentPreferredProvider() {
+    var models = S.agentModels || [];
+    var stored = storedAgentModel();
+    var agent = runtimeAgent();
+    for (var i = 0; i < models.length; i += 1) {
+      if (models[i] && models[i].id === stored) return models[i].provider || "__default__";
+    }
+    if (agent && agent.provider) {
+      for (var j = 0; j < models.length; j += 1) {
+        if (models[j] && String(models[j].provider || "").toLowerCase() === agent.provider.toLowerCase()) {
+          return models[j].provider || "__default__";
+        }
+      }
+    }
+    for (var k = 0; k < models.length; k += 1) {
+      if (models[k] && models[k].is_default) return models[k].provider || "__default__";
+    }
+    return ((S.agentProviders || [])[0] || {}).id || "__default__";
+  }
+
+  function agentModelGroups(terms) {
+    var models = S.agentModels || [];
+    var order = [];
+    (S.agentProviders || []).forEach(function (p) { order.push(p.id); });
+    models.forEach(function (model) {
+      var id = model.provider || "__default__";
+      if (order.indexOf(id) === -1) order.push(id);
+    });
+    var preferred = agentPreferredProvider();
+    if (order.indexOf(preferred) > 0) {
+      order.splice(order.indexOf(preferred), 1);
+      order.unshift(preferred);
+    }
+    return order.map(function (id) {
+      var groupModels = models.filter(function (model) {
+        if ((model.provider || "__default__") !== id) return false;
+        if (!terms.length) return true;
+        var hay = [model.name || model.id, model.id, model.description || "", model.provider || ""].join(" ").toLowerCase();
+        return terms.every(function (term) { return hay.indexOf(term) !== -1; });
+      });
+      return {
+        id: id,
+        label: id === "__default__" ? "Default" : agentProviderName(id),
+        models: groupModels,
+        total: models.filter(function (model) { return (model.provider || "__default__") === id; }).length
+      };
+    }).filter(function (group) {
+      if (!terms.length) return true;
+      return group.models.length > 0;
+    });
+  }
+
+  /* Zone A pick: the model the agent uses when it runs Studio tools. */
+  function chooseAgentModel(modelId) {
+    var agentId = runtimeAgentId();
+    var model = (S.agentModels || []).filter(function (m) { return m.id === modelId; })[0];
+    if (!agentId || !model) return;
+    if (window.Studio && window.Studio.setAgentModel) window.Studio.setAgentModel(agentId, modelId);
+    else S.agentModelId = modelId;
+    renderRuntimeModelOptions();
+    toast("Agent model set: " + (model.name || model.id) +
+      " — used when " + (runtimeAgent() ? (runtimeAgent().name || agentId) : agentId) + " runs Studio tools.");
   }
 
   function genModelOptionsHtml(provider, kind) {
@@ -824,7 +1121,6 @@
           : (aspect.options[0] && aspect.options[0].value) || "";
       }
     }
-    renderEngines();
   }
 
   function fillSelect(select, values, label) {
@@ -979,7 +1275,6 @@
     renderVideo();
     renderTemplateSelects();
     renderGenSelects();
-    renderEngines();
     renderCarried();
     renderResult();
     updateStepUI();
@@ -1328,40 +1623,9 @@
     }
   }
 
-  function renderEngines() {
-    var host = $("fashion-engines");
-    if (!host) return;
-    var models = videoEngines();
-    var modeNote = $("fashion-engine-mode");
-    if (modeNote) {
-      var engine = selectedEngine();
-      modeNote.textContent = engine ? "Google Flow engine — " + engine.mode_label : "Google Flow engine (Veo)";
-    }
-    if (!models.length) {
-      host.innerHTML = '<p class="collart-note">Loading free video engines…</p>';
-      return;
-    }
-    var activeId = genEntry("5").model;
-    host.innerHTML = models.map(function (model, index) {
-      var active = model.id === activeId ? " is-active" : "";
-      var letter = (model.label || model.id || "?").charAt(0).toUpperCase();
-      var tags = (model.resolutions || []).length
-        ? (model.resolutions[0] + "–" + model.resolutions[model.resolutions.length - 1]).toUpperCase()
-        : "";
-      var chips = [];
-      if (tags) chips.push('<span class="collart-engine-tag">' + esc(tags) + "</span>");
-      if (!S.freeModels || !S.freeModels.google) {
-        chips.push('<span class="collart-engine-tag">Needs free Google key</span>');
-      }
-      return '<button type="button" class="collart-engine' + active + '" data-engine="' + esc(model.id) + '">' +
-        '<span class="collart-engine-head"><span class="collart-engine-avatar">' + esc(letter) + "</span>" +
-        "<b>" + esc(model.label || model.id) + "</b></span>" +
-        "<p>" + esc(model.mode_label || "text/image → video") +
-        (index === 0 ? " — recommended." : ".") + "</p>" +
-        '<span class="collart-engine-tags">' + chips.join("") + "</span>" +
-        "</button>";
-    }).join("");
-  }
+  /* The Model Engine panel (Veo cards) was removed — the same engines stay
+     selectable inside the Model menu's "Auto (free engines)" and "Google AI"
+     groups, so there is no separate engine renderer anymore. */
 
   function carriedEntries() {
     var entries = [];
@@ -2599,9 +2863,94 @@
     document.addEventListener("keydown", function (event) {
       if (event.key !== "Escape") return;
       closeModelMenu();
+      closeRuntimeMenus();
       resolveConfirm(false);
     });
-    document.addEventListener("studio:agents-updated", renderRuntimeAgent);
+    document.addEventListener("studio:agents-updated", function () {
+      // The roster (and with it the agent-model catalog) may have changed.
+      S.agentModels = null;
+      S.agentModelsFor = null;
+      S.agentExpanded = {};
+      renderRuntimeAgent();
+    });
+
+    /* Runtime rows (Create: top of page · Generate: below the prompt box).
+       Same shared state, Workspace-style menus: the Agent menu picks the
+       build agent; the Model menu lists the agent's provider + integrated
+       custom providers first (agent work), then the generation engines
+       (rendering) — picking an engine picks its provider. */
+    RUNTIME_ROWS.forEach(function (prefix) {
+      var agentBtn = $(prefix + "-agent-btn");
+      if (agentBtn) agentBtn.addEventListener("click", function (event) {
+        toggleRuntimeMenu(prefix + "-agent-menu");
+      });
+      var agentHost = $(prefix + "-agent-options");
+      if (agentHost) agentHost.addEventListener("click", function (event) {
+        var item = event.target.closest("[data-runtime-agent]");
+        if (!item || item.disabled) return;
+        closeRuntimeMenus();
+        if (window.Studio && window.Studio.setAgent) window.Studio.setAgent(item.getAttribute("data-runtime-agent"));
+      });
+      var modelBtn = $(prefix + "-model-btn");
+      if (modelBtn) modelBtn.addEventListener("click", function (event) {
+        toggleRuntimeMenu(prefix + "-model-menu");
+      });
+      var modelHost = $(prefix + "-model-options");
+      if (modelHost) modelHost.addEventListener("click", function (event) {
+        var agentHead = event.target.closest("[data-runtime-agent-toggle]");
+        if (agentHead) {
+          var agentGroup = agentHead.getAttribute("data-runtime-agent-toggle");
+          var agentOpen = S.agentExpanded[agentGroup];
+          if (agentOpen === undefined) agentOpen = agentGroup === agentPreferredProvider();
+          S.agentExpanded[agentGroup] = !agentOpen;
+          renderRuntimeModelOptions();
+          return;
+        }
+        var agentModel = event.target.closest("[data-runtime-agent-model]");
+        if (agentModel) {
+          chooseAgentModel(agentModel.getAttribute("data-runtime-agent-model"));
+          return;
+        }
+        var head = event.target.closest("[data-runtime-provider-toggle]");
+        if (head) {
+          var providerId = head.getAttribute("data-runtime-provider-toggle");
+          var currentOpen = S.runtimeExpanded[providerId];
+          if (currentOpen === undefined) currentOpen = providerId === genEntry(runtimeGenStep()).provider;
+          S.runtimeExpanded[providerId] = !currentOpen;
+          renderRuntimeModelOptions();
+          return;
+        }
+        var item = event.target.closest("[data-runtime-model]");
+        if (!item) return;
+        chooseRuntimeModel(item.getAttribute("data-runtime-provider"), item.getAttribute("data-runtime-model"));
+      });
+      var modelSearch = $(prefix + "-model-search");
+      if (modelSearch) {
+        modelSearch.addEventListener("input", function (event) {
+          S.runtimeQuery = event.target.value || "";
+          renderRuntimeModelOptions();
+        });
+        modelSearch.addEventListener("click", function (event) { event.stopPropagation(); });
+      }
+      var modelRefresh = $(prefix + "-model-refresh");
+      if (modelRefresh) modelRefresh.addEventListener("click", function (event) {
+        event.stopPropagation();
+        S.agentModels = null;
+        S.agentModelsFor = null;
+        loadAgentModels(true);
+        refreshRegistry();
+      });
+    });
+    document.addEventListener("click", function (event) {
+      var menus = ["fashion-runtime-agent-menu", "fashion-runtime-model-menu", "adc-agent-menu", "adc-model-menu"];
+      for (var i = 0; i < menus.length; i += 1) {
+        var menu = $(menus[i]);
+        if (menu && !menu.classList.contains("hidden") && menu.contains(event.target)) return;
+      }
+      if (event.target.closest &&
+          event.target.closest("#fashion-runtime-agent-btn, #fashion-runtime-model-btn, #adc-agent-btn, #adc-model-btn")) return;
+      closeRuntimeMenus();
+    });
 
     root.addEventListener("click", function (event) {
       var jump = event.target.closest("[data-step-jump]");
@@ -2670,16 +3019,6 @@
         discardDressedResult(Number(dressingDiscard.getAttribute("data-dressing-discard")));
         return;
       }
-      var engine = event.target.closest("[data-engine]");
-      if (engine) {
-        if (S.gen["5"]) S.gen["5"].model = engine.getAttribute("data-engine");
-        S.modelId = engine.getAttribute("data-engine");
-        applyModelDefaults(true);
-        renderGenSelects();
-        renderEngines();
-        renderDock();
-        return;
-      }
       var resultAction = event.target.closest("[data-result-action]");
       if (resultAction) { resultAction(resultAction.getAttribute("data-result-action")); return; }
       if (event.target.closest("[data-ref-skip]")) { skipReference(); return; }
@@ -2732,18 +3071,6 @@
 
     root.addEventListener("change", function (event) {
       var input = event.target;
-      if (input.id === "fashion-runtime-agent") {
-        if (window.Studio && window.Studio.setAgent) window.Studio.setAgent(input.value);
-        return;
-      }
-      if (input.id === "fashion-runtime-provider") {
-        setRuntimeProvider(input.value);
-        return;
-      }
-      if (input.id === "fashion-runtime-model") {
-        setRuntimeModel(input.value);
-        return;
-      }
       if (input.id === "fashion-model-filter") { S.modelFilter = input.value; renderModelGrid(); return; }
       if (input.id && input.id.indexOf("fashion-gen-provider-") === 0) {
         var providerStep = input.id.replace("fashion-gen-provider-", "");

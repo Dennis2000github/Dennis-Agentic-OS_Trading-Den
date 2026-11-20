@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
-"""Browser-level E2E for the YouTube Studio Phase 2 restructure (CDP).
+"""Browser-level E2E for the YouTube Studio consolidation (CDP).
 
 Proves, against a real server:
 
   1. A deep link lands on Create (the default landing section) with a working
      prompt-first composer.
-  2. The sidebar carries exactly the seven master-spec sections + Settings.
+  2. The sidebar carries exactly the five retained sections: Create,
+     Templates, Projects, Analytics, Settings. Topic Backlog, Publishing and
+     YouTube Intelligence are gone from Studio (they live in COSMOS/GENESIS).
   3. Section switching shows exactly one panel at a time (double-panel fixed).
-  4. Projects exposes Projects/Scripts subtabs; Topic Backlog exposes
-     Topics/Research subtabs.
-  5. Settings renders channel profiles, the LLM status (GLM default) and the
-     centralized voiceover widget.
-  6. Publishing and Analytics show the honest not-configured state.
-  7. The intelligence hub renders the five workflow cards.
+  4. Projects exposes Projects/Scripts subtabs.
+  5. Legacy deep links (#studio/youtube/backlog|publishing|intelligence)
+     redirect into COSMOS/GENESIS instead of opening a removed panel.
+  6. Settings renders channel profiles, the LLM status (GLM default) and the
+     honest OAuth connection state.
+  7. Analytics shows the honest not-configured state.
   8. No JS exceptions during the run.
 
 Usage (from the repo root)::
@@ -158,15 +160,17 @@ def phase_landing(r):
     sections = r.ev(
         "Array.from(document.querySelectorAll('#yt-side-nav [data-yt-section]'))"
         ".map(function (el) { return el.getAttribute('data-yt-section'); })")
-    expected = ["create", "templates", "projects", "backlog",
-                "publishing", "analytics", "intelligence", "settings"]
-    r.check("Sidebar has exactly the 7 sections + Settings", sections == expected, repr(sections))
-    r.check("Only future sections carry phase badges (Templates, Publishing, Analytics)",
+    expected = ["create", "templates", "projects", "analytics", "settings"]
+    r.check("Sidebar has exactly the 5 retained sections", sections == expected, repr(sections))
+    r.check("Removed sections are gone from the DOM (no backlog/publishing/intelligence panels)",
+            r.ev("!document.querySelector('[data-yt-panel=\"backlog\"]')"
+                 " && !document.querySelector('[data-yt-panel=\"publishing\"]')"
+                 " && !document.querySelector('[data-yt-panel=\"intelligence\"]')"))
+    r.check("Only Templates carries a phase badge",
             r.ev("(function () {"
                  "  var badges = Array.from(document.querySelectorAll('#yt-side-nav .yt-soon'));"
                  "  var texts = badges.map(function (el) { return el.textContent.trim(); });"
-                 "  return badges.length === 3 && texts.indexOf('Phase 3') !== -1"
-                 "    && texts.filter(function (t) { return t === 'Phase 10'; }).length === 2"
+                 "  return badges.length === 1 && texts.indexOf('Phase 3') !== -1"
                  "    && texts.every(function (t) { return t.indexOf('Stage') === -1; });"
                  "})()"))
 
@@ -197,20 +201,20 @@ def phase_projects_scripts(r):
             r.ev("!document.querySelector('[data-yt-ptab-panel=\"projects\"]').classList.contains('is-hidden')"))
 
 
-def phase_backlog(r):
-    print("  -- topic backlog tabs")
-    r.ev("document.querySelector('[data-yt-section=\"backlog\"]').click()")
-    time.sleep(1.2)
-    r.check("Topics tab renders with pipeline chips and create button",
-            r.ev("!!document.getElementById('yt-topic-create') && !!document.getElementById('yt-topic-pipeline')"))
-    r.ev("document.querySelector('[data-yt-btab=\"research\"]').click()")
-    time.sleep(0.9)
-    r.check("Research tab renders validations + competitors",
-            r.ev("!!document.getElementById('yt-validation-create') && !!document.getElementById('yt-competitor-list')"))
-    r.ev("document.querySelector('[data-yt-btab=\"topics\"]').click()")
-    time.sleep(0.4)
-    r.check("Topics tab returns",
-            r.ev("!document.querySelector('[data-yt-btab-panel=\"topics\"]').classList.contains('is-hidden')"))
+def phase_legacy_redirects(r):
+    print("  -- legacy deep links redirect into COSMOS/GENESIS")
+    for section, target in (("backlog", "andromeda"), ("publishing", "genesis"),
+                            ("intelligence", "quasar")):
+        r.ev("window.location.hash = '#studio/youtube/%s'" % section)
+        r.wait_for("window.location.hash.indexOf('#cosmos/%s') === 0" % target, timeout=15)
+        r.check("Legacy #%s deep link lands on #cosmos/%s" % (section, target),
+                r.ev("window.location.hash.indexOf('#cosmos/%s') === 0" % target),
+                r.ev("window.location.hash"))
+    # Return to the Studio so later phases run against the real workspace.
+    r.ev("window.location.hash = '#studio/youtube/create'")
+    r.wait_for("window.YouTubeStudio.section() === 'create'", timeout=15)
+    r.check("Deep link back into Studio lands on Create",
+            r.ev("window.YouTubeStudio.section() === 'create'"))
 
 
 def phase_settings(r):
@@ -231,30 +235,16 @@ def phase_settings(r):
             isinstance(conn, str) and "OAuth" in conn, repr(conn)[:140])
 
 
-def phase_flags_and_intelligence(r):
-    print("  -- publishing, analytics, intelligence")
+def phase_flags(r):
+    print("  -- analytics flag")
     # The flag content renders after the /features fetch; poll for the text
     # instead of sleeping a fixed time so the check is not load-sensitive.
-    r.ev("document.querySelector('[data-yt-section=\"publishing\"]').click()")
-    r.wait_for("(document.getElementById('yt-publishing-flag')||{innerText:''})"
-               ".innerText.indexOf('Not available yet') !== -1", timeout=15)
-    flag = r.ev("(document.getElementById('yt-publishing-flag')||{innerText:''}).innerText")
-    r.check("Publishing shows the honest not-configured state",
-            isinstance(flag, str) and "Not available yet" in flag, repr(flag)[:140])
     r.ev("document.querySelector('[data-yt-section=\"analytics\"]').click()")
     r.wait_for("(document.getElementById('yt-analytics-flag')||{innerText:''})"
                ".innerText.indexOf('Not available yet') !== -1", timeout=15)
     flag = r.ev("(document.getElementById('yt-analytics-flag')||{innerText:''}).innerText")
     r.check("Analytics shows the honest not-configured state",
             isinstance(flag, str) and "Not available yet" in flag, repr(flag)[:140])
-    r.ev("document.querySelector('[data-yt-section=\"intelligence\"]').click()")
-    time.sleep(0.5)
-    r.check("Intelligence hub renders five workflow cards",
-            r.ev("document.querySelectorAll('.yt-intel-card').length === 5"))
-    r.check("Oracle, Muse, Search OS, Review OS, Memory Galaxy all named",
-            r.ev("var t = document.querySelector('[data-yt-panel=\"intelligence\"]').innerText;"
-                 " ['Hermes Oracle','Hermes Muse','Search OS','YouTube Review OS','Memory Galaxy']"
-                 ".every(function (n) { return t.indexOf(n) !== -1; })"))
     r.ev("document.querySelector('[data-yt-section=\"templates\"]').click()")
     time.sleep(0.4)
     r.check("Templates shows the Phase 3 placeholder",
@@ -294,9 +284,9 @@ def main():
             phase_landing(runner)
             phase_one_panel_rule(runner)
             phase_projects_scripts(runner)
-            phase_backlog(runner)
+            phase_legacy_redirects(runner)
             phase_settings(runner)
-            phase_flags_and_intelligence(runner)
+            phase_flags(runner)
             time.sleep(0.5)
             errors = [e for e in runner.cdp.runtime_errors()
                       if e and "favicon" not in e.lower()

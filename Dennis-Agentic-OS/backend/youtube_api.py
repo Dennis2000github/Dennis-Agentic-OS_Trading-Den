@@ -47,13 +47,20 @@ def _oauth_client_configured():
 def features():
     """Honest availability flags for not-yet-built integrations."""
     configured, source = _oauth_client_configured()
-    reason = None if configured else (
-        "Google OAuth is not configured. Publishing arrives in Phase 10; add a "
-        "Google Cloud OAuth client to enable it."
+    analytics_reason = None if configured else (
+        "Google OAuth is not configured. YouTube Analytics needs a Google Cloud "
+        "OAuth client; add one to enable it."
     )
     return {
-        "publishing": {"available": configured, "phase": 10, "reason": reason},
-        "analytics": {"available": configured, "phase": 10, "reason": reason},
+        # Publishing moved out of Studio into GENESIS. The flag stays in the
+        # payload for older clients, but it no longer describes a Studio gap.
+        "publishing": {
+            "available": True,
+            "phase": None,
+            "owner": "genesis",
+            "reason": None,
+        },
+        "analytics": {"available": configured, "phase": 10, "reason": analytics_reason},
         "oauth": {"configured": configured, "source": source},
         "templates": {"available": True, "phase": 3, "reason": None},
         "packaging": {"available": True, "phase": 6, "reason": None},

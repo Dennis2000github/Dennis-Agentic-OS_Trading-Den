@@ -5,9 +5,10 @@
      Create · Templates · Projects · Analytics · Settings.
 
    Topic Backlog, Publishing and YouTube Intelligence live in COSMOS now
-   (backlog management, the GENESIS Publishing Center and QUASAR's research
-   domain). This module keeps the creative workspace: composer, projects,
-   scripts, channel settings and the analytics placeholder.
+   (backlog management in the COSMOS dashboards, publishing inside the
+   GENESIS production dashboard, and QUASAR's research domain). This module
+   keeps the creative workspace: composer, projects, scripts, channel
+   settings and the analytics placeholder.
 
    Real data only:
      - workspace descriptor / projects: /api/studio/workspaces[/youtube/...];
@@ -56,6 +57,13 @@
     currentScript: null,
     currentVersions: [],
     llm: null,
+    /* Runtime row (Agent · Model below the prompt box): the active runner's
+       model catalog, which provider groups are expanded, load state. */
+    llmModels: null,
+    llmModelsFor: null,
+    llmProviders: [],
+    llmModelsLoading: null,
+    llmExpanded: {},
     projectTab: "projects"
   };
 
@@ -388,8 +396,9 @@
     }
     applyComposerPrefs();
 
-    var model = S.llm && S.llm.model ? S.llm.model : "GLM-5.3-Flash";
-    setText("yt-create-model", model);
+    /* Agent + Model row below the prompt box: both menus render from the
+       live LLM status (runner profiles + the active runner's models). */
+    renderLLMRuntime();
 
     renderRecentProjects();
     icons();
@@ -529,7 +538,7 @@
         "<div><dt>Citations</dt><dd>" + esc((script.citations || []).length) + "</dd></div>" +
       "</dl>" +
       (script.status === "in_review" && !fact.complete
-        ? '<p class="yt-hint">Approval requires every fact-check item verified and at least one citation. The backend enforces this.</p>'
+        ? '<p class="yt-hint" data-info-tip>Approval requires every fact-check item verified and at least one citation. The backend enforces this.</p>'
         : "") +
       '<div class="yt-editor-actions">' + actions.join(" ") +
         '<button type="button" class="yt-link" data-yt-script-versions="' + esc(script.id) + '">Version history</button>' +
@@ -600,23 +609,23 @@
   }
 
   /* ------------------------------------------------------------------ */
-  /* Renderers — Publishing / Analytics feature flags                    */
+  /* Renderers — Analytics feature flag                                  */
   /* ------------------------------------------------------------------ */
   function featureNote(kind, title, copy) {
     var feature = (S.features && S.features[kind]) || {};
     if (feature.available) {
       return '<div class="yt-empty"><div class="yt-empty-icon"><i data-lucide="check-circle-2" class="w-6 h-6"></i></div>' +
         "<h3>" + esc(title) + " is ready</h3><p>Google OAuth is configured. The " + esc(title.toLowerCase()) +
-        ' workflow arrives in Phase 10.</p></div>';
+        ' workflow is available.</p></div>';
     }
     return '<div class="yt-empty"><div class="yt-empty-icon"><i data-lucide="lock" class="w-6 h-6"></i></div>' +
-      "<h3>Not available yet</h3><p>" + esc(feature.reason || copy || (title + " arrives in Phase 10 once Google OAuth is configured.")) + "</p>" +
+      "<h3>Not available yet</h3><p>" + esc(feature.reason || copy || (title + " needs a configured Google OAuth client.")) + "</p>" +
       '<div class="yt-placeholder-foot"><span>Nothing is faked in the meantime — no uploads, no metrics.</span></div></div>';
   }
 
   function renderAnalytics() {
     var host = $("yt-analytics-flag");
-    if (host) host.innerHTML = featureNote("analytics", "Analytics", "YouTube Analytics arrives in Phase 10 once a Google Cloud OAuth client is configured.");
+    if (host) host.innerHTML = featureNote("analytics", "Analytics", "YouTube Analytics needs a Google Cloud OAuth client before it can read channel metrics.");
     icons();
   }
 
@@ -629,10 +638,10 @@
     var oauth = (S.features && S.features.oauth) || {};
     if (oauth.configured) {
       host.innerHTML = '<p class="yt-panel-note yt-ok-note"><i data-lucide="check-circle-2" class="w-4 h-4"></i> Google OAuth client configured (' +
-        esc(oauth.source || "env") + '). The connect-channel flow arrives in Phase 10.</p>';
+        esc(oauth.source || "env") + '). Channel connection and publishing are handled in GENESIS.</p>';
     } else {
-      host.innerHTML = '<p class="yt-panel-note">No Google OAuth client configured yet. Publishing and Analytics arrive in Phase 10 behind this connection — nothing is enabled or faked in the meantime.</p>' +
-        '<p class="yt-hint">Provide a Google Cloud OAuth client id/secret (env <span class="yt-mono">GOOGLE_OAUTH_CLIENT_ID</span> / <span class="yt-mono">GOOGLE_OAUTH_CLIENT_SECRET</span>) when you are ready.</p>';
+      host.innerHTML = '<p class="yt-panel-note">No Google OAuth client configured yet. Publishing is handled by GENESIS, and Analytics needs the same Google connection — nothing is enabled or faked in the meantime.</p>' +
+        '<p class="yt-hint" data-info-tip>Provide a Google Cloud OAuth client id/secret (env <span class="yt-mono">GOOGLE_OAUTH_CLIENT_ID</span> / <span class="yt-mono">GOOGLE_OAUTH_CLIENT_SECRET</span>) when you are ready.</p>';
     }
     icons();
   }
@@ -648,8 +657,269 @@
         " · model <b>" + esc(llm.model || "default") + "</b> · " + state + "</p>";
       icons();
     }
+    /* Provider options come from the backend profile list, never hardcoded. */
     var select = $("yt-llm-provider");
-    if (select && S.llm) select.value = S.llm.provider || "opencode";
+    if (select && S.llm && Array.isArray(S.llm.profiles)) {
+      var current = select.value;
+      select.innerHTML = S.llm.profiles.map(function (profile) {
+        return '<option value="' + esc(profile.id) + '">' + esc(profile.label || profile.id) + "</option>";
+      }).join("");
+      if (current && S.llm.profiles.some(function (p) { return p.id === current; })) select.value = current;
+      else select.value = S.llm.provider || "opencode";
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Runtime row — Agent · Model just below the prompt box               */
+  /* ------------------------------------------------------------------ */
+  function llmProfiles() {
+    return (S.llm && Array.isArray(S.llm.profiles)) ? S.llm.profiles : [];
+  }
+
+  function activeLLMProfile() {
+    return llmProfiles().filter(function (profile) { return profile.id === (S.llm && S.llm.provider); })[0] || null;
+  }
+
+  /* Backend labels carry a parenthetical default; the button shows the
+     short form and menu rows show the full label. */
+  function llmShortLabel(label) {
+    return String(label || "").split(" (")[0] || "Agent";
+  }
+
+  function closeLLMMenus() {
+    ["yt-llm-agent-menu", "yt-llm-model-menu"].forEach(function (id) {
+      var menu = $(id);
+      if (menu) menu.classList.add("is-hidden");
+    });
+  }
+
+  function toggleLLMMenu(menuId) {
+    var menu = $(menuId);
+    if (!menu) return;
+    var willOpen = menu.classList.contains("is-hidden");
+    closeLLMMenus();
+    if (!willOpen) return;
+    menu.classList.remove("is-hidden");
+    if (menuId === "yt-llm-model-menu") loadLLMModels(false);
+  }
+
+  /* The Agent menu lists the real runner profiles from /llm/status. Picking
+     one switches the server-side runner; the model resets to that runner's
+     default (backend behavior), so the model cache is dropped. */
+  function renderLLMAgentMenu() {
+    var btn = $("yt-llm-agent-btn");
+    var label = $("yt-llm-agent-label");
+    var host = $("yt-llm-agent-options");
+    var profiles = llmProfiles();
+    var activeId = S.llm && S.llm.provider;
+    var active = profiles.filter(function (profile) { return profile.id === activeId; })[0];
+    if (label) label.textContent = "Agent: " + (active ? llmShortLabel(active.label) : "—");
+    if (btn) btn.disabled = !profiles.length || !!S.llmBusy;
+    if (!host) return;
+    if (!profiles.length) {
+      host.innerHTML = '<div class="yt-runtime-empty">Runner profiles load from /llm/status — refresh if this stays empty.</div>';
+      return;
+    }
+    host.innerHTML = profiles.map(function (profile) {
+      var isActive = profile.id === activeId;
+      /* `configured` describes the active profile; inactive runners show a
+         neutral dot instead of pretending to know their state. */
+      var dot = isActive ? (S.llm && S.llm.configured ? "#22c55e" : "#f59e0b") : "#475569";
+      var meta = "default: " + (profile.default_model || "profile default");
+      return '<button type="button" class="ws-menu-item' + (isActive ? " ws-menu-item-active" : "") + '"' +
+        ' data-llm-agent="' + esc(profile.id) + '">' +
+        '<span class="ws-agent-dot" style="background:' + dot + '"></span>' +
+        '<span class="flex-1 min-w-0 text-left">' +
+          '<span class="block truncate">' + esc(profile.label || profile.id) + '</span>' +
+          '<span class="block text-[9.5px] text-slate-500 truncate">' + esc(meta) + '</span>' +
+        '</span>' +
+        '</button>';
+    }).join("");
+    icons();
+  }
+
+  /* The active runner's models. OpenCode's CLI exposes a real catalog via
+     /api/agents/opencode/models; the OpenAI-compatible profile has no
+     discoverable list, so it offers its documented default plus whatever
+     model is currently stored. */
+  function loadLLMModels(force) {
+    var profile = activeLLMProfile();
+    var profileId = profile ? profile.id : null;
+    if (!profileId) return Promise.resolve(null);
+    if (profileId !== "opencode") {
+      var models = [];
+      if (profile.default_model) {
+        models.push({ id: profile.default_model, name: profile.default_model, provider: profileId, description: "documented default" });
+      }
+      if (S.llm && S.llm.model && S.llm.model !== profile.default_model) {
+        models.push({ id: S.llm.model, name: S.llm.model, provider: profileId, description: "currently stored" });
+      }
+      S.llmModels = models;
+      S.llmModelsFor = profileId;
+      renderLLMModelMenu();
+      return Promise.resolve(models);
+    }
+    if (!force && S.llmModelsFor === profileId && S.llmModels) {
+      renderLLMModelMenu();
+      return Promise.resolve(S.llmModels);
+    }
+    if (S.llmModelsLoading && S.llmModelsFor === profileId) return S.llmModelsLoading;
+    renderLLMModelMenu(); // loading state
+    S.llmModelsFor = profileId;
+    S.llmModelsLoading = fetch("/api/agents/" + encodeURIComponent(profileId) + "/models" + (force ? "?refresh=1" : ""), { cache: "no-store" })
+      .then(function (response) { return response.json(); })
+      .then(function (data) {
+        S.llmModels = (data && Array.isArray(data.models)) ? data.models : [];
+        S.llmProviders = (data && Array.isArray(data.providers)) ? data.providers : [];
+        S.llmModelsLoading = null;
+        renderLLMModelMenu();
+        return S.llmModels;
+      })
+      .catch(function () {
+        S.llmModels = [];
+        S.llmProviders = [];
+        S.llmModelsLoading = null;
+        renderLLMModelMenu();
+        return [];
+      });
+    return S.llmModelsLoading;
+  }
+
+  function llmModelDisplay(model) {
+    if (!model) return "";
+    var name = model.name || model.id || "";
+    var prefix = (model.provider || "") + "/";
+    if (model.provider && name.indexOf(prefix) === 0) return name.slice(prefix.length);
+    return name;
+  }
+
+  /* Default expansion: the group holding the current model (or the first
+     group) is open; everything the user toggled stays as they left it. */
+  function llmGroupOpen(groupId) {
+    var remembered = S.llmExpanded[groupId];
+    if (remembered !== undefined) return remembered;
+    var models = S.llmModels || [];
+    var currentModel = (S.llm && S.llm.model) || "";
+    var currentProvider = null;
+    models.forEach(function (model) {
+      if (model.id === currentModel) currentProvider = model.provider || "__default__";
+    });
+    if (!currentProvider && models.length) currentProvider = models[0].provider || "__default__";
+    return groupId === currentProvider;
+  }
+
+  function renderLLMModelMenu() {
+    var btn = $("yt-llm-model-btn");
+    var label = $("yt-llm-model-label");
+    var host = $("yt-llm-model-options");
+    var profile = activeLLMProfile();
+    var currentModel = (S.llm && S.llm.model) || "";
+    if (label) label.textContent = "Model: " + (currentModel || (profile && profile.default_model) || "—");
+    if (btn) btn.disabled = !profile || !!S.llmBusy;
+    if (!host) return;
+    if (!profile) {
+      host.innerHTML = '<div class="yt-runtime-empty">Pick an agent first.</div>';
+      return;
+    }
+    if (S.llmModelsFor !== profile.id || (S.llmModelsLoading && !S.llmModels)) {
+      host.innerHTML = '<div class="yt-runtime-empty">Loading models…</div>';
+      return;
+    }
+    var models = S.llmModels || [];
+    if (!models.length) {
+      host.innerHTML = '<div class="yt-runtime-empty">No models reported for this runner — refresh, or set a model in Settings.</div>';
+      return;
+    }
+    /* Group by the provider each model reports (OpenCode reports
+       provider-qualified ids), like the Workspace and Ads menus. */
+    var order = [];
+    models.forEach(function (model) {
+      var id = model.provider || "__default__";
+      if (order.indexOf(id) === -1) order.push(id);
+    });
+    var groupLabel = function (id) {
+      if (id === "__default__") return "Default";
+      var provider = (S.llmProviders || []).filter(function (p) { return p.id === id; })[0];
+      if (provider && provider.label) return provider.label;
+      if (profile.id === id) return llmShortLabel(profile.label);
+      return id;
+    };
+    var groups = order.map(function (id) {
+      var groupModels = models.filter(function (model) { return (model.provider || "__default__") === id; });
+      return {
+        id: id,
+        models: groupModels,
+        total: groupModels.length,
+        available: groupModels.some(function (model) { return model.available !== false; })
+      };
+    });
+    host.innerHTML = groups.map(function (group) {
+      var open = llmGroupOpen(group.id);
+      var count = group.total + (group.total === 1 ? " model" : " models");
+      var body = group.models.map(function (model) {
+        var active = model.id === currentModel;
+        var off = model.available === false;
+        var description = model.description && model.description !== model.provider
+          ? model.description : "";
+        return '<button type="button" class="ws-menu-item' + (active ? " ws-menu-item-active" : "") +
+          (off ? " ws-menu-item-disabled" : "") + '" data-llm-model="' + esc(model.id) + '"' +
+          (off ? " disabled" : "") + '>' +
+          '<span class="flex-1 min-w-0 text-left truncate">' + esc(llmModelDisplay(model)) + '</span>' +
+          (description ? '<span class="text-[9.5px] text-slate-500 shrink-0 truncate max-w-[40%]">' + esc(description) + '</span>' : '') +
+          '</button>';
+      }).join("");
+      return '<div class="model-provider-group" data-open="' + (open ? "true" : "false") + '">' +
+        '<button type="button" class="model-provider-group-head" data-llm-provider-toggle="' + esc(group.id) + '"' +
+          ' aria-expanded="' + (open ? "true" : "false") + '">' +
+          '<span class="ws-agent-dot" style="background:' + (group.available ? "#22c55e" : "#475569") + '"></span>' +
+          '<span class="flex-1 min-w-0 truncate">' + esc(groupLabel(group.id)) + '</span>' +
+          '<span class="model-provider-group-count">' + esc(count) + '</span>' +
+          '<i data-lucide="chevron-down" class="model-provider-group-caret w-3 h-3"></i>' +
+        '</button>' +
+        '<div class="model-provider-group-body">' + body + '</div>' +
+      '</div>';
+    }).join("");
+    icons();
+  }
+
+  function renderLLMRuntime() {
+    renderLLMAgentMenu();
+    renderLLMModelMenu();
+  }
+
+  function configureLLM(body) {
+    S.llmBusy = true;
+    renderLLMRuntime();
+    return yt("/llm/config", { method: "POST", body: body })
+      .then(function (payload) {
+        S.llm = payload.llm || S.llm;
+        if (!body.model) {
+          // A runner switch resets the stored model (backend behavior).
+          S.llmModels = null;
+          S.llmModelsFor = null;
+          S.llmExpanded = {};
+        }
+        renderLLMSettings();
+        toast("Text generation profile saved.");
+      })
+      .catch(function (error) {
+        toast(error.message);
+      })
+      .then(function () {
+        S.llmBusy = false;
+        renderLLMRuntime();
+        closeLLMMenus();
+      });
+  }
+
+  function chooseLLMAgent(profileId) {
+    if (!profileId || (S.llm && S.llm.provider === profileId)) return;
+    configureLLM({ provider: profileId });
+  }
+
+  function chooseLLMModel(modelId) {
+    if (!modelId || (S.llm && S.llm.model === modelId)) { closeLLMMenus(); return; }
+    configureLLM({ provider: (S.llm && S.llm.provider) || "opencode", model: modelId });
   }
 
   function renderChannelList() {
@@ -861,7 +1131,7 @@
               '<option value="review">Awaiting Approval</option>' +
             "</select></label>" +
         "</div>" +
-        '<p class="yt-hint">The project starts in the Research stage. Packaging approval and production stages arrive in Phases 6–8.</p>' +
+        '<p class="yt-hint" data-info-tip>The project starts in the Research stage. Packaging approval and production stages arrive in Phases 6–8.</p>' +
         '<p id="yt-modal-error" class="yt-form-error is-hidden"></p>' +
       "</form>",
       modalFoot('<button type="button" class="collart-btn" id="yt-form-create">Create Project</button>')
@@ -929,7 +1199,7 @@
           "<div><dt>Updated</dt><dd>" + esc(dateLabel(project.updated_iso)) + "</dd></div>" +
           "<div><dt>Project ID</dt><dd class=\"yt-mono\">" + esc(project.id) + "</dd></div>" +
         "</dl>" +
-        '<p class="yt-hint">Packaging (Phase 6) transfers an approved package into this project; production stages arrive in Phase 8. This project is stored and isolated now.</p>' +
+        '<p class="yt-hint" data-info-tip>Packaging (Phase 6) transfers an approved package into this project; production stages arrive in Phase 8. This project is stored and isolated now.</p>' +
         '<p id="yt-modal-error" class="yt-form-error is-hidden"></p>' +
       "</div>",
       '<button type="button" class="collart-btn-soft" data-yt-close>Close</button>' +
@@ -1017,7 +1287,7 @@
             '<select id="yt-script-topic"><option value="">No topic (standalone)</option>' + options + "</select></label>" +
           '<label class="yt-field"><span>Title (defaults to topic title)</span><input id="yt-script-title" type="text" maxlength="160"></label>' +
           '<label class="yt-field"><span>Target duration (minutes)</span><input id="yt-script-duration" type="number" min="1" max="60" value="12"></label>' +
-          '<p class="yt-hint">Scripts are written from approved topics; the backend enforces this.</p>' +
+          '<p class="yt-hint" data-info-tip>Scripts are written from approved topics; the backend enforces this.</p>' +
           '<p id="yt-modal-error" class="yt-form-error is-hidden"></p>' +
         "</form>",
         modalFoot('<button type="button" class="collart-btn" id="yt-script-create-go">Create Script</button>')
@@ -1069,12 +1339,12 @@
       openModal(
         "Generate Script with AI",
         '<form id="yt-generate-form" class="yt-form" autocomplete="off">' +
-          '<p class="yt-hint">Composes the channel master prompt + Scriptwriter extension + topic context, then calls <b>' +
+          '<p class="yt-hint" data-info-tip>Composes the channel master prompt + Scriptwriter extension + topic context, then calls <b>' +
             esc(llm.provider_label || llm.provider) + "</b> with model <b>" + esc(llm.model) + "</b>.</p>" +
           '<label class="yt-field"><span>Approved topic <em>required</em></span><select id="yt-gen-topic">' + options + "</select></label>" +
           '<label class="yt-field"><span>Target duration (minutes)</span><input id="yt-gen-duration" type="number" min="1" max="60" value="12"></label>' +
           '<label class="yt-field"><span>Extra instructions (optional)</span><textarea id="yt-gen-notes" rows="2" maxlength="2000" placeholder="Angle adjustments, examples to include…"></textarea></label>' +
-          '<p class="yt-hint">Generation runs server-side and can take a few minutes. Malformed model output is reported, never saved.</p>' +
+          '<p class="yt-hint" data-info-tip>Generation runs server-side and can take a few minutes. Malformed model output is reported, never saved.</p>' +
           '<p id="yt-modal-error" class="yt-form-error is-hidden"></p>' +
         "</form>",
         modalFoot('<button type="button" class="collart-btn" id="yt-gen-go">Generate</button>')
@@ -1169,7 +1439,7 @@
         '<label class="yt-field"><span>Name <em>required</em></span><input id="yt-chm-name" type="text" maxlength="120" placeholder="e.g. The Business Money Blueprint" required></label>' +
         '<label class="yt-field"><span>Tagline</span><input id="yt-chm-tagline" type="text" maxlength="200"></label>' +
         '<label class="yt-field"><span>Content niche</span><input id="yt-chm-niche" type="text" maxlength="300" placeholder="e.g. Small business finance and tax education"></label>' +
-        '<p class="yt-hint">The first channel seeds automatically from the Business Money Blueprint catalog on first use.</p>' +
+        '<p class="yt-hint" data-info-tip>The first channel seeds automatically from the Business Money Blueprint catalog on first use.</p>' +
         '<p id="yt-modal-error" class="yt-form-error is-hidden"></p>' +
       "</form>",
       modalFoot('<button type="button" class="collart-btn" id="yt-chm-create-go">Create Channel</button>')
@@ -1370,7 +1640,7 @@
         S.llm = payload.llm || S.llm;
         toast("Text generation profile saved.");
         renderLLMSettings();
-        setText("yt-create-model", (S.llm && S.llm.model) || "GLM-5.3-Flash");
+        renderLLMRuntime();
       })
       .catch(function (error) {
         toast(error.message);
@@ -1395,8 +1665,9 @@
   }
 
   // Topic Backlog, Publishing and YouTube Intelligence are consolidated
-  // into COSMOS (backlog + QUASAR research + the GENESIS Publishing Center).
-  // Analytics stays: its Phase-10 feature status remains visible here.
+  // into COSMOS (backlog + QUASAR research + the GENESIS production
+  // dashboard, which owns publishing). Analytics stays: its Phase-10
+  // feature status remains visible here.
   var SECTION_LOADERS = {
     create: loadOverview,
     projects: loadProjectsPage,
@@ -1495,6 +1766,59 @@
 
     var composerSubmit = $("yt-create-submit");
     if (composerSubmit) composerSubmit.addEventListener("click", submitCreate);
+
+    /* Runtime row (below the prompt box): Agent picks the runner profile,
+       Model picks a model from that runner's real catalog. Both persist
+       server-side via /llm/config. */
+    var llmAgentBtn = $("yt-llm-agent-btn");
+    if (llmAgentBtn) llmAgentBtn.addEventListener("click", function (event) {
+      event.stopPropagation();
+      toggleLLMMenu("yt-llm-agent-menu");
+    });
+    var llmAgentHost = $("yt-llm-agent-options");
+    if (llmAgentHost) llmAgentHost.addEventListener("click", function (event) {
+      var item = event.target.closest("[data-llm-agent]");
+      if (!item) return;
+      chooseLLMAgent(item.getAttribute("data-llm-agent"));
+    });
+    var llmModelBtn = $("yt-llm-model-btn");
+    if (llmModelBtn) llmModelBtn.addEventListener("click", function (event) {
+      event.stopPropagation();
+      toggleLLMMenu("yt-llm-model-menu");
+    });
+    var llmModelHost = $("yt-llm-model-options");
+    if (llmModelHost) llmModelHost.addEventListener("click", function (event) {
+      var head = event.target.closest("[data-llm-provider-toggle]");
+      if (head) {
+        event.stopPropagation();
+        var groupId = head.getAttribute("data-llm-provider-toggle");
+        S.llmExpanded[groupId] = !llmGroupOpen(groupId);
+        renderLLMModelMenu();
+        return;
+      }
+      var item = event.target.closest("[data-llm-model]");
+      if (!item) return;
+      chooseLLMModel(item.getAttribute("data-llm-model"));
+    });
+    var llmModelRefresh = $("yt-llm-model-refresh");
+    if (llmModelRefresh) llmModelRefresh.addEventListener("click", function (event) {
+      event.stopPropagation();
+      S.llmModels = null;
+      S.llmModelsFor = null;
+      loadLLMModels(true);
+    });
+    document.addEventListener("click", function (event) {
+      var agentMenu = $("yt-llm-agent-menu");
+      var modelMenu = $("yt-llm-model-menu");
+      var inside = (agentMenu && !agentMenu.classList.contains("is-hidden") && agentMenu.contains(event.target)) ||
+        (modelMenu && !modelMenu.classList.contains("is-hidden") && modelMenu.contains(event.target)) ||
+        (event.target.closest && event.target.closest("#yt-llm-agent-btn, #yt-llm-model-btn"));
+      if (inside) return;
+      closeLLMMenus();
+    });
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") closeLLMMenus();
+    });
 
     var composerPrompt = $("yt-create-prompt");
     if (composerPrompt) {

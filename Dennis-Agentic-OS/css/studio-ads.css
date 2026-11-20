@@ -232,7 +232,6 @@
 #studio-view .collart-stepchip:focus-visible,
 #studio-view .collart-side-item:focus-visible,
 #studio-view .collart-subtabs button:focus-visible,
-#studio-view .collart-engine:focus-visible,
 #studio-view .collart-tile:focus-visible,
 #studio-view .collart-thumbitem:focus-visible,
 #studio-view .collart-dropzone:focus-visible,
@@ -504,27 +503,6 @@
   color: var(--uupm-ok);
 }
 
-#studio-view .collart-engine {
-  background: var(--uupm-card);
-  border-color: rgba(71, 85, 105, .5);
-}
-#studio-view .collart-engine:hover { border-color: rgba(148, 163, 184, .55); }
-#studio-view .collart-engine.is-active {
-  border-color: var(--uupm-accent);
-  background: rgba(34, 197, 94, .07);
-}
-#studio-view .collart-engine-avatar {
-  background: var(--uupm-accent);
-  color: var(--uupm-on-accent);
-}
-#studio-view .collart-engine b { color: var(--uupm-fg); }
-#studio-view .collart-engine p { color: var(--uupm-muted-fg); }
-#studio-view .collart-engine-tag {
-  background: rgba(51, 65, 85, .35);
-  border-color: rgba(71, 85, 105, .5);
-  color: var(--uupm-muted-fg);
-}
-
 #studio-view .collart-sceneprev {
   background: var(--uupm-card-2);
   border-color: rgba(71, 85, 105, .5);
@@ -741,13 +719,14 @@
 #studio-view .collart-dock { position: relative; flex: 0 0 auto; }
 
 /* =====================================================================
-   Shared runtime rail — Agent · Provider · Model, one set for every step
+   Shared runtime row — Agent · Model just below the prompt box, one set
+   for every step. A plain row (no panel chrome), matching the Workspace
+   toolbar. No Provider dropdown: the Model menu groups every provider's
+   models and picking a model picks its provider. Menus open upward:
+   the row sits at the end of the column.
    ===================================================================== */
 #studio-view .collart-fashion-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 268px;
-  gap: 20px;
-  align-items: start;
+  display: block;
 }
 
 #studio-view .collart-fashion-main {
@@ -757,85 +736,109 @@
   min-width: 0;
 }
 
-#studio-view .collart-runtime {
-  position: sticky;
-  top: 0;
-  z-index: 6;
+#studio-view .fashion-runtime-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: -4px;
+}
+
+#studio-view .fashion-runtime-field {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 16px;
-  border: 1px solid rgba(71, 85, 105, .5);
-  border-radius: 16px;
-  background:
-    radial-gradient(circle at 12% 0%, rgba(34, 197, 94, .08), transparent 42%),
-    linear-gradient(180deg, rgba(13, 25, 42, .98), rgba(7, 16, 29, .98));
-  box-shadow: 0 18px 40px rgba(2, 6, 12, .35), inset 0 1px 0 rgba(255, 255, 255, .03);
+  gap: 5px;
+  min-width: 0;
 }
 
-#studio-view .collart-runtime-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid rgba(71, 85, 105, .4);
-}
-
-#studio-view .collart-runtime-head span {
+#studio-view .fashion-runtime-label {
   color: var(--uupm-fg);
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 800;
   letter-spacing: .12em;
   text-transform: uppercase;
 }
 
-#studio-view .collart-runtime-head em {
+#studio-view .fashion-runtime-label em {
   color: var(--uupm-muted-fg);
-  font-size: 9.5px;
+  font-size: 9px;
   font-style: normal;
-  white-space: nowrap;
+  font-weight: 600;
+  letter-spacing: .02em;
+  text-transform: none;
 }
 
-#studio-view .collart-runtime-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+#studio-view .fashion-runtime-anchor {
+  position: relative;
   min-width: 0;
 }
 
-#studio-view .collart-runtime-select { width: 100%; }
-
-#studio-view .collart-runtime-select select {
+#studio-view .fashion-runtime-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   width: 100%;
-  padding: 9px 30px 9px 11px;
+  min-width: 0;
+  padding: 8px 10px;
   border-radius: 10px;
-  font-size: 11.5px;
+  border: 1px solid rgba(71, 85, 105, .5);
+  background: linear-gradient(180deg, rgba(13, 25, 42, .95), rgba(8, 18, 32, .95));
+  color: var(--uupm-fg);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color .12s, background .12s;
 }
 
-#studio-view .collart-runtime-field .collart-hint {
+#studio-view .fashion-runtime-btn:hover:not(:disabled) { border-color: rgba(56, 189, 248, .5); }
+#studio-view .fashion-runtime-btn:disabled { opacity: .5; cursor: not-allowed; }
+#studio-view .fashion-runtime-btn span { flex: 1 1 auto; min-width: 0; text-align: left; }
+
+#studio-view .fashion-runtime-menu {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  top: auto;
+  left: 0;
+  right: auto;
+  width: min(360px, 92vw);
+  z-index: 50;
+}
+
+/* The Create row sits at the top of the page, so its menus open downward. */
+#studio-view #adc-runtime .fashion-runtime-menu {
+  bottom: auto;
+  top: calc(100% + 6px);
+}
+
+/* Zone titles inside the Model menu: "Agent models" / "Generation engines". */
+#studio-view .fashion-runtime-section {
+  padding: 6px 8px 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #5f7692;
+  border-bottom: 1px solid rgba(43, 62, 107, 0.5);
+  margin-bottom: 3px;
+}
+
+#studio-view .fashion-runtime-hint {
   margin: 0;
   font-size: 10px;
   line-height: 1.45;
+  color: var(--uupm-muted-fg);
 }
 
-@media (max-width: 1100px) {
-  #studio-view .collart-fashion-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-  #studio-view .collart-runtime {
-    position: static;
-    order: -1;
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 12px;
-  }
-  #studio-view .collart-runtime-head { grid-column: 1 / -1; }
+#studio-view .fashion-runtime-empty {
+  padding: 10px 12px;
+  font-size: 10.5px;
+  line-height: 1.5;
+  color: var(--uupm-muted-fg);
 }
 
 @media (max-width: 720px) {
-  #studio-view .collart-runtime { grid-template-columns: minmax(0, 1fr); }
-  #studio-view .collart-runtime-head { grid-column: auto; }
+  #studio-view .fashion-runtime-row { grid-template-columns: minmax(0, 1fr); }
+  #studio-view .fashion-runtime-menu { width: min(420px, 94vw); }
   #studio-view .collart-dock { flex-wrap: wrap; }
   #studio-view .collart-dockcta { margin-left: auto; }
 }

@@ -26,7 +26,11 @@ from backend import genesis_api  # noqa: E402
 from backend import genesis_publish as publish  # noqa: E402
 from backend import genesis_render as render  # noqa: E402
 from backend import genesis_store as store  # noqa: E402
+from backend import studio_create  # noqa: E402
 from backend import studio_media  # noqa: E402
+from backend import studio_workspaces  # noqa: E402
+from backend import youtube_common  # noqa: E402
+from backend import youtube_topics  # noqa: E402
 
 
 class GenesisTestBase(unittest.TestCase):
@@ -45,6 +49,10 @@ class GenesisTestBase(unittest.TestCase):
             mock.patch.object(store, "PUBLICATIONS_FILE", os.path.join(self.dir, "genesis", "publications.json")),
             mock.patch.object(store, "TOKENS_FILE", os.path.join(self.dir, "genesis", "oauth-tokens.json")),
             mock.patch.object(store, "TMP_DIR", os.path.join(self.dir, "genesis", "tmp")),
+            mock.patch.object(studio_create, "BRIEFS_FILE", os.path.join(self.dir, "studio", "ads", "create-briefs.json")),
+            mock.patch.object(studio_workspaces, "WORKSPACES_FILE", os.path.join(self.dir, "studio", "workspaces.json")),
+            mock.patch.object(studio_workspaces, "WORKSPACES_DIR", os.path.join(self.dir, "studio", "workspaces")),
+            mock.patch.object(youtube_common, "YOUTUBE_DIR", os.path.join(self.dir, "studio", "youtube")),
         ]
         for patch in self.patches:
             patch.start()
@@ -64,6 +72,28 @@ class GenesisTestBase(unittest.TestCase):
         })
         ads_backlog.set_status(product["id"], "approved")
         return ads_backlog.get_product(product["id"])
+
+    def _approved_ads_brief(self, name="Floral dress ad"):
+        """Create a brief, hand it off, and approve the Studio project."""
+        created = studio_create.create_brief({
+            "instruction": "Make a short product ad.",
+            "product": {"name": name, "merchant": "Shopee", "product_url": "https://example.test/p/1"},
+            "target_platforms": ["meta_ads"],
+        })
+        brief = created["brief"]
+        handed = studio_create.handoff(brief["id"])
+        studio_workspaces.update_project("ads", handed["project"]["id"], {"status": "approved"})
+        return studio_create.get_brief(brief["id"])["brief"], handed["project"]
+
+    def _approved_studio_project(self, workspace="youtube", **extra):
+        payload = {
+            "title": "Approved %s project" % workspace,
+            "description": "A Studio project ready for production.",
+            "status": "approved",
+            "stage": "assets",
+        }
+        payload.update(extra)
+        return studio_workspaces.create_project(workspace, payload)
 
     def _clip_media(self, duration=1.0, with_audio=True):
         """Generate a real tiny video clip with the installed ffmpeg."""
@@ -153,6 +183,88 @@ class IntakeTests(GenesisTestBase):
         })
         self.assertEqual(status, 400)
 
+    def test_handed_off_brief_with_approved_project_enters_production(self):
+        brief, project = self._approved_ads_brief()
+        status, body = genesis_api.handle("POST", "/api/cosmos/genesis/projects", {}, {
+            "source_kind": "ads_brief", "source_id": brief["id"],
+        })
+        self.assertEqual(status, 201, body)
+        production = body["project"]
+        self.assertEqual(production["division"], "ads")
+        self.assertEqual(production["source"]["kind"], "ads_brief")
+        self.assertEqual(production["provenance"]["brief_id"], brief["id"])
+        self.assertEqual(production["provenance"]["studio_project_id"], project["id"])
+        self.assertEqual(studio_create.get_brief(brief["id"])["brief"]["status"], "in_production")
+        self.assertEqual(studio_workspaces.get_project("ads", project["id"])["status"], "in_progress")
+
+    def test_brief_without_handoff_cannot_enter_production(self):
+        created = studio_create.create_brief({
+            "instruction": "A draft brief.",
+            "product": {"name": "Draft product", "merchant": "Shopee"},
+        })
+        status, body = genesis_api.handle("POST", "/api/cosmos/genesis/projects", {}, {
+            "source_kind": "ads_brief", "source_id": created["brief"]["id"],
+        })
+        self.assertEqual(status, 409)
+        self.assertEqual(body["code"], "not_eligible")
+
+    def test_brief_with_unapproved_studio_project_cannot_enter_production(self):
+        created = studio_create.create_brief({
+            "instruction": "A handed-off brief.",
+            "product": {"name": "Review product", "merchant": "Shopee"},
+        })
+        studio_create.handoff(created["brief"]["id"])
+        status, body = genesis_api.handle("POST", "/api/cosmos/genesis/projects", {}, {
+            "source_kind": "ads_brief", "source_id": created["brief"]["id"],
+        })
+        self.assertEqual(status, 409)
+        self.assertIn("Approve", body["error"])
+
+    def test_approved_studio_projects_enter_production(self):
+        youtube = self._approved_studio_project(
+            "youtube", channel_id="ytch_test", topic_id="ytt_1",
+        )
+        status, body = genesis_api.handle("POST", "/api/cosmos/genesis/projects", {}, {
+            "source_kind": "youtube_project", "source_id": youtube["id"],
+        })
+        self.assertEqual(status, 201, body)
+        production = body["project"]
+        self.assertEqual(production["division"], "youtube")
+        self.assertEqual(production["source"]["kind"], "youtube_project")
+        self.assertEqual(production["source"]["channel_id"], "ytch_test")
+        self.assertEqual(
+            studio_workspaces.get_project("youtube", youtube["id"])["status"], "in_progress"
+        )
+
+        ads = self._approved_studio_project("ads")
+        status, body = genesis_api.handle("POST", "/api/cosmos/genesis/projects", {}, {
+            "source_kind": "ads_project", "source_id": ads["id"],
+        })
+        self.assertEqual(status, 201, body)
+        self.assertEqual(body["project"]["division"], "ads")
+
+    def test_unapproved_studio_project_is_rejected(self):
+        project = studio_workspaces.create_project("youtube", {
+            "title": "Not approved yet", "status": "review",
+        })
+        status, body = genesis_api.handle("POST", "/api/cosmos/genesis/projects", {}, {
+            "source_kind": "youtube_project", "source_id": project["id"],
+        })
+        self.assertEqual(status, 409)
+        self.assertEqual(body["code"], "not_eligible")
+
+    def test_brief_and_its_project_cannot_both_enter_production(self):
+        brief, project = self._approved_ads_brief()
+        status, _ = genesis_api.handle("POST", "/api/cosmos/genesis/projects", {}, {
+            "source_kind": "ads_brief", "source_id": brief["id"],
+        })
+        self.assertEqual(status, 201)
+        status, body = genesis_api.handle("POST", "/api/cosmos/genesis/projects", {}, {
+            "source_kind": "ads_project", "source_id": project["id"],
+        })
+        self.assertEqual(status, 409)
+        self.assertEqual(body["code"], "duplicate_project")
+
 
 class QueueTests(GenesisTestBase):
     def test_queue_lists_only_eligible_records(self):
@@ -162,6 +274,123 @@ class QueueTests(GenesisTestBase):
         ids = [row["source_id"] for row in result["queue"]]
         self.assertIn(approved["id"], ids)
         self.assertNotIn("draft-only", ids)
+
+    def test_queue_includes_briefs_and_studio_projects_with_context(self):
+        brief, _ = self._approved_ads_brief()
+        youtube = self._approved_studio_project("youtube", channel_id="ytch_test")
+        result = genesis.queue()
+        by_kind = {(row["source_kind"], row["source_id"]): row for row in result["queue"]}
+        self.assertIn(("ads_brief", brief["id"]), by_kind)
+        self.assertIn(("youtube_project", youtube["id"]), by_kind)
+        brief_row = by_kind[("ads_brief", brief["id"])]
+        self.assertEqual(brief_row["origin"], "Ads Studio Create brief")
+        self.assertIn("Ads Studio project", brief_row["destination"])
+        youtube_row = by_kind[("youtube_project", youtube["id"])]
+        self.assertEqual(youtube_row["origin"], "YouTube Studio project")
+        self.assertIn("ytch_test", youtube_row["destination"])
+
+    def test_queue_hides_sources_already_in_active_production(self):
+        product = self._approved_product()
+        status, _ = genesis_api.handle("POST", "/api/cosmos/genesis/projects", {}, {
+            "source_kind": "ads_product", "source_id": product["id"],
+        })
+        self.assertEqual(status, 201)
+        ids = [row["source_id"] for row in genesis.queue()["queue"]]
+        self.assertNotIn(product["id"], ids)
+
+        brief, project = self._approved_ads_brief(name="Second product")
+        status, _ = genesis_api.handle("POST", "/api/cosmos/genesis/projects", {}, {
+            "source_kind": "ads_brief", "source_id": brief["id"],
+        })
+        self.assertEqual(status, 201)
+        queue_ids = [row["source_id"] for row in genesis.queue()["queue"]]
+        self.assertNotIn(brief["id"], queue_ids)
+        self.assertNotIn(project["id"], queue_ids)
+
+    def test_active_source_index_and_source_projects_are_cross_store(self):
+        brief, project = self._approved_ads_brief()
+        status, body = genesis_api.handle("POST", "/api/cosmos/genesis/projects", {}, {
+            "source_kind": "ads_brief", "source_id": brief["id"],
+        })
+        self.assertEqual(status, 201)
+        production = body["project"]
+        index = genesis.active_source_index("ads_brief")
+        self.assertEqual(index[brief["id"]]["id"], production["id"])
+        projects = genesis.source_projects("ads_brief", brief["id"])
+        self.assertEqual([item["id"] for item in projects], [production["id"]])
+        self.assertEqual(projects[0]["provenance"]["studio_project_id"], project["id"])
+
+
+class CaptionTests(GenesisTestBase):
+    SRT = (
+        "1\n00:00:00,000 --> 00:00:01,000\nHello there\n\n"
+        "2\n00:00:01,200 --> 00:00:02,000\nSecond cue\n"
+    )
+
+    def _srt_media(self, text=None):
+        return studio_media.add_bytes(
+            (text or self.SRT).encode("utf-8"),
+            "application/x-subrip",
+            filename="captions.srt",
+            meta={"role": "input", "title": "captions.srt"},
+        )
+
+    def test_caption_text_reads_attached_srt_media(self):
+        media = self._srt_media()
+        text = render.caption_text({"captions_media_id": media["id"]})
+        self.assertIn("Hello there", text)
+        self.assertEqual(media["kind"], "file")
+        self.assertTrue(media["filename"].endswith(".srt"))
+
+    def test_missing_or_invalid_caption_media_is_a_real_error(self):
+        with self.assertRaises(render.RenderError) as ctx:
+            render.caption_text({"captions_media_id": "med_missing"})
+        self.assertEqual(ctx.exception.code, "captions_missing")
+
+        invalid = studio_media.add_bytes(
+            b"not an srt file", "text/plain", filename="captions.txt",
+        )
+        with self.assertRaises(render.RenderError) as ctx:
+            render.caption_text({"captions_media_id": invalid["id"]})
+        self.assertEqual(ctx.exception.code, "captions_invalid")
+
+    def test_caption_sync_checks_real_cue_timings(self):
+        self.assertEqual(render.caption_sync(self.SRT, 10.0)[0], "pass")
+        status, detail = render.caption_sync(self.SRT, 0.5)
+        self.assertEqual(status, "warn")
+        self.assertIn("late cues", detail)
+        self.assertEqual(render.caption_sync("no cues", 10.0)[0], "fail")
+
+    def test_quality_review_includes_caption_sync_when_captions_burn(self):
+        project, _, _ = self._project_with_media()
+        media = self._srt_media()
+        status, body = genesis_api.handle("PATCH", "/api/cosmos/genesis/projects/" + project["id"], {}, {
+            "audio": {"captions_media_id": media["id"]},
+        })
+        self.assertEqual(status, 200, body)
+        status, body = genesis_api.handle(
+            "POST", "/api/cosmos/genesis/projects/%s/render" % project["id"], {}, {}
+        )
+        self.assertEqual(status, 201)
+        record_id = body["render"]["id"]
+        deadline = time.time() + 120
+        while time.time() < deadline:
+            record = store.get_render(record_id)
+            if record["status"] in ("complete", "failed"):
+                break
+            time.sleep(0.5)
+        if record["status"] == "failed" and record.get("error", {}).get("code") == "captions_missing":
+            self.skipTest("this ffmpeg build cannot read the captions sidecar")
+        self.assertEqual(record["status"], "complete", record.get("error"))
+        if not record["captions_burned"]:
+            self.skipTest("this ffmpeg build has no subtitles filter")
+        status, body = genesis_api.handle(
+            "POST", "/api/cosmos/genesis/projects/%s/quality-review" % project["id"], {}, {}
+        )
+        self.assertEqual(status, 200)
+        checks = {check["id"]: check for check in body["review"]["checks"]}
+        self.assertIn("caption_sync", checks)
+        self.assertEqual(checks["caption_sync"]["status"], "pass")
 
 
 class RenderTests(GenesisTestBase):
@@ -343,7 +572,15 @@ class PublishingTests(GenesisTestBase):
             self.assertEqual(publication["status"], "succeeded", publication.get("error"))
             self.assertEqual(publication["remote_id"], "test_video_id")
             self.assertEqual(publication["remote_url"], "https://youtu.be/test_video_id")
-            # The project and the source record advanced to published.
+            # The project and the source record advanced to published. The
+            # worker thread links the confirmation back after the publication
+            # record flips, so poll for the final source transition instead of
+            # assuming instantaneous ordering.
+            deadline = time.time() + 20
+            while time.time() < deadline:
+                if ads_backlog.get_product(project["source"]["id"])["status"] == "published":
+                    break
+                time.sleep(0.25)
             self.assertEqual(store.get_project(project["id"])["status"], "published")
             product = ads_backlog.get_product(project["source"]["id"])
             self.assertEqual(product["status"], "published")

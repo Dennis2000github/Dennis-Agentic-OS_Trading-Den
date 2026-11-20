@@ -48,14 +48,14 @@
   <!-- Installed Plugins rail -->
   <link rel="stylesheet" href="css/installed-plugins.css?v=20261115-ip2">
   <!-- Studio cinematic workspace skin -->
-  <link rel="stylesheet" href="css/studio-v2.css?v=20261028-studio-kit1">
+  <link rel="stylesheet" href="css/studio-v2.css?v=20261120-runtime-zones">
   <!-- YouTube Studio workspace skin -->
-  <link rel="stylesheet" href="css/studio-youtube.css?v=20261113-yt-osdesign">
+  <link rel="stylesheet" href="css/studio-youtube.css?v=20261120-tooltips1">
   <!-- Ads Studio workspace skin (OS design alignment, see docs/ADS_STUDIO_UI_AUDIT.md) -->
-  <link rel="stylesheet" href="css/studio-ads.css?v=20261113-runtime-rail">
+  <link rel="stylesheet" href="css/studio-ads.css?v=20261120-runtime-zones">
   <!-- UI UX Pro Max design system skin (design-system/dennis-agentic-os/MASTER.md) -->
   <link rel="stylesheet" href="css/theme-uiuxpro.css?v=20261112-uupm1">
-  <link rel="stylesheet" href="css/cosmos.css?v=20261119-genesis1">
+  <link rel="stylesheet" href="css/cosmos.css?v=20261120-avatars1">
 </head>
 <body class="bg-[#060913] text-slate-100 h-screen overflow-hidden flex flex-col font-sans select-none">
 
@@ -1574,7 +1574,7 @@
               <div class="collart-contact">
                 <div class="collart-contact-icon"><i data-lucide="message-square" class="w-4 h-4"></i></div>
                 <h4>Contact Us</h4>
-                <p>Jobs run on your own provider keys and the built-in free engines.</p>
+                <p data-info-tip>Jobs run on your own provider keys and the built-in free engines.</p>
               </div>
               <div class="collart-social">
                 <i data-lucide="github" class="w-4 h-4"></i>
@@ -1585,7 +1585,8 @@
             </div>
           </aside>
 
-          <!-- YouTube Studio sidebar (master spec: 7 sections + Settings) -->
+          <!-- YouTube Studio sidebar (consolidated: 5 sections; backlog,
+               publishing and intelligence live in COSMOS/GENESIS) -->
           <aside class="collart-sidebar yt-sidebar is-hidden" id="studio-youtube-sidebar">
             <div class="collart-side-top">
               <div class="yt-side-brand">
@@ -1604,7 +1605,7 @@
             <div class="collart-side-bottom">
               <div class="yt-side-note">
                 <b>COSMOS consolidation</b>
-                <span>Create, projects, scripts, settings and analytics are live. Topic Backlog, Publishing and YouTube Intelligence live in COSMOS — publishing is the GENESIS production dashboard.</span>
+                <span data-info-tip>Create, projects, scripts, settings and analytics are live. Topic Backlog, Publishing and YouTube Intelligence live in COSMOS — publishing is the GENESIS production dashboard.</span>
               </div>
               <div class="collart-footnote"><span>YouTube Studio</span><span>|</span><span id="yt-build-chip" class="studio-catalog-chip">Phase 2</span></div>
             </div>
@@ -1834,8 +1835,9 @@
                   </div>
                 </div>
 
-                <!-- Agent, Provider and Model live below the chat: the agent
-                     runs the tools/workflow while the provider+model render. -->
+                <!-- Agent + Model live below the chat. The model menu groups
+                     models by provider, so choosing a model also chooses its
+                     provider; there is no separate Provider dropdown. -->
                 <div class="studio-runtime-row">
                   <div class="studio-runtime-field">
                     <span class="studio-runtime-label">Agent</span>
@@ -1855,53 +1857,33 @@
                     </div>
                   </div>
                   <div class="studio-runtime-field">
-                    <span class="studio-runtime-label">Provider</span>
+                    <span class="studio-runtime-label">Model</span>
                     <div class="relative min-w-0">
-                      <button id="studio-provider-btn" class="studio-provider-btn" title="Generation provider">
-                        <i data-lucide="plug-zap" class="w-3.5 h-3.5 text-cyan-300"></i>
-                        <span id="studio-provider-label" class="truncate">Higgsfield API</span>
+                      <button id="studio-model-btn" class="studio-model-btn" title="Generation model" disabled>
+                        <i data-lucide="cpu" class="w-3.5 h-3.5 text-fuchsia-300"></i>
+                        <span id="studio-model-label" class="truncate">Model: —</span>
                         <i data-lucide="chevron-down" class="w-3 h-3 text-slate-500"></i>
                       </button>
-                      <div id="studio-provider-menu" class="ws-menu studio-provider-menu hidden">
+                      <div id="studio-model-menu" class="ws-menu studio-model-menu hidden">
                         <div class="ws-menu-title flex items-center justify-between">
-                          <span>Generation providers</span>
-                          <span class="studio-mono">explicit</span>
+                          <span>Models by provider</span>
+                          <button id="studio-model-refresh" class="ws-icon-btn" title="Refresh providers and models"><i data-lucide="refresh-cw" class="w-3 h-3"></i></button>
                         </div>
-                        <div id="studio-provider-options"></div>
+                        <div class="px-1.5 pb-1 space-y-1">
+                          <input id="studio-model-search" type="text" aria-label="Search Studio models" placeholder="Search models…" autocomplete="off" spellcheck="false">
+                          <div id="studio-kind-filter" class="flex items-center gap-1">
+                            <button class="studio-filter active" data-kind="">All</button>
+                            <button class="studio-filter" data-kind="video">Video</button>
+                            <button class="studio-filter" data-kind="image">Image</button>
+                          </div>
+                        </div>
+                        <div id="studio-model-options"></div>
                       </div>
                     </div>
+                    <span id="studio-model-note" class="studio-model-note hidden"></span>
                   </div>
                 </div>
-
-                <div class="studio-field-head">
-                  <span>Model</span>
-                  <span id="studio-model-note" class="studio-model-note hidden"></span>
-                </div>
-                <div class="studio-model-row">
-                  <div class="relative min-w-0 flex-1">
-                    <button id="studio-model-btn" class="studio-model-btn" title="Generation model" disabled>
-                      <i data-lucide="cpu" class="w-3.5 h-3.5 text-fuchsia-300"></i>
-                      <span id="studio-model-label" class="truncate">Model: —</span>
-                      <i data-lucide="chevron-down" class="w-3 h-3 text-slate-500"></i>
-                    </button>
-                    <div id="studio-model-menu" class="ws-menu studio-model-menu hidden">
-                      <div class="ws-menu-title flex items-center justify-between">
-                        <span>Models</span>
-                        <button id="studio-model-refresh" class="ws-icon-btn" title="Refresh model list"><i data-lucide="refresh-cw" class="w-3 h-3"></i></button>
-                      </div>
-                      <div class="px-1.5 pb-1 space-y-1">
-                        <input id="studio-model-search" type="text" aria-label="Search Studio models" placeholder="Search models…" autocomplete="off" spellcheck="false">
-                        <div id="studio-kind-filter" class="flex items-center gap-1">
-                          <button class="studio-filter active" data-kind="">All</button>
-                          <button class="studio-filter" data-kind="video">Video</button>
-                          <button class="studio-filter" data-kind="image">Image</button>
-                        </div>
-                      </div>
-                      <div id="studio-model-options"></div>
-                    </div>
-                  </div>
-                </div>
-                <p id="studio-model-desc" class="studio-model-desc">Choose a provider and model to see documented inputs.</p>
+                <p id="studio-model-desc" class="studio-model-desc">Choose a model; its provider is chosen automatically.</p>
 
                 <!-- Live model details: updates the moment a model is chosen -->
                 <div id="studio-model-details" class="studio-model-details">
@@ -2403,11 +2385,6 @@
                 </div>
               </div>
 
-              <div class="collart-settingcol">
-                <label class="collart-label">Model Engine <em id="fashion-engine-mode"></em></label>
-                <div id="fashion-engines" class="collart-engines"></div>
-              </div>
-
               <div id="fashion-status" class="collart-meta" hidden></div>
             </div>
 
@@ -2429,43 +2406,52 @@
               </div>
             </div>
           </section>
-            </div><!-- /collart-fashion-main -->
 
-            <!-- One shared runtime rail for every workflow step. The Agent,
-                 Provider and Model live here once; step changes switch the
-                 values to that step's generation settings. -->
-            <aside id="fashion-runtime" class="collart-runtime" aria-label="Agent, provider and model">
-              <div class="collart-runtime-head">
-                <span>Runtime</span>
-                <em id="fashion-runtime-step">Step 1 · image</em>
-              </div>
-
-              <div class="collart-runtime-field">
-                <label class="collart-label" for="fashion-runtime-agent">Agent</label>
-                <div class="collart-select collart-runtime-select">
-                  <select id="fashion-runtime-agent" aria-label="Build agent"></select>
-                  <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+            <!-- Agent + Model live below the prompt box (Workspace pattern).
+                 There is no Provider dropdown: the Model menu groups every
+                 provider's models, and picking a model picks its provider.
+                 One shared set for every step — step changes switch the
+                 values to that step's generation settings. Menus open
+                 upward because this row sits at the end of the column. -->
+            <div id="fashion-runtime" class="fashion-runtime-row" aria-label="Agent and generation model">
+              <div class="fashion-runtime-field">
+                <span class="fashion-runtime-label">Agent</span>
+                <div class="fashion-runtime-anchor">
+                  <button id="fashion-runtime-agent-btn" type="button" class="fashion-runtime-btn" title="Build agent" disabled>
+                    <i data-lucide="bot" class="w-3.5 h-3.5 text-cyan-300"></i>
+                    <span id="fashion-runtime-agent-label" class="truncate">Agent: —</span>
+                    <i data-lucide="chevron-down" class="w-3 h-3 text-slate-500"></i>
+                  </button>
+                  <div id="fashion-runtime-agent-menu" class="ws-menu fashion-runtime-menu hidden">
+                    <div class="ws-menu-title">Agents</div>
+                    <div id="fashion-runtime-agent-options" class="max-h-56 overflow-y-auto"></div>
+                  </div>
                 </div>
-                <p class="collart-hint">Runs Studio tools and workflows.</p>
+                <p class="fashion-runtime-hint">Runs Studio tools and workflows.</p>
               </div>
-
-              <div class="collart-runtime-field">
-                <label class="collart-label" for="fashion-runtime-provider">Provider</label>
-                <div class="collart-select collart-runtime-select">
-                  <select id="fashion-runtime-provider" aria-label="Generation provider"></select>
-                  <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
+              <div class="fashion-runtime-field">
+                <span class="fashion-runtime-label">Model <em id="fashion-runtime-step">step 1 · image</em></span>
+                <div class="fashion-runtime-anchor">
+                  <button id="fashion-runtime-model-btn" type="button" class="fashion-runtime-btn" title="Generation model" disabled>
+                    <i data-lucide="cpu" class="w-3.5 h-3.5 text-fuchsia-300"></i>
+                    <span id="fashion-runtime-model-label" class="truncate">Model: —</span>
+                    <i data-lucide="chevron-down" class="w-3 h-3 text-slate-500"></i>
+                  </button>
+                  <div id="fashion-runtime-model-menu" class="ws-menu fashion-runtime-menu fashion-runtime-model-menu hidden">
+                    <div class="ws-menu-title flex items-center justify-between">
+                      <span>Models by provider</span>
+                      <button id="fashion-runtime-model-refresh" type="button" class="ws-icon-btn" title="Refresh providers and models"><i data-lucide="refresh-cw" class="w-3 h-3"></i></button>
+                    </div>
+                    <div class="px-1.5 pb-1">
+                      <input id="fashion-runtime-model-search" type="text" aria-label="Search Ads Studio models" placeholder="Search models…" autocomplete="off" spellcheck="false" class="w-full bg-[#0b1226] border border-[#22304f] rounded-lg px-2 py-1 text-[11px] text-slate-200 placeholder-slate-600 outline-none focus:border-cyan-500/60">
+                    </div>
+                    <div id="fashion-runtime-model-options" class="max-h-60 overflow-y-auto"></div>
+                  </div>
                 </div>
+                <p id="fashion-runtime-kind" class="fashion-runtime-hint">Image model for Steps 1–3.</p>
               </div>
-
-              <div class="collart-runtime-field">
-                <label class="collart-label" for="fashion-runtime-model">Model</label>
-                <div class="collart-select collart-runtime-select">
-                  <select id="fashion-runtime-model" aria-label="Generation model"></select>
-                  <i data-lucide="chevron-down" class="w-3.5 h-3.5"></i>
-                </div>
-                <p id="fashion-runtime-kind" class="collart-hint">Image model for Steps 1–3.</p>
-              </div>
-            </aside>
+            </div>
+          </div><!-- /collart-fashion-main -->
           </div><!-- /collart-fashion-layout -->
 
           <!-- Hidden state hosts keep the per-step provider/model values in
@@ -2538,6 +2524,49 @@
         <div id="studio-panel-create" class="studio-panel studio-panel-create hidden">
           <h1 class="collart-h1">Ads Create</h1>
           <p class="collart-note">Compose a reviewable creative brief from the active Ads template. Nothing renders or publishes until you continue in Generate.</p>
+
+          <!-- Agent + Model live at the top (Workspace pattern, shared with
+               the Generate tab). The Model menu lists the agent's own
+               provider first, then integrated custom providers, then the
+               generation engines that render the images and videos. -->
+          <div id="adc-runtime" class="fashion-runtime-row" aria-label="Agent and generation model">
+            <div class="fashion-runtime-field">
+              <span class="fashion-runtime-label">Agent</span>
+              <div class="fashion-runtime-anchor">
+                <button id="adc-agent-btn" type="button" class="fashion-runtime-btn" title="Build agent" disabled>
+                  <i data-lucide="bot" class="w-3.5 h-3.5 text-cyan-300"></i>
+                  <span id="adc-agent-label" class="truncate">Agent: —</span>
+                  <i data-lucide="chevron-down" class="w-3 h-3 text-slate-500"></i>
+                </button>
+                <div id="adc-agent-menu" class="ws-menu fashion-runtime-menu hidden">
+                  <div class="ws-menu-title">Agents</div>
+                  <div id="adc-agent-options" class="max-h-56 overflow-y-auto"></div>
+                </div>
+              </div>
+              <p class="fashion-runtime-hint">Runs Studio tools and workflows.</p>
+            </div>
+            <div class="fashion-runtime-field">
+              <span class="fashion-runtime-label">Model <em id="adc-runtime-step">create</em></span>
+              <div class="fashion-runtime-anchor">
+                <button id="adc-model-btn" type="button" class="fashion-runtime-btn" title="Generation model" disabled>
+                  <i data-lucide="cpu" class="w-3.5 h-3.5 text-fuchsia-300"></i>
+                  <span id="adc-model-label" class="truncate">Model: —</span>
+                  <i data-lucide="chevron-down" class="w-3 h-3 text-slate-500"></i>
+                </button>
+                <div id="adc-model-menu" class="ws-menu fashion-runtime-menu hidden">
+                  <div class="ws-menu-title flex items-center justify-between">
+                    <span>Models by provider</span>
+                    <button id="adc-model-refresh" type="button" class="ws-icon-btn" title="Refresh providers and models"><i data-lucide="refresh-cw" class="w-3 h-3"></i></button>
+                  </div>
+                  <div class="px-1.5 pb-1">
+                    <input id="adc-model-search" type="text" aria-label="Search Ads Studio models" placeholder="Search models…" autocomplete="off" spellcheck="false" class="w-full bg-[#0b1226] border border-[#22304f] rounded-lg px-2 py-1 text-[11px] text-slate-200 placeholder-slate-600 outline-none focus:border-cyan-500/60">
+                  </div>
+                  <div id="adc-model-options" class="max-h-72 overflow-y-auto"></div>
+                </div>
+              </div>
+              <p id="adc-runtime-kind" class="fashion-runtime-hint">Agent models on top · generation engines below.</p>
+            </div>
+          </div>
 
           <div class="adc-grid">
             <section class="adc-card">
@@ -2678,6 +2707,44 @@
                     <div><h3>Video prompt</h3><p>One clear idea works best — the question your audience actually asks.</p></div>
                   </div>
                   <textarea id="yt-create-prompt" rows="4" maxlength="2000" placeholder="e.g. 5 tax deductions self-employed owners miss every filing season"></textarea>
+                  <!-- Agent + Model live just below the prompt box (Workspace
+                       pattern). Both come from the backend LLM status — the
+                       Agent menu lists the real runner profiles and the
+                       Model menu lists that runner's models; there are no
+                       hardcoded values here. -->
+                  <div class="yt-runtime-row" aria-label="Agent and model">
+                    <div class="yt-runtime-field">
+                      <span class="yt-runtime-label">Agent</span>
+                      <div class="yt-runtime-anchor">
+                        <button id="yt-llm-agent-btn" type="button" class="yt-runtime-btn" title="Agent that runs text generation" disabled>
+                          <i data-lucide="bot" class="w-3.5 h-3.5 text-cyan-300"></i>
+                          <span id="yt-llm-agent-label" class="truncate">Agent: —</span>
+                          <i data-lucide="chevron-down" class="w-3 h-3 text-slate-500"></i>
+                        </button>
+                        <div id="yt-llm-agent-menu" class="ws-menu yt-runtime-menu is-hidden">
+                          <div class="ws-menu-title">Agents</div>
+                          <div id="yt-llm-agent-options" class="max-h-56 overflow-y-auto"></div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="yt-runtime-field">
+                      <span class="yt-runtime-label">Model</span>
+                      <div class="yt-runtime-anchor">
+                        <button id="yt-llm-model-btn" type="button" class="yt-runtime-btn" title="Generation model" disabled>
+                          <i data-lucide="cpu" class="w-3.5 h-3.5 text-fuchsia-300"></i>
+                          <span id="yt-llm-model-label" class="truncate">Model: —</span>
+                          <i data-lucide="chevron-down" class="w-3 h-3 text-slate-500"></i>
+                        </button>
+                        <div id="yt-llm-model-menu" class="ws-menu yt-runtime-menu yt-runtime-model-menu is-hidden">
+                          <div class="ws-menu-title flex items-center justify-between">
+                            <span>Models by provider</span>
+                            <button id="yt-llm-model-refresh" type="button" class="ws-icon-btn" title="Refresh models"><i data-lucide="refresh-cw" class="w-3 h-3"></i></button>
+                          </div>
+                          <div id="yt-llm-model-options" class="max-h-60 overflow-y-auto"></div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                   <div class="yt-composer-grid">
                     <label class="yt-field"><span>Channel</span>
                       <select id="yt-create-channel" aria-label="Channel"></select>
@@ -2717,14 +2784,12 @@
                     </label>
                   </div>
                   <div class="yt-composer-meta">
-                    <span class="yt-meta-chip"><i data-lucide="bot" class="w-3.5 h-3.5"></i> Agent: OpenCode</span>
-                    <span class="yt-meta-chip"><i data-lucide="cpu" class="w-3.5 h-3.5"></i> Model: <b id="yt-create-model">GLM-5.3-Flash</b></span>
                     <span class="yt-meta-chip"><i data-lucide="mic" class="w-3.5 h-3.5"></i> Voice: Kokoro</span>
                     <span class="yt-meta-chip"><i data-lucide="map-pin" class="w-3.5 h-3.5"></i> Audience: United States</span>
                   </div>
                   <p id="yt-create-error" class="yt-form-error is-hidden"></p>
                   <div class="yt-composer-foot">
-                    <p class="yt-hint">Saved as a backlog topic. Template recommendations attach in Phase 4; packaging in Phase 6.</p>
+                    <p class="yt-hint" data-info-tip>Saved as a backlog topic. Template recommendations attach in Phase 4; packaging in Phase 6.</p>
                     <button id="yt-create-submit" type="button" class="collart-btn yt-create-btn">
                       <i data-lucide="wand-2" class="w-4 h-4"></i><span>Create</span>
                     </button>
@@ -2881,7 +2946,7 @@
                     </label>
                   </div>
                   <div class="yt-composer-foot">
-                    <p class="yt-hint">The selection is stored server-side for this workspace. Keys are never stored in the page.</p>
+                    <p class="yt-hint" data-info-tip>The selection is stored server-side for this workspace. Keys are never stored in the page.</p>
                     <button id="yt-llm-save" type="button" class="collart-btn-soft"><i data-lucide="save" class="w-4 h-4"></i><span>Save</span></button>
                   </div>
                 </section>
@@ -2908,7 +2973,7 @@
                     <div><h3>Image & video providers</h3><p>Thumbnails, scene art and animation clips run on the same provider registry as Ads Studio.</p></div>
                     <button id="yt-open-ads-setup" type="button" class="collart-btn-soft"><i data-lucide="external-link" class="w-4 h-4"></i><span>Open provider setup</span></button>
                   </div>
-                  <p class="yt-panel-note">Pollinations (keyless) and Google AI (Gemini image, Veo video) are available today; Higgsfield and credential-only providers are configured in the same registry.</p>
+                  <p class="yt-panel-note" data-info-tip>Pollinations (keyless) and Google AI (Gemini image, Veo video) are available today; Higgsfield and credential-only providers are configured in the same registry.</p>
                 </section>
               </section>
 
@@ -3126,22 +3191,6 @@
                 </div>
 
                 <div class="relative">
-                  <button id="sb-provider-btn" type="button" class="ws-dropdown ws-dropdown-provider" title="Provider for the authoring agent" disabled>
-                    <i data-lucide="plug" class="w-3.5 h-3.5 text-amber-400"></i>
-                    <span id="sb-provider-label">Provider: —</span>
-                    <i data-lucide="chevron-down" class="w-3 h-3 text-slate-500"></i>
-                  </button>
-                  <div id="sb-provider-menu" class="ws-menu hidden absolute left-0 top-full mt-1 z-50 w-72">
-                    <div class="ws-menu-title flex items-center justify-between">
-                      <span>Providers from this agent</span>
-                      <button id="sb-provider-refresh" type="button" class="ws-icon-btn" title="Reload providers and models"><i data-lucide="refresh-cw" class="w-3 h-3"></i></button>
-                    </div>
-                    <div id="sb-provider-options" class="max-h-56 overflow-y-auto"></div>
-                    <div id="sb-provider-setup" class="hidden px-2.5 pb-2 pt-1 mt-1 border-t border-[#1b2537] space-y-1"></div>
-                  </div>
-                </div>
-
-                <div class="relative">
                   <button id="sb-model-btn" type="button" class="ws-dropdown ws-dropdown-model" title="Model for the authoring agent" disabled>
                     <i data-lucide="cpu" class="w-3.5 h-3.5 text-purple-400"></i>
                     <span id="sb-model-label">Model: —</span>
@@ -3149,13 +3198,14 @@
                   </button>
                   <div id="sb-model-menu" class="ws-menu hidden absolute left-0 top-full mt-1 z-50 w-80">
                     <div class="ws-menu-title flex items-center justify-between">
-                      <span>Models from this CLI</span>
-                      <button id="sb-model-refresh" type="button" class="ws-icon-btn" title="Refresh model list"><i data-lucide="refresh-cw" class="w-3 h-3"></i></button>
+                      <span>Models by provider</span>
+                      <button id="sb-model-refresh" type="button" class="ws-icon-btn" title="Refresh providers and models"><i data-lucide="refresh-cw" class="w-3 h-3"></i></button>
                     </div>
                     <div id="sb-model-search-wrap" class="hidden px-1.5 pb-1">
                       <input id="sb-model-search" type="text" aria-label="Search Skill Builder models" placeholder="Search models…" autocomplete="off" spellcheck="false" class="w-full bg-[#0b1226] border border-[#22304f] rounded-lg px-2 py-1 text-[11px] text-slate-200 placeholder-slate-600 outline-none focus:border-cyan-500/60">
                     </div>
                     <div id="sb-model-options" class="max-h-60 overflow-y-auto"></div>
+                    <div id="sb-provider-setup" class="hidden px-2.5 pb-2 pt-1 mt-1 border-t border-[#1b2537] space-y-1"></div>
                   </div>
                 </div>
 
@@ -4272,16 +4322,17 @@
   <script defer src="js/hermes.js?v=20261018-hermes3"></script>
   <script defer src="js/studioState.js?v=20261023-studio6"></script>
   <script defer src="js/studioTemplates.js?v=20261112-registry"></script>
-  <script defer src="js/studio.js?v=20261113-runtime-rail"></script>
-  <script defer src="js/studioFashion.js?v=20261113-runtime-rail"></script>
+  <script defer src="js/studio.js?v=20261120-runtime-zones"></script>
+  <script defer src="js/studioFashion.js?v=20261120-runtime-zones"></script>
   <script defer src="js/studioWorkspaceState.js?v=20261112-yt-phase2"></script>
-  <script defer src="js/studioYoutube.js?v=20261113-yt-cleanup"></script>
+  <script defer src="js/studioTooltips.js?v=20261120-tooltips1"></script>
+  <script defer src="js/studioYoutube.js?v=20261120-tooltips1"></script>
   <script defer src="js/studioWorkspaces.js?v=20261112-yt-phase2"></script>
   <script defer src="js/cosmosState.js?v=20261119-genesis1"></script>
-  <script defer src="js/cosmosGenesis.js?v=20261119-genesis1"></script>
-  <script defer src="js/cosmosDashboard.js?v=20261119-genesis1"></script>
+  <script defer src="js/cosmosGenesis.js?v=20261120-cosmos2"></script>
+  <script defer src="js/cosmosDashboard.js?v=20261120-avatars1"></script>
   <script defer src="js/studioCreate.js?v=20261115-cosmos1"></script>
-  <script defer src="js/skill-builder.js?v=20261112-video-reverse"></script>
+  <script defer src="js/skill-builder.js?v=20261120-model-groups"></script>
   <script defer src="vendor/marked.min.js"></script>
   <script defer src="js/plugins.js?v=20261023-repo1"></script>
   <script defer src="js/pluginsHub.js?v=20261115-hub1"></script>

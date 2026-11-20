@@ -42,6 +42,9 @@
        request are dropped instead of overwriting the current selection. */
     requestSeq: 0,
     modelsProvider: null,
+    /* provider_id -> { status, models, error } for the grouped Model menu */
+    providerModels: {},
+    expandedProviders: {},
     agents: [],
     agentId: null,
     agent: null,
@@ -263,6 +266,16 @@
       S.providers = SS.normalizeList(data, "providers");
       S.catalog = data.catalog || null;
       S.mcpConfig = data.mcp || null;
+      // Drop cached model groups and expansion state for providers that are
+      // no longer registered (e.g. after an MCP disconnect).
+      var known = {};
+      S.providers.forEach(function (provider) { known[provider.id] = true; });
+      Object.keys(S.providerModels).forEach(function (id) {
+        if (!known[id]) delete S.providerModels[id];
+      });
+      Object.keys(S.expandedProviders).forEach(function (id) {
+        if (!known[id]) delete S.expandedProviders[id];
+      });
       var wanted = S.providerId;
       var next = find(S.providers, wanted);
       if (!next) {
@@ -287,6 +300,77 @@
     });
   }
 
+  function providerModelsEntry(providerId) {
+    return S.providerModels[providerId] || null;
+  }
+
+  function providerModels(providerId) {
+    var entry = providerModelsEntry(providerId);
+    return entry && Array.isArray(entry.models) ? entry.models : [];
+  }
+
+  function allProviderModels() {
+    var out = [];
+    S.providers.forEach(function (provider) {
+      out = out.concat(providerModels(provider.id));
+    });
+    return out;
+  }
+
+  /* The Model menu groups every provider's models. Providers load lazily the
+   * first time the menu opens (and on Refresh), so the initial Studio load
+   * stays as light as before. */
+  function loadProviderModels(providerId, refresh) {
+    if (!providerId) return Promise.resolve(null);
+    var entry = providerModelsEntry(providerId);
+    if (!refresh && entry && (entry.status === "loaded" || entry.status === "empty" || entry.status === "error")) {
+      return Promise.resolve(entry);
+    }
+    if (entry && entry.status === "loading") return Promise.resolve(entry);
+    S.providerModels[providerId] = {
+      status: "loading",
+      models: entry ? entry.models : [],
+      error: null
+    };
+    renderModels();
+    return api("/api/studio/models?provider=" + encodeURIComponent(providerId))
+      .then(function (data) {
+        var models = SS.normalizeList(data, "models");
+        S.providerModels[providerId] = {
+          status: models.length ? "loaded" : "empty",
+          models: models,
+          error: null
+        };
+        if (providerId === S.providerId) {
+          S.models = models;
+          S.modelsProvider = models.length ? providerId : null;
+        }
+        renderModels();
+        return S.providerModels[providerId];
+      })
+      .catch(function (err) {
+        S.providerModels[providerId] = {
+          status: "error",
+          models: entry ? entry.models : [],
+          error: describeError(err)
+        };
+        renderModels();
+        return S.providerModels[providerId];
+      });
+  }
+
+  function loadAllProviderModels(refresh) {
+    return Promise.all(S.providers.map(function (provider) {
+      return loadProviderModels(provider.id, refresh);
+    }));
+  }
+
+  function syncCurrentProviderModels() {
+    if (!S.providerId) return;
+    S.models = providerModels(S.providerId);
+    S.modelsProvider = S.models.length ? S.providerId : null;
+  }
+
   function loadModels() {
     var provider = S.provider;
     if (!provider) {
@@ -306,7 +390,12 @@
         if (seq !== S.requestSeq) return null; // stale: provider changed meanwhile
         S.models = SS.normalizeList(data, "models");
         S.modes = Array.isArray(data.modes) ? data.modes : [];
-        S.modelsProvider = provider.id;
+        S.modelsProvider = S.models.length ? provider.id : null;
+        S.providerModels[provider.id] = {
+          status: S.models.length ? "loaded" : "empty",
+          models: S.models,
+          error: null
+        };
         if (data.catalog) S.catalog = data.catalog;
         var candidates = SS.filterModelsByInput(S.models, S.inputMode, "", "");
         var keep = find(candidates, S.modelId) || find(S.models, S.modelId);
@@ -342,6 +431,11 @@
         // Transient refresh failure for the current provider: keep the model
         // list the user already has instead of wiping valid state.
         if (S.modelsProvider === provider.id && S.models.length) {
+          S.providerModels[provider.id] = {
+            status: "error",
+            models: S.models,
+            error: describeError(err)
+          };
           setModelNote("Model list refresh failed — showing the last known list. " + describeError(err));
           updateGenerateState();
           return null;
@@ -351,6 +445,11 @@
         S.detail = null;
         S.fields = [];
         S.modelsProvider = null;
+        S.providerModels[provider.id] = {
+          status: "error",
+          models: [],
+          error: describeError(err)
+        };
         renderModels();
         renderParams();
         setModelNote(describeError(err));
@@ -422,8 +521,35 @@
     return loadModels();
   }
 
-  function chooseModel(modelId) {
-    if (!modelId || modelId === S.modelId) return Promise.resolve();
+  function chooseModel(modelId, providerId) {
+    if (!modelId) return Promise.resolve();
+    var targetId = providerId || S.providerId;
+    var provider = find(S.providers, targetId);
+    if (!provider) return Promise.resolve();
+    var providerChanged = targetId !== S.providerId;
+    if (!providerChanged && modelId === S.modelId) return Promise.resolve();
+
+    var cached = providerModels(targetId);
+    if (!cached.length) {
+      // A model row can be clicked before its provider group finished loading.
+      return loadProviderModels(targetId).then(function (entry) {
+        if (!entry || !entry.models.length) return null;
+        return chooseModel(modelId, targetId);
+      });
+    }
+
+    if (providerChanged) {
+      S.requestSeq += 1; // invalidate in-flight work for the old provider
+      S.providerId = targetId;
+      S.provider = provider;
+      S.models = cached;
+      S.modelsProvider = targetId;
+      S.expandedProviders[targetId] = true;
+      renderProviders();
+      renderSetup();
+      updateHeader();
+    }
+
     S.requestSeq += 1; // invalidate an in-flight detail request for the old model
     S.modelId = modelId;
     var model = find(S.models, modelId);
@@ -440,30 +566,9 @@
     return loadModelDetail(modelId);
   }
 
+  /* The provider dropdown is gone: the Model menu groups models by provider.
+   * This keeps the catalog chip current after provider/setup refreshes. */
   function renderProviders() {
-    var host = $("studio-provider-options");
-    if (host) {
-      if (!S.providers.length) {
-        host.innerHTML = '<div class="studio-rail-empty">No providers found.</div>';
-      } else {
-        host.innerHTML = S.providers.map(function (provider) {
-          var active = provider.id === S.providerId;
-          return '' +
-            '<button class="ws-menu-item' + (active ? " ws-menu-item-active" : "") + '" data-provider="' + esc(provider.id) + '">' +
-              '<span class="studio-dot ' + (provider.configured ? "on" : "off") + '"></span>' +
-              '<span class="flex-1 min-w-0 text-left">' +
-                '<span class="block truncate">' + esc(provider.label || provider.id) +
-                  (provider.experimental ? ' <span class="studio-badge">experimental</span>' : "") + '</span>' +
-                '<span class="block text-[9.5px] text-slate-500 truncate">' +
-                  esc((provider.model_count || 0) + " models · " + (provider.configured ? "configured" : "setup required")) +
-                '</span>' +
-              '</span>' +
-            '</button>';
-        }).join("");
-      }
-    }
-    setText("studio-provider-label", S.provider ? (S.provider.label || S.provider.id) : "Choose provider");
-    setText("studio-provider-chip", S.provider ? (S.provider.label || S.provider.id) : "provider: —");
     if (S.catalog) {
       setText("studio-catalog-chip", (S.catalog.model_count || 0) + " models · " +
         (S.catalog.catalog_version || "catalog"));
@@ -563,7 +668,7 @@
     var host = $("studio-input-modes");
     if (!host) return;
     var counts = { text: 0, image: 0, video: 0 };
-    S.models.forEach(function (model) {
+    allProviderModels().forEach(function (model) {
       var mode = SS.inputModeForModel(model);
       counts[mode] = (counts[mode] || 0) + 1;
     });
@@ -576,33 +681,106 @@
     });
   }
 
+  function providerLabel(providerId) {
+    var provider = find(S.providers, providerId);
+    return provider ? (provider.label || provider.id) : (providerId || "Default");
+  }
+
+  /* The Model menu is the only place a provider is chosen: every Studio
+   * provider gets a collapsible group, and picking one of its models selects
+   * that provider and model together. Groups load lazily when the menu opens
+   * or when a collapsed group is expanded. */
   function renderModels() {
     var host = $("studio-model-options");
     var search = $("studio-model-search");
     var btn = $("studio-model-btn");
     if (btn) btn.disabled = !S.provider;
     if (search && search.value !== S.modelQuery) search.value = S.modelQuery;
-    var selected = find(S.models, S.modelId);
-    setText("studio-model-label", selected ? (selected.label || selected.id) : "Choose a model");
+    var selected = find(S.models, S.modelId) || find(allProviderModels(), S.modelId);
+    var label = selected ? (selected.label || selected.id) : "Choose a model";
+    if (selected && S.providers.length > 1) {
+      label = providerLabel(selected.provider || S.providerId) + " · " + label;
+    }
+    setText("studio-model-label", label);
     if (!host) return;
-    var shown = SS.filterModelsByInput(S.models, S.inputMode, S.kindFilter, S.modelQuery);
-    if (!shown.length) {
-      host.innerHTML = '<div class="studio-rail-empty">' +
-        (S.models.length ? "No model matches this input mode and filter." : "No models loaded.") + '</div>';
+    if (!S.providers.length) {
+      host.innerHTML = '<div class="studio-rail-empty">No providers found.</div>';
       return;
     }
-    host.innerHTML = shown.map(function (model) {
-      var active = model.id === S.modelId;
-      var tags = (model.tags || []).slice(0, 3).join(" · ");
-      return '' +
-        '<button class="ws-menu-item' + (active ? " ws-menu-item-active" : "") + '" data-model="' + esc(model.id) + '">' +
-          '<span class="flex-1 min-w-0 text-left">' +
-            '<span class="block truncate">' + esc(model.label || model.id) + '</span>' +
-            '<span class="block text-[9.5px] text-slate-500 truncate">' +
-              esc((model.mode_label || model.mode || model.kind || "") + (tags ? " · " + tags : "")) +
-            '</span>' +
-          '</span>' +
-        '</button>';
+    var terms = (S.modelQuery || "").toLowerCase().trim();
+    var groups = S.providers.map(function (provider) {
+      var entry = providerModelsEntry(provider.id);
+      var cached = providerModels(provider.id);
+      var shown = SS.filterModelsByInput(cached, S.inputMode, S.kindFilter, S.modelQuery);
+      var status = entry ? entry.status : "idle";
+      var open = terms
+        ? shown.length > 0 || status === "loading" || status === "error" || status === "idle"
+        : (S.expandedProviders[provider.id] === undefined
+            ? provider.id === S.providerId
+            : !!S.expandedProviders[provider.id]);
+      return {
+        provider: provider,
+        entry: entry,
+        shown: shown,
+        status: status,
+        open: open,
+        total: cached.length || provider.model_count || 0
+      };
+    }).filter(function (group) {
+      // While searching, keep only groups that actually match (plus groups
+      // whose models are still loading, so results do not flicker away).
+      if (!terms) return true;
+      return group.shown.length || group.status === "loading" ||
+        group.status === "error" || group.status === "idle";
+    });
+    if (!groups.length) {
+      host.innerHTML = '<div class="studio-rail-empty">No model matches this search.</div>';
+      return;
+    }
+    var filtering = !!(terms || S.inputMode || S.kindFilter);
+    host.innerHTML = groups.map(function (group) {
+      var provider = group.provider;
+      var count = filtering && group.shown.length !== group.total
+        ? group.shown.length + " / " + group.total + " models"
+        : group.total + (group.total === 1 ? " model" : " models");
+      var body;
+      if (group.status === "loading") {
+        body = '<div class="model-provider-group-empty">Loading models…</div>';
+      } else if (group.status === "error") {
+        body = '<div class="model-provider-group-empty model-provider-group-error">' +
+          esc((group.entry && group.entry.error) || "Could not load models.") + '</div>';
+      } else if (!group.shown.length) {
+        body = '<div class="model-provider-group-empty">' +
+          (group.status === "empty" ? "No models reported for this provider."
+            : terms || S.inputMode || S.kindFilter ? "No models match this filter."
+            : "Models load when this provider group is opened.") + '</div>';
+      } else {
+        body = group.shown.map(function (model) {
+          var active = model.id === S.modelId && provider.id === S.providerId;
+          var tags = (model.tags || []).slice(0, 3).join(" · ");
+          return '' +
+            '<button class="ws-menu-item' + (active ? " ws-menu-item-active" : "") + '"' +
+              ' data-model="' + esc(model.id) + '" data-model-provider="' + esc(provider.id) + '">' +
+              '<span class="flex-1 min-w-0 text-left">' +
+                '<span class="block truncate">' + esc(model.label || model.id) + '</span>' +
+                '<span class="block text-[9.5px] text-slate-500 truncate">' +
+                  esc((model.mode_label || model.mode || model.kind || "") + (tags ? " · " + tags : "")) +
+                '</span>' +
+              '</span>' +
+            '</button>';
+        }).join("");
+      }
+      return '<div class="model-provider-group" data-open="' + (group.open ? "true" : "false") + '">' +
+        '<button type="button" class="model-provider-group-head" data-studio-provider-toggle="' + esc(provider.id) + '"' +
+          ' aria-expanded="' + (group.open ? "true" : "false") + '">' +
+          '<span class="ws-agent-dot" style="background:' + (provider.configured ? "#22c55e" : "#475569") + '"></span>' +
+          '<span class="flex-1 min-w-0 truncate">' + esc(provider.label || provider.id) +
+            (provider.experimental ? ' <span class="studio-badge">experimental</span>' : "") + '</span>' +
+          '<span class="model-provider-group-count">' + esc(count) + '</span>' +
+          '<i data-lucide="chevron-down" class="model-provider-group-caret w-3 h-3"></i>' +
+        '</button>' +
+        '<div class="model-provider-group-body">' + body + '</div>' +
+      '</div>';
     }).join("");
     icons();
   }
@@ -2807,7 +2985,7 @@
   /* Wiring                                                              */
   /* ------------------------------------------------------------------ */
   function closeMenus(except) {
-    ["studio-agent-menu", "studio-provider-menu", "studio-model-menu"].forEach(function (id) {
+    ["studio-agent-menu", "studio-model-menu"].forEach(function (id) {
       if (id === except) return;
       show($(id), false);
     });
@@ -3594,35 +3772,33 @@
       }
     });
 
-    var providerBtn = $("studio-provider-btn");
-    if (providerBtn) providerBtn.addEventListener("click", function (event) {
-      event.stopPropagation();
-      toggleMenu("studio-provider-menu");
-    });
-    var providerOptions = $("studio-provider-options");
-    if (providerOptions) providerOptions.addEventListener("click", function (event) {
-      var item = event.target.closest("[data-provider]");
-      if (!item) return;
-      closeMenus();
-      chooseProvider(item.getAttribute("data-provider"));
-    });
-
     var modelBtn = $("studio-model-btn");
     if (modelBtn) modelBtn.addEventListener("click", function (event) {
       event.stopPropagation();
       var wasHidden = $("studio-model-menu").classList.contains("hidden");
       toggleMenu("studio-model-menu");
       if (wasHidden) {
+        loadAllProviderModels();
         var search = $("studio-model-search");
         if (search) window.setTimeout(function () { search.focus(); }, 0);
       }
     });
     var modelOptions = $("studio-model-options");
     if (modelOptions) modelOptions.addEventListener("click", function (event) {
+      var group = event.target.closest("[data-studio-provider-toggle]");
+      if (group) {
+        var providerId = group.getAttribute("data-studio-provider-toggle");
+        var open = group.closest(".model-provider-group").getAttribute("data-open") !== "true";
+        S.expandedProviders[providerId] = open;
+        renderModels();
+        var entry = providerModelsEntry(providerId);
+        if (open && (!entry || entry.status === "error")) loadProviderModels(providerId, !!entry);
+        return;
+      }
       var item = event.target.closest("[data-model]");
       if (!item) return;
       closeMenus();
-      chooseModel(item.getAttribute("data-model"));
+      chooseModel(item.getAttribute("data-model"), item.getAttribute("data-model-provider") || null);
     });
     var modelSearch = $("studio-model-search");
     if (modelSearch) {
@@ -3646,7 +3822,13 @@
     if (modelRefresh) modelRefresh.addEventListener("click", function (event) {
       event.stopPropagation();
       S.detail = null;
-      loadModels();
+      loadAllProviderModels(true).then(function () {
+        syncCurrentProviderModels();
+        renderModels();
+        renderInputModes();
+        if (S.modelId) return loadModelDetail(S.modelId);
+        return null;
+      });
     });
     var search = $("studio-search");
     if (search) {
@@ -3771,8 +3953,6 @@
     if (saveLibrary) saveLibrary.addEventListener("click", saveOutputToLibrary);
     var saveSkill = $("studio-save-skill");
     if (saveSkill) saveSkill.addEventListener("click", saveRenderedSkill);
-    var copy = $("studio-copy-url");
-    if (copy) copy.addEventListener("click", copyOutput);
     var cancel = $("studio-cancel-job");
     if (cancel) cancel.addEventListener("click", cancelSelectedJob);
     var variations = $("studio-variations-list");
@@ -3986,11 +4166,11 @@
     if (mcpDisconnect) mcpDisconnect.addEventListener("click", disconnectMcp);
 
     document.addEventListener("click", function (event) {
-      var providerMenu = $("studio-provider-menu");
+      var agentMenu = $("studio-agent-menu");
       var modelMenu = $("studio-model-menu");
       var searchInput = $("studio-search");
       var searchMenu = $("studio-search-menu");
-      if (providerMenu && !providerMenu.classList.contains("hidden") && providerMenu.contains(event.target)) return;
+      if (agentMenu && !agentMenu.classList.contains("hidden") && agentMenu.contains(event.target)) return;
       if (modelMenu && !modelMenu.classList.contains("hidden") && modelMenu.contains(event.target)) return;
       closeMenus();
       if (searchMenu && !searchMenu.classList.contains("hidden") &&
@@ -4082,6 +4262,23 @@
     agents: function () { return S.agents.slice(); },
     agentId: function () { return S.agentId; },
     setAgent: chooseAgent,
+    /* The model an agent uses when it runs Studio tools (agent work, not
+       rendering). Persisted per agent so every Studio surface agrees. */
+    agentModel: function (agentId) {
+      var id = agentId || S.agentId;
+      if (!id) return null;
+      try {
+        var map = JSON.parse(window.localStorage.getItem("dennis.studio.agentModel") || "{}") || {};
+        return map[id] || null;
+      } catch (err) { return null; }
+    },
+    setAgentModel: function (agentId, modelId) {
+      if (!agentId || !modelId) return;
+      var map = {};
+      try { map = JSON.parse(window.localStorage.getItem("dennis.studio.agentModel") || "{}") || {}; } catch (err) { map = {}; }
+      map[agentId] = modelId;
+      try { window.localStorage.setItem("dennis.studio.agentModel", JSON.stringify(map)); } catch (err) { /* optional */ }
+    },
     // Ads Create hands a composed brief to the existing Generate workflow:
     // the prompt is filled in, but nothing is submitted automatically.
     prefillPrompt: function (text) {

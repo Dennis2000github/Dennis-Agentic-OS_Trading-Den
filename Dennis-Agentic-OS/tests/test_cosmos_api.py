@@ -184,13 +184,80 @@ class CosmosApiTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(payload["deleted"], product_id)
 
-    def test_youtube_backlog_summary_is_read_only(self):
+    def test_youtube_backlog_lists_with_channel_context(self):
         status, payload = cosmos_api.handle("GET", "/api/cosmos/backlog/youtube")
         self.assertEqual(status, 200)
         self.assertEqual(payload["channel_id"], "ytch_test")
-        # No write verb exists for YouTube topics here.
-        status, payload = cosmos_api.handle("POST", "/api/cosmos/backlog/youtube", {}, {"title": "x"})
-        self.assertEqual(status, 404)
+        self.assertEqual(payload["channel_name"], "Test Channel")
+        self.assertEqual(payload["topics"][0]["id"], "ytt_1")
+        self.assertIn("has_active_production", payload["topics"][0])
+
+    def test_youtube_backlog_writes_go_through_cosmos(self):
+        with mock.patch.object(
+            cosmos_api.youtube_topics, "create_topic",
+            return_value={"id": "ytt_2", "title": "New topic", "status": "idea"},
+        ) as create:
+            status, payload = cosmos_api.handle(
+                "POST", "/api/cosmos/backlog/youtube", {}, {"title": "New topic"},
+            )
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["topic"]["id"], "ytt_2")
+        create.assert_called_once()
+
+        with mock.patch.object(
+            cosmos_api.youtube_topics, "set_status",
+            return_value={"id": "ytt_2", "title": "New topic", "status": "researching"},
+        ) as set_status:
+            status, payload = cosmos_api.handle(
+                "POST", "/api/cosmos/backlog/youtube/ytt_2/status", {}, {"status": "researching"},
+            )
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["topic"]["status"], "researching")
+        set_status.assert_called_once()
+
+        with mock.patch.object(
+            cosmos_api.youtube_topics, "update_topic",
+            return_value={"id": "ytt_2", "title": "Renamed", "status": "idea"},
+        ) as update:
+            status, payload = cosmos_api.handle(
+                "PATCH", "/api/cosmos/backlog/youtube/ytt_2", {}, {"title": "Renamed"},
+            )
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["topic"]["title"], "Renamed")
+        update.assert_called_once()
+
+        with mock.patch.object(
+            cosmos_api.youtube_topics, "delete_topic", return_value={"deleted": "ytt_2"},
+        ) as delete:
+            status, payload = cosmos_api.handle(
+                "DELETE", "/api/cosmos/backlog/youtube/ytt_2", {"channel_id": "ytch_test"}, None,
+            )
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["deleted"], "ytt_2")
+        delete.assert_called_once()
+
+    def test_youtube_topic_detail_includes_script_studio_and_genesis_links(self):
+        topic = {
+            "id": "ytt_1", "title": "Tax tips", "status": "scripted",
+            "script_id": "yts_1", "project_id": "ytp_1", "channel_id": "ytch_test",
+        }
+        script = {"id": "yts_1", "title": "Tax tips script", "status": "approved", "sections": [{}], "word_count": 900}
+        studio_project = {"id": "ytp_1", "title": "Tax tips project", "status": "approved", "stage": "assets"}
+        genesis_project = {"id": "gp_1", "title": "Tax tips production", "status": "in_production", "stage": "assets"}
+        with mock.patch.object(cosmos_api.youtube_topics, "get_topic", return_value=topic), \
+                mock.patch.object(cosmos_api.youtube_topics, "find_duplicates", return_value=[]), \
+                mock.patch.object(cosmos_api.youtube_scripts, "get_script", return_value=script), \
+                mock.patch.object(cosmos_api.studio_workspaces, "get_project", return_value=studio_project), \
+                mock.patch.object(cosmos_api.genesis, "active_source_index", return_value={"ytt_1": genesis_project}), \
+                mock.patch.object(cosmos_api.genesis, "source_projects", return_value=[genesis_project]), \
+                mock.patch.object(cosmos_api.genesis_store, "list_publications", return_value=[]):
+            status, payload = cosmos_api.handle("GET", "/api/cosmos/backlog/youtube/ytt_1")
+        self.assertEqual(status, 200)
+        self.assertEqual(payload["script"]["title"], "Tax tips script")
+        self.assertEqual(payload["studio_project"]["status"], "approved")
+        self.assertEqual(payload["genesis_projects"][0]["id"], "gp_1")
+        self.assertTrue(payload["topic"]["has_active_production"])
+        self.assertFalse(payload["queue_eligible"])
 
     def test_execution_and_recommendation_reads(self):
         execution = store.start_execution("andromeda", "ads", "ads.discovery", "Find", "m", "p", {}, "sha")

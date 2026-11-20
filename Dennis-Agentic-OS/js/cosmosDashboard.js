@@ -129,9 +129,14 @@
     var params = new URLSearchParams();
     if (S.backlogYoutubeStatus) params.set("status", S.backlogYoutubeStatus);
     if (S.backlogYoutubeQuery) params.set("q", S.backlogYoutubeQuery);
+    if (S.state.config.activeYoutubeChannelId) {
+      params.set("channel_id", S.state.config.activeYoutubeChannelId);
+    }
     var suffix = params.toString() ? "?" + params.toString() : "";
-    return api("/api/studio/youtube/topics" + suffix).then(function (data) {
+    return api("/api/cosmos/backlog/youtube" + suffix).then(function (data) {
       S.backlogYoutube = {
+        channel_id: data.channel_id,
+        channel_name: data.channel_name,
         counts: data.counts || {},
         total: data.total || 0,
         topics: data.topics || [],
@@ -640,7 +645,8 @@
 
   function youtubeBacklogBlock() {
     // The single authoritative YouTube Topic Backlog management interface,
-    // backed by the existing youtube_topics store and its transition rules.
+    // backed by the COSMOS backlog API over the existing youtube_topics store
+    // and its transition rules. Studio no longer exposes this screen.
     var data = S.backlogYoutube || {};
     var counts = data.counts || (S.state.counts.youtube_backlog || {});
     var topics = data.topics || [];
@@ -650,11 +656,29 @@
       return esc((STATUS_LABELS[key] || key) + ": " + counts[key]);
     }).join(" · ");
     var list = topics.length ? topics.map(function (topic) {
+      var script = topic.script || null;
+      var studioProject = topic.studio_project || null;
+      var links = [];
+      if (script && !script.missing) {
+        links.push("script: " + (script.title || script.id) + (script.status ? " (" + script.status + ")" : ""));
+      } else if (topic.script_id) {
+        links.push("script missing: " + topic.script_id);
+      }
+      if (studioProject) {
+        links.push("Studio project: " + (studioProject.title || studioProject.id) +
+          (studioProject.status ? " (" + studioProject.status + ")" : ""));
+      } else if (topic.project_id) {
+        links.push("Studio project missing: " + topic.project_id);
+      }
       return [
         '<div class="cosmos-backlog-row">',
         '  <div class="cosmos-backlog-main"><b>' + esc(topic.title) + "</b>",
+        topic.has_active_production
+          ? ' <span class="cosmos-badge is-info">In GENESIS production</span>'
+          : "",
         '    <span class="cosmos-muted">' + esc(topic.pillar || "—") + " · " + esc(topic.priority || "P2") +
-        (topic.validation_id ? " · validated" : "") + (topic.script_id ? " · scripted" : "") + " · " + esc(C.formatWhen(topic.created_iso)) + "</span>",
+        (topic.validation_id ? " · validated" : "") + " · " + esc(C.formatWhen(topic.created_iso)) + "</span>",
+        links.length ? '    <span class="cosmos-muted">' + esc(links.join(" · ")) + "</span>" : "",
         topic.notes ? '<details class="cosmos-card-more"><summary>Provenance &amp; notes</summary><p>' + esc(topic.notes) + "</p></details>" : "",
         "  </div>",
         '  <div class="cosmos-backlog-actions">',
@@ -670,8 +694,9 @@
     return [
       '<section class="cosmos-backlog">',
       '  <div class="cosmos-section-head"><div><h3>YouTube Topic Backlog</h3>',
-      '    <p>The authoritative topic pipeline — same store, same forward-only rules as the Studio used to expose.</p></div>',
+      '    <p>The authoritative topic pipeline. GENESIS owns production from scripted topics onward; status changes here follow the same forward-only rules.</p></div>',
       '    <span class="cosmos-count">' + esc(data.total || counts.total || 0) + " topics</span></div>",
+      data.channel_name ? '<p class="cosmos-muted">Channel: ' + esc(data.channel_name) + "</p>" : "",
       summary ? '<p class="cosmos-muted">' + summary + "</p>" : "",
       '  <div class="cosmos-backlog-toolbar">',
       '    <input type="search" placeholder="Search topics…" value="' + attr(S.backlogYoutubeQuery) + '" data-cosmos-yt-search aria-label="Search topics">',
@@ -688,32 +713,94 @@
   }
 
   function openTopicDetail(topicId) {
-    var topic = (S.backlogYoutube.topics || []).find(function (item) { return item.id === topicId; });
+    var topic = (S.backlogYoutube && (S.backlogYoutube.topics || [])).find(function (item) { return item.id === topicId; });
     if (!topic) return;
-    var rows = [];
-    function push(label, value) { if (value !== null && value !== undefined && value !== "") rows.push('<div class="cosmos-kv"><span>' + esc(label) + "</span><b>" + esc(value) + "</b></div>"); }
-    push("Status", topic.status);
-    push("Priority", topic.priority);
-    push("Pillar", topic.pillar);
-    push("Angle", topic.angle);
-    push("Audience question", topic.audience_question);
-    push("Search intent", topic.search_intent);
-    push("Commercial relevance", topic.commercial_relevance);
-    push("Score", topic.score);
-    push("Validation", topic.validation_id);
-    push("Script", topic.script_id);
-    push("Project", topic.project_id);
-    push("Published video", topic.published_video_id);
-    push("Channel", topic.channel_id);
-    push("Rejected reason", topic.rejected_reason);
-    var body = '<div class="cosmos-kv-grid">' + rows.join("") + "</div>" +
-      (topic.notes ? '<p class="cosmos-modal-note"><b>Provenance:</b> ' + esc(topic.notes) + "</p>" : "") +
-      (topic.competitor_coverage && topic.competitor_coverage.length
-        ? '<p class="cosmos-modal-note"><b>Competitor coverage:</b> ' + topic.competitor_coverage.map(function (c) {
-            return esc(c.competitor + (c.basis ? " (" + c.basis + ")" : ""));
+    var channel = S.state.config.activeYoutubeChannelId;
+    var query = channel ? "?channel_id=" + encodeURIComponent(channel) : "";
+    openModal("Topic — " + (topic.title || topicId),
+      '<div class="cosmos-kv-grid">' +
+      '<div class="cosmos-kv"><span>Loading</span><b>Reading linked records…</b></div>' +
+      "</div>", "Close", null);
+    api("/api/cosmos/backlog/youtube/" + encodeURIComponent(topicId) + query).then(function (data) {
+      var full = data.topic || topic;
+      var script = data.script;
+      var studioProject = data.studio_project;
+      var projects = data.genesis_projects || [];
+      var rows = [];
+      function push(label, value) {
+        if (value !== null && value !== undefined && value !== "") {
+          rows.push('<div class="cosmos-kv"><span>' + esc(label) + "</span><b>" + esc(value) + "</b></div>");
+        }
+      }
+      push("Status", full.status);
+      push("Priority", full.priority);
+      push("Pillar", full.pillar);
+      push("Angle", full.angle);
+      push("Audience question", full.audience_question);
+      push("Search intent", full.search_intent);
+      push("Commercial relevance", full.commercial_relevance);
+      push("Score", full.score);
+      push("Validation", full.validation_id);
+      push("Published video", full.published_video_id);
+      push("Channel", full.channel_id);
+      push("Rejected reason", full.rejected_reason);
+      var scriptBlock = "";
+      if (script) {
+        scriptBlock = '<p class="cosmos-modal-note"><b>Script:</b> ' + esc(script.title || script.id) +
+          (script.status ? " · " + esc(script.status) : "") +
+          (script.sections ? " · " + esc(script.sections) + " section(s)" : "") +
+          (script.word_count ? " · " + esc(script.word_count) + " words" : "") + "</p>";
+      } else if (full.script_id) {
+        scriptBlock = '<p class="cosmos-modal-note"><b>Script:</b> ' + esc(full.script_id) + " (record missing)</p>";
+      }
+      var studioBlock = "";
+      if (studioProject) {
+        studioBlock = '<p class="cosmos-modal-note"><b>Studio project:</b> ' + esc(studioProject.title || studioProject.id) +
+          (studioProject.status ? " · " + esc(studioProject.status) : "") +
+          (studioProject.stage ? " · " + esc(studioProject.stage) : "") + "</p>";
+      } else if (full.project_id) {
+        studioBlock = '<p class="cosmos-modal-note"><b>Studio project:</b> ' + esc(full.project_id) + " (record missing)</p>";
+      }
+      var productionBlock = "";
+      if (projects.length) {
+        productionBlock = '<div class="cosmos-modal-note"><b>GENESIS production</b><ul class="cosmos-sources">' +
+          projects.map(function (project) {
+            return "<li>" + esc(project.title || project.id) + " — " + esc(project.status || "unknown") +
+              (project.stage ? " · " + esc(project.stage) : "") + "</li>";
+          }).join("") + "</ul>" +
+          '<p><a class="cosmos-link" href="#cosmos/genesis">Open GENESIS production</a></p></div>';
+      } else {
+        productionBlock = '<p class="cosmos-modal-note"><b>GENESIS production:</b> not started' +
+          (data.queue_eligible ? " — this topic is eligible for the production queue." : ".") + "</p>";
+      }
+      var publications = data.publications || [];
+      var publicationBlock = publications.length
+        ? '<div class="cosmos-modal-note"><b>Publications</b><ul class="cosmos-sources">' +
+          publications.map(function (pub) {
+            return "<li>" + esc(pub.status || "unknown") +
+              (pub.remote_url ? ' — <a class="cosmos-link" href="' + attr(pub.remote_url) + '" target="_blank" rel="noopener">view</a>' : "") +
+              (pub.scheduled_for ? " · scheduled " + esc(C.formatWhen(pub.scheduled_for)) : "") + "</li>";
+          }).join("") + "</ul></div>"
+        : "";
+      var duplicates = data.duplicates || [];
+      var duplicateBlock = duplicates.length
+        ? '<p class="cosmos-modal-note"><b>Possible duplicates:</b> ' + duplicates.map(function (item) {
+            return esc(item.title || item.id);
           }).join(" · ") + "</p>"
-        : "");
-    openModal("Topic — " + (topic.title || topicId), body, "Close", null);
+        : "";
+      var body = '<div class="cosmos-kv-grid">' + rows.join("") + "</div>" +
+        scriptBlock + studioBlock + productionBlock + publicationBlock + duplicateBlock +
+        (full.notes ? '<p class="cosmos-modal-note"><b>Provenance:</b> ' + esc(full.notes) + "</p>" : "") +
+        (full.competitor_coverage && full.competitor_coverage.length
+          ? '<p class="cosmos-modal-note"><b>Competitor coverage:</b> ' + full.competitor_coverage.map(function (c) {
+              return esc(c.competitor + (c.basis ? " (" + c.basis + ")" : ""));
+            }).join(" · ") + "</p>"
+          : "");
+      openModal("Topic — " + (full.title || topicId), body, "Close", null);
+    }).catch(function (err) {
+      openModal("Topic — " + (topic.title || topicId),
+        '<div class="cosmos-error">' + esc(err.message || String(err)) + "</div>", "Close", null);
+    });
   }
 
   function openAddTopicModal() {
@@ -738,8 +825,8 @@
         priority: read("topic_priority") || "P2"
       };
       var channel = S.state.config.activeYoutubeChannelId;
-      var query = channel ? "?channel_id=" + encodeURIComponent(channel) : "";
-      return api("/api/studio/youtube/topics" + query, { method: "POST", body: payload }).then(function () {
+      if (channel) payload.channel_id = channel;
+      return api("/api/cosmos/backlog/youtube", { method: "POST", body: payload }).then(function () {
         toast("Topic added.");
         S.state.notice = { tone: "ok", title: "Topic added", body: "It entered the backlog as an idea." };
         return reloadCurrentAgent();
@@ -782,6 +869,22 @@
     ].join("\n");
   }
 
+  // Profile emblems: one per COSMOS agent + GENESIS, sliced from the owner's
+  // six-panel emblems artwork into img/cosmos/<id>.png. Falls back to the
+  // original letter mark for any unknown id.
+  var EMBLEM_IDS = ["andromeda", "polaris", "pleiades", "quasar", "helios", "genesis"];
+  function emblemSrc(id) {
+    var n = C.normalizeAgent(id);
+    return EMBLEM_IDS.indexOf(n) >= 0 ? "img/cosmos/" + n + ".png" : "";
+  }
+  function emblemMark(id, fallback, cls) {
+    var src = emblemSrc(id);
+    if (!src) return '<span class="cosmos-agent-mark ' + attr(cls || "") + '">' + esc(fallback || "?") + "</span>";
+    return '<span class="cosmos-avatar ' + attr(cls || "") + '">' +
+      '<img src="' + attr(src) + '" alt="' + attr(fallback || id) + ' emblem" loading="lazy" />' +
+      '<span class="cosmos-avatar-fallback">' + esc(fallback || "?") + "</span></span>";
+  }
+
   function agentHeader(agent) {
     var counts = (C.agentState(S.state, agent.id).recommendationCounts) || {};
     var name = agent.name || C.normalizeAgent(agent.id).toUpperCase();
@@ -791,7 +894,7 @@
     return [
       '<header class="cosmos-agent-head">',
       '  <div class="cosmos-agent-identity">',
-      '    <span class="cosmos-agent-mark is-' + attr(agent.accent || "cyan") + '">' + esc(name.charAt(0)) + "</span>",
+      '    ' + emblemMark(agent.id, name.charAt(0), "is-" + (agent.accent || "cyan")),
       "    <div>",
       '      <div class="cosmos-agent-name">' + esc(name) + ' <span>' + esc(agent.role || "Intelligence agent") + "</span></div>",
       '      <p class="cosmos-agent-desc">' + esc(agent.description || "") + "</p>",
@@ -829,7 +932,7 @@
         var local = C.agentState(S.state, id);
         var pending = local.recommendationCounts && local.recommendationCounts.proposed;
         return '<button type="button" role="tab" aria-selected="' + (active ? "true" : "false") + '" class="cosmos-agent-tab' + (active ? " is-active" : "") + '" data-cosmos-agent="' + attr(id) + '">' +
-          '<span class="cosmos-agent-tab-mark is-' + attr(agent.accent || "cyan") + '">' + esc(String(agent.name || id).charAt(0)) + "</span>" +
+          emblemMark(id, String(agent.name || id).charAt(0), "is-" + (agent.accent || "cyan")) +
           '<span class="cosmos-agent-tab-copy"><b>' + esc(agent.name || id.toUpperCase()) + "</b><em>" + esc(agent.role || "") + "</em></span>" +
           (pending ? '<span class="cosmos-agent-tab-count">' + esc(pending) + "</span>" : "") +
           "</button>";
@@ -841,7 +944,7 @@
       var genesisBusy = ((genesisCounts.renders || {}).active || 0) + ((genesisCounts.publications || {}).scheduled || 0);
       agentTabs.push('<button type="button" role="tab" aria-selected="' + (genesisActive ? "true" : "false") +
         '" class="cosmos-agent-tab cosmos-tab-genesis' + (genesisActive ? " is-active" : "") + '" data-cosmos-agent="' + attr(C.GENESIS_ID) + '">' +
-        '<span class="cosmos-agent-tab-mark is-genesis"><i data-lucide="orbit"></i></span>' +
+        emblemMark(C.GENESIS_ID, "G", "is-genesis") +
         '<span class="cosmos-agent-tab-copy"><b>GENESIS</b><em>Production · Render · Publish</em></span>' +
         (genesisBusy ? '<span class="cosmos-agent-tab-count">' + esc(genesisBusy) + "</span>" : "") +
         "</button>");
@@ -1163,9 +1266,10 @@
   }
 
   function changeTopicStatus(topicId, status) {
-    var payload = { status: status };
-    api("/api/studio/youtube/topics/" + encodeURIComponent(topicId) + "/status", {
-      method: "POST", body: payload
+    var channel = S.state.config.activeYoutubeChannelId;
+    var query = channel ? "?channel_id=" + encodeURIComponent(channel) : "";
+    api("/api/cosmos/backlog/youtube/" + encodeURIComponent(topicId) + "/status" + query, {
+      method: "POST", body: { status: status }
     }).then(function () {
       toast("Topic status updated.");
       return reloadCurrentAgent();

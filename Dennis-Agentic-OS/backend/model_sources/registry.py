@@ -48,22 +48,10 @@ def clear_cache(agent_id=None):
 
 
 def list_models(agent_id, ctx, cwd=None, refresh=False):
-    # Instant offline return of native models to prevent UI hanging
-    # Agent-specific native model mappings with zero startup lag
-    mapping = {
-        "opencode": [{"id": "default", "name": "OpenCode Native Default", "provider": "opencode"}],
-        "antigravity": [{"id": "gemini-1.5-pro", "name": "Gemini 1.5 Pro (Google Native)", "provider": "google"}],
-        "codex-cli": [{"id": "gpt-4", "name": "GPT-4 (OpenAI Native)", "provider": "openai"}],
-        "claude-code": [{"id": "claude-3-5-sonnet", "name": "Claude 3.5 Sonnet (Anthropic Native)", "provider": "anthropic"}],
-        "deepseek-harness": [{"id": "deepseek-chat", "name": "DeepSeek Chat (DeepSeek Native)", "provider": "deepseek"}],
-        "hermes-cli": [{"id": "hermes-3", "name": "Hermes 3 (Nous Native)", "provider": "hermes"}]
-    }
-    return mapping.get(str(agent_id), [{"id": "default", "name": "Default Native Model", "provider": "native"}])
-    # Original logic bypassed:
-    """Return a fresh (or cached) model list for ``agent_id``.
+    """Return a fresh (or cached) model list for an agent.
 
-    Raises :class:`ModelListError` when the CLI is unsupported or parsing
-    fails. Never returns a fabricated list.
+    Raises ModelListError when the CLI is unsupported or parsing fails.
+    Never returns a fabricated model list.
     """
     source = get_source(agent_id)
     if source is None:
@@ -77,10 +65,11 @@ def list_models(agent_id, ctx, cwd=None, refresh=False):
             return entry["models"]
 
     models = source.list_models(ctx, cwd=cwd)
+
     with _lock:
         _cache[agent_id] = {"ts": now, "models": models}
-    return models
 
+    return models
 
 def validate_model(agent_id, model_id, ctx, cwd=None, refresh=False):
     models = list_models(agent_id, ctx, cwd=cwd, refresh=refresh)

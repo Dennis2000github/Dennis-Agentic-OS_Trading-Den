@@ -17,8 +17,12 @@ from . import cosmos_registry
 from . import cosmos_store
 from . import genesis
 from . import genesis_api
+from . import genesis_store
 from . import studio_llm
+from . import studio_workspaces
 from . import youtube_channels
+from . import youtube_common as youtube_common
+from . import youtube_scripts
 from . import youtube_topics
 
 PREFIX = "/api/cosmos"
@@ -61,7 +65,7 @@ def handle(method, path, query=None, body=None):
         if method == "PATCH":
             return _patch(parts, body or {})
         if method == "DELETE":
-            return _delete(parts)
+            return _delete(parts, query or {})
         return 405, {"error": "Method not allowed.", "code": "method_not_allowed"}
     except Exception as exc:
         return _fail(exc)
@@ -106,6 +110,156 @@ def _youtube_summary():
         }
     except Exception as exc:
         return {"channel_id": None, "counts": {}, "total": 0, "topics": [], "error": str(exc)}
+
+
+def _channel_id(query=None, body=None):
+    """Resolve the channel for a COSMOS backlog call.
+
+    Explicit ids are validated against the channel store; otherwise the
+    active channel is used. A missing channel is a real configuration gap,
+    not an empty backlog.
+    """
+    explicit = body.get("channel_id") if isinstance(body, dict) else None
+    explicit = explicit or _query(query or {}, "channel_id")
+    if explicit:
+        try:
+            youtube_channels.get_channel(explicit)
+        except Exception:
+            raise common.CosmosError("channel_not_found", "YouTube channel not found.", 404)
+        return explicit
+    try:
+        return youtube_channels.active_channel()["id"]
+    except Exception:
+        raise common.CosmosError(
+            "channel_required", "No active YouTube channel is configured.", 400
+        )
+
+
+def _script_summary(channel_id, topic):
+    script_id = topic.get("script_id")
+    if not script_id:
+        return None
+    try:
+        script = youtube_scripts.get_script(channel_id, script_id)
+    except Exception:
+        return {"id": script_id, "missing": True, "title": None, "status": None, "sections": 0}
+    return {
+        "id": script.get("id"),
+        "title": script.get("title"),
+        "status": script.get("status"),
+        "sections": len(script.get("sections") or []),
+        "word_count": script.get("word_count"),
+        "missing": False,
+    }
+
+
+def _topic_row(channel_id, topic, active_index=None):
+    """Add the cross-store context the COSMOS backlog UI needs.
+
+    The topic record stays authoritative; script, Studio project and GENESIS
+    production data are read from their own stores and reported honestly
+    (``None``/``missing`` when the linked record no longer exists).
+    """
+    row = dict(topic)
+    script = _script_summary(channel_id, topic)
+    row["script"] = script
+    row["script_title"] = (script or {}).get("title")
+    row["script_status"] = (script or {}).get("status")
+    row["script_sections"] = (script or {}).get("sections") or 0
+
+    studio_project = None
+    if topic.get("project_id"):
+        try:
+            studio_project = studio_workspaces.get_project("youtube", topic["project_id"])
+        except Exception:
+            studio_project = None
+    row["studio_project"] = (
+        {
+            "id": studio_project.get("id"),
+            "title": studio_project.get("title"),
+            "status": studio_project.get("status"),
+            "stage": studio_project.get("stage"),
+        }
+        if studio_project
+        else None
+    )
+
+    active = (active_index or {}).get(topic.get("id"))
+    row["genesis_project_id"] = active.get("id") if active else None
+    row["genesis_project_status"] = active.get("status") if active else None
+    row["has_active_production"] = bool(active)
+    return row
+
+
+def _youtube_backlog(query):
+    channel_id = _channel_id(query=query)
+    listed = youtube_topics.list_topics(
+        channel_id,
+        status=_query(query, "status"),
+        pillar=_query(query, "pillar"),
+        priority=_query(query, "priority"),
+        min_score=_query(query, "min_score"),
+        query=_query(query, "q"),
+    )
+    active = genesis.active_source_index("youtube_topic")
+    topics = [_topic_row(channel_id, topic, active) for topic in listed.get("topics") or []]
+    try:
+        requested = int(_query(query, "limit", 200) or 200)
+    except (TypeError, ValueError):
+        requested = 200
+    requested = max(1, min(requested, 500))
+    channel = None
+    try:
+        channel = youtube_channels.get_channel(channel_id)
+    except Exception:
+        channel = None
+    return {
+        "channel_id": channel_id,
+        "channel_name": (channel or {}).get("name"),
+        "topics": topics[:requested],
+        "total": listed.get("total", len(topics)),
+        "counts": listed.get("counts") or {},
+        "statuses": listed.get("statuses") or list(youtube_topics.STATUSES),
+        "backlog_target": listed.get("backlog_target", 50),
+    }
+
+
+def _youtube_topic_detail(topic_id, query):
+    channel_id = _channel_id(query=query)
+    topic = youtube_topics.get_topic(channel_id, topic_id)
+    script = None
+    if topic.get("script_id"):
+        try:
+            script = youtube_scripts.get_script(channel_id, topic["script_id"])
+        except Exception:
+            script = None
+    studio_project = None
+    if topic.get("project_id"):
+        try:
+            studio_project = studio_workspaces.get_project("youtube", topic["project_id"])
+        except Exception:
+            studio_project = None
+    projects = genesis.source_projects("youtube_topic", topic["id"])
+    publications = []
+    for project in projects:
+        try:
+            publications.extend(genesis_store.list_publications(project_id=project["id"], limit=20))
+        except Exception:
+            continue
+    active = genesis.active_source_index("youtube_topic").get(topic["id"])
+    return {
+        "topic": _topic_row(channel_id, topic, {topic["id"]: active} if active else {}),
+        "script": script,
+        "studio_project": studio_project,
+        "genesis_projects": projects,
+        "publications": publications,
+        "duplicates": youtube_topics.find_duplicates(channel_id, topic.get("title"), exclude_id=topic["id"]),
+        "queue_eligible": (
+            topic.get("status") == genesis.YOUTUBE_ELIGIBLE_STATUS
+            and bool(topic.get("script_id"))
+            and not active
+        ),
+    }
 
 
 def overview():
@@ -216,8 +370,11 @@ def _get(parts, query):
                 )
             if len(parts) == 3:
                 return 200, {"product": ads_backlog.get_product(parts[2])}
-        if parts[1] == "youtube" and len(parts) == 2:
-            return 200, _youtube_summary()
+        if parts[1] == "youtube":
+            if len(parts) == 2:
+                return 200, _youtube_backlog(query)
+            if len(parts) == 3:
+                return 200, _youtube_topic_detail(parts[2], query)
     return 404, {"error": "COSMOS endpoint not found.", "code": "not_found"}
 
 
@@ -271,6 +428,19 @@ def _post(parts, body, query):
             product = ads_backlog.set_status(parts[2], body.get("status"), note=body.get("note"))
             return 200, {"product": product}
 
+    if parts and parts[0] == "backlog" and len(parts) >= 2 and parts[1] == "youtube":
+        channel_id = _channel_id(query=query, body=body)
+        if len(parts) == 2:
+            topic = youtube_topics.create_topic(
+                channel_id, body, force=youtube_common.clean_bool(body.get("force"))
+            )
+            return 200, {"topic": _topic_row(channel_id, topic)}
+        if len(parts) == 4 and parts[3] == "status":
+            topic = youtube_topics.set_status(
+                channel_id, parts[2], body.get("status"), body.get("reason") or False
+            )
+            return 200, {"topic": _topic_row(channel_id, topic)}
+
     return 404, {"error": "COSMOS endpoint not found.", "code": "not_found"}
 
 
@@ -284,10 +454,17 @@ def _patch(parts, body):
     if len(parts) == 3 and parts[0] == "backlog" and parts[1] == "ads":
         product = ads_backlog.update_product(parts[2], body)
         return 200, {"product": product}
+    if len(parts) == 3 and parts[0] == "backlog" and parts[1] == "youtube":
+        channel_id = _channel_id(body=body)
+        topic = youtube_topics.update_topic(channel_id, parts[2], body)
+        return 200, {"topic": _topic_row(channel_id, topic)}
     return 404, {"error": "COSMOS endpoint not found.", "code": "not_found"}
 
 
-def _delete(parts):
+def _delete(parts, query=None):
     if len(parts) == 3 and parts[0] == "backlog" and parts[1] == "ads":
         return 200, ads_backlog.delete_product(parts[2])
+    if len(parts) == 3 and parts[0] == "backlog" and parts[1] == "youtube":
+        channel_id = _channel_id(query=query)
+        return 200, youtube_topics.delete_topic(channel_id, parts[2])
     return 404, {"error": "COSMOS endpoint not found.", "code": "not_found"}

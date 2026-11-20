@@ -24,7 +24,7 @@ CREATE_DIR = os.path.join(common.COSMOS_DIR, "..", "studio", "ads")
 BRIEFS_FILE = os.path.join(os.path.normpath(CREATE_DIR), "create-briefs.json")
 MAX_BRIEFS = 400
 
-STATUSES = ("draft", "handed_off", "archived")
+STATUSES = ("draft", "handed_off", "in_production", "published", "archived")
 
 
 class CreateError(common.CosmosError):
@@ -315,6 +315,26 @@ def delete_brief(brief_id):
         brief["updated_iso"] = brief["deleted_iso"]
         _save(items)
     return {"deleted": brief["id"]}
+
+
+def set_status(brief_id, status):
+    """Advance a brief's lifecycle (used by GENESIS production intake)."""
+    wanted = str(status or "").strip().lower()
+    if wanted not in STATUSES:
+        raise CreateError("invalid_status", "Unknown brief status.")
+    with common.acquire():
+        items = _load()
+        brief = next(
+            (item for item in items if item.get("id") == str(brief_id or "") and not item.get("deleted_at")),
+            None,
+        )
+        if not brief:
+            raise CreateError("brief_not_found", "Creative brief not found.", 404)
+        brief["status"] = wanted
+        brief["updated_at"] = common.now()
+        brief["updated_iso"] = common.iso()
+        _save(items)
+        return {"brief": copy.deepcopy(brief)}
 
 
 def handoff(brief_id):

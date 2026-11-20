@@ -1,6 +1,6 @@
 # GENESIS — COSMOS Production Dashboard
 
-**Status: implemented and verified — 2026-11-19 (feature branch `feature/cosmos-genesis`)**
+**Status: implemented and verified — 2026-11-20 (feature branch `feature/cosmos-genesis`)**
 
 GENESIS is the system-level production workflow of the DENNIS Agent OS COSMOS
 layer. It is **not** a sixth intelligence agent: the five intelligence agents
@@ -52,10 +52,24 @@ queue (eligible backlog records)
 |---|---|---|
 | Ads Product Backlog (`ads_backlog.py`) | `approved`, `ready_for_creation` | product → `in_production` |
 | YouTube Topic Backlog (`youtube_topics.py`) | `scripted` **with** a linked script | topic → `in_production` |
+| Ads Create brief (`studio_create.py`) | `handed_off` **with** an approved Ads Studio project | brief → `in_production`, project → `in_progress`/`assets` |
+| Ads Studio project (`studio_workspaces.py`) | `approved` | project → `in_progress`/`assets` |
+| YouTube Studio project (`studio_workspaces.py`) | `approved` | project → `in_progress`/`assets` |
 
 * Archived/deleted records and rejected topics can never enter production
   (`409 not_eligible`).
 * One active production project per source record (`409 duplicate_project`).
+  The check follows cross-store identity too: a handed-off brief and its
+  Ads Studio project (or a topic and its Studio project) can never enter
+  production twice — the second intake attempt reports which project
+  already covers it.
+* The queue never offers a source that already has an active (non-terminal)
+  production project, including via related brief/project/topic identity;
+  `overview_counts.ready_for_production` counts the same filtered queue so
+  the dashboard number always matches what the owner can actually start.
+* Queue rows carry `origin` / `destination` context (e.g. "Ads Studio
+  Create brief" → "Ads Studio project · …", "Topic Backlog" → "YouTube ·
+  <channel>"), rendered in the queue tab.
 * Publishing advances the source record to `published` **only** after the
   destination API confirms the upload.
 
@@ -84,7 +98,12 @@ Project highlights (full schema in `backend/genesis_store.py` /
   reference), optional `generation` spec, status.
 * `references` — model/product/props media id lists (all validated against
   the media library).
-* `audio` — voiceover / music / captions media ids + inline SRT.
+* `audio` — voiceover / music / captions media ids + inline SRT. Captions
+  burn from `captions_media_id` too: the referenced media file is read as
+  UTF-8 SRT (`text/plain`, `text/srt` or `application/x-subrip` are allowed
+  media types and stored with an `.srt` extension). A missing, oversized or
+  non-SRT captions file is a real render error — never a silently
+  caption-less video.
 * `settings` — aspect ratio, width/height, fps, export format, target
   platforms.
 * `publishing_metadata` — title, description, tags, disclosure, sponsored
@@ -106,7 +125,7 @@ subtree to `backend/genesis_api.py` (pure `(method, path, query, body) →
 | Method + path | Purpose |
 |---|---|
 | `GET /api/cosmos/genesis/overview` | real counts + recent projects/renders/publications + engine + destinations |
-| `GET /api/cosmos/genesis/queue?division=&q=` | eligible Ads products + scripted YouTube topics |
+| `GET /api/cosmos/genesis/queue?division=&q=` | eligible intake sources (products, briefs, Studio projects, scripted topics), active sources filtered out |
 | `GET/POST /api/cosmos/genesis/projects` | list / intake |
 | `GET/PATCH/DELETE /api/cosmos/genesis/projects/{id}` | detail / edit / soft delete |
 | `POST …/projects/{id}/render` | start a real render |
@@ -169,9 +188,12 @@ and records every check:
 render exists · output in media library · file exists · video stream ·
 resolution vs export settings · aspect ratio · audio stream · audio
 integrity · frame rate vs settings · duration · missing scene assets ·
-captions (burned/supplied) · per-platform requirements (e.g. Shorts vertical
-+ ≤60 s, Meta duration) · sponsored/affiliate disclosure · destination
-metadata (title required, description warn).
+captions (burned/supplied) · **caption timing** (`caption_sync`: cue
+timings parsed from the real SRT — inline or attached file — validated
+against the probed output duration; late cues warn, invalid cues fail) ·
+per-platform requirements (e.g. Shorts vertical + ≤60 s, Meta duration) ·
+sponsored/affiliate disclosure · destination metadata (title required,
+description warn).
 
 Verdict: `fail` (blocking) / `warn` / `pass`. Owner approval requires a
 non-fail review; publishing requires approval **and** a review that matches
@@ -219,7 +241,7 @@ still requires the owner's Google Cloud OAuth client + consent
 |---|---|---|
 | Ads Studio "Product Backlog" sidebar entry + panel | COSMOS Ads backlog block (full management) | `#studio/ads/backlog` → `#cosmos/andromeda` |
 | YouTube Studio "Topic Backlog" sidebar entry + panel | COSMOS YouTube backlog block (full management) | `#studio/youtube/backlog`, `…/topics` → `#cosmos/andromeda` |
-| YouTube Studio "Publishing" sidebar entry + panel | GENESIS Publishing Center | `#studio/youtube/publishing`, `…/calendar` → `#cosmos/genesis` |
+| YouTube Studio "Publishing" sidebar entry + panel | GENESIS production dashboard (Publishing tab) | `#studio/youtube/publishing`, `…/calendar` → `#cosmos/genesis` |
 | YouTube Studio "YouTube Intelligence" sidebar entry + panel | QUASAR's YouTube domain (+ research block) | `#studio/youtube/intelligence`, `…/research` → `#cosmos/quasar` |
 
 * `js/studioWorkspaceState.js` no longer lists the removed sections and maps
@@ -234,15 +256,31 @@ still requires the owner's Google Cloud OAuth client + consent
   (`ads_backlog.py`, `/api/cosmos/backlog/ads*`) is untouched and remains
   the single store.
 * **YouTube Studio keeps:** Create · Templates · Projects (+Scripts) ·
-  Analytics · Settings. `youtube_topics.py`, `youtube_research.py`,
-  `youtube_scripts.py`, channels and all their endpoints are untouched —
-  COSMOS now exposes the management UI for them.
+  Analytics · Settings. The registry (`studio_workspaces.YOUTUBE_SECTIONS`)
+  lists exactly those five — `backlog`, `publishing` and `intelligence` are
+  removed, and the Ads `legacy_tabs` no longer contains `backlog`.
+  `youtube_topics.py`, `youtube_research.py`, `youtube_scripts.py`,
+  channels and all their endpoints are untouched — COSMOS now exposes the
+  management UI for them. Stale copy ("publishing arrives in Phase 10") was
+  replaced: `youtube_api.features()` reports publishing as owned by GENESIS
+  and Analytics as the only Phase-10 gap; the Studio settings/analytics
+  panels say the same.
 * **COSMOS backlog management** (in `cosmosDashboard.js`, rendered once per
   active agent view): search, status filters, forward-only status
   transitions, add product (modal), edit product (PATCH), soft delete
   (DELETE), provenance per row; topics: search, filters, status
   transitions (backend rules surface their errors), details modal with
   provenance, script/project/published links, manual topic creation.
+* **COSMOS YouTube backlog API** (2026-11-20): the YouTube backlog UI now
+  runs on COSMOS management endpoints instead of Studio routes —
+  `GET /api/cosmos/backlog/youtube[?status&q&channel_id]` (list with
+  channel + counts), `GET …/{topic_id}` (detail enriched with the linked
+  script, Studio project, GENESIS projects, publications, duplicates and a
+  `queue_eligible` flag), `POST /api/cosmos/backlog/youtube` (create),
+  `POST …/{id}/status`, `PATCH …/{id}`, `DELETE …/{id}`. Topic rows carry
+  cross-store provenance (`script`, `studio_project`,
+  `genesis_project_id`, `has_active_production`) read honestly from their
+  own stores — the topic record stays authoritative.
 * **QUASAR research integration:** QUASAR's YouTube division renders the
   migrated "Research & Evidence" block — saved validations (18/25 rule,
   sources, flags), validation→topic conversion, competitor observations
@@ -251,42 +289,59 @@ still requires the owner's Google Cloud OAuth client + consent
 
 ## 9. Testing
 
-All executed 2026-11-19 on `feature/cosmos-genesis` (Python 3.14.5, Node 24):
+All executed 2026-11-20 on `feature/cosmos-genesis` (Python 3.14.5, Node 24),
+after the management-API / intake-extension / captions work:
 
-* `python3 -m unittest tests.test_genesis` — **24 tests, OK** (run twice,
-  clean bytecode): intake gates, duplicate/eligibility rejections,
-  provenance, real-ffmpeg render (complete + failure paths),
-  renderer-unavailable behaviour, quality review pass/fail + approval
-  blocking, publish approval gates, mocked YouTube upload success with
-  remote id + duplicate rejection, upload failure + explicit retry,
-  scheduled-not-published, honest OAuth status, token secrecy, API surface,
-  cosmos dispatch routing.
-* Affected COSMOS/Studio/YouTube suites: `test_cosmos_api`,
-  `test_cosmos_backlog`, `test_cosmos_config`, `test_cosmos_engine`,
-  `test_cosmos_registry`, `test_cosmos_store`, `test_cosmos_workflows`,
-  `test_ads_backlog`, `test_studio_create`, `test_studio_workspaces`,
-  `test_studio_workspace_routes`, `test_youtube_editorial` — **163 tests,
-  OK**.
-* Full `python3 -m unittest discover -s tests` — 836 tests; failure set
-  diffed against the pristine `HEAD` worktree: **identical pre-existing
-  failures only** (test_upif 21, test_plugins 1, missing
-  `backend.freellmapi` module 5 — unrelated to COSMOS/Studio/GENESIS; 3
-  other base failures were already fixed by the in-tree
-  `model_sources/registry.py` repair).
-* JS: `node tests/cosmosState.test.js` — **15 OK** (GENESIS routing,
-  refresh survival, tones), `node tests/studioWorkspaceState.test.js` —
-  **21 OK** (removed sections + all legacy redirects), `studioState.test.js`
+* Brief suites: `python3 -m unittest tests.test_genesis tests.test_cosmos_api
+  tests.test_cosmos_workflows tests.test_ads_backlog
+  tests.test_studio_workspaces` — **84 tests, OK** (up from 69; 15 new
+  regression tests).
+* New GENESIS coverage in `tests.test_genesis`: handed-off Ads brief intake
+  (and the draft / unapproved-project rejections), approved Ads + YouTube
+  Studio project intake, unapproved Studio project rejection, brief↔project
+  duplicate blocking, queue inclusion of briefs/projects with
+  origin/destination, queue hiding of active sources, cross-store
+  `active_source_index` / `source_projects`, captions media-file reading
+  (`.srt` MIME), missing/invalid captions errors, `caption_sync` timing
+  checks, and a real-ffmpeg render with burned captions whose QA emits a
+  passing `caption_sync` check.
+* New COSMOS coverage in `tests.test_cosmos_api`: the YouTube backlog is
+  now a management API (create / status / PATCH / DELETE through COSMOS)
+  and the detail route enriches topics with script, Studio project and
+  GENESIS links. `tests.test_studio_workspaces` asserts the retained
+  five-section registry and the removed Ads `backlog` legacy tab.
+* Focused Studio/YouTube suites: `test_studio_create`, `test_studio_routes`,
+  `test_studio_free`, `test_studio_contracts`,
+  `test_studio_workspace_routes`, `test_youtube_editorial`, `test_backend`
+  — **249 tests, OK** (covers the additive captions MIME support in
+  `studio_media` / `studio_contracts` and the `studio_free` kind inference).
+* Full `python3 -m unittest discover -s tests` — 852 tests; failure set
+  diffed against a pristine `HEAD` worktree: the remaining failures
+  (`test_upif`, `test_plugins`) are **identical pre-existing failures**, and
+  `test_skill_builder_ui` fails only because of the owner's separate
+  uncommitted model-groups edit to `index.html` (`skill-builder.js?v=`
+  bump) — unrelated to COSMOS/GENESIS.
+* JS: `node tests/cosmosState.test.js` — **15 OK**, `node
+  tests/studioWorkspaceState.test.js` — **21 OK**, `studioState.test.js`
   19 OK, `panelState.test.js` 23 OK, `kanbanState.test.js` 9 OK,
   `agentDashboards.test.js` 8 OK.
+* E2E: `python3 tests/e2e_youtube_phase2.py --serve` — **ALL CHECKS PASSED**
+  (updated to the consolidated UI: 5-section sidebar, removed panels absent
+  from the DOM, `#studio/youtube/backlog|publishing|intelligence` redirect
+  to `#cosmos/andromeda|genesis|quasar`, round-trip back into Studio,
+  analytics/templates placeholders, no JS exceptions).
+* E2E: `python3 tests/e2e_cosmos_genesis.py --serve` — **ALL CHECKS PASSED**
+  (new: COSMOS rail = 5 agents + GENESIS, agent dashboard renders, QUASAR
+  YouTube backlog renders from `/api/cosmos/backlog/youtube` with the
+  management toolbar, GENESIS loads through the rail and shows the queue
+  tab with the intake copy, no JS exceptions).
 * E2E: `python3 tests/e2e_ads_studio.py --serve` — **ALL ADS STUDIO E2E
-  CHECKS PASSED** (five-step workflow intact, no JS exceptions).
-* Browser verification (Playwright/Chrome): GENESIS tabs render, rail shows
-  5 agents + GENESIS, redirects work (`#studio/ads/backlog` →
-  `#cosmos/andromeda`, `#studio/youtube/publishing` → `#cosmos/genesis`,
-  `#studio/youtube/intelligence` → `#cosmos/quasar`), removed sidebar
-  entries absent, kept sections present, **zero console errors**, live
-  intake → render (real ffmpeg) → QA pass → approval loop exercised on the
-  running server.
+  CHECKS PASSED** (2026-11-19 run; five-step workflow intact).
+* Screenshots (2026-11-20, `docs/screenshots/`): `cosmos-agent-dashboard.png`,
+  `cosmos-youtube-backlog.png`, `genesis-queue.png` plus the earlier
+  `genesis-overview.png`, `genesis-project-workspace.png`,
+  `genesis-quality-approval.png`, `genesis-publishing.png`,
+  `cosmos-andromeda-backlog.png`, `cosmos-quasar-research.png`.
 
 ## 10. Known limitations
 
@@ -298,6 +353,10 @@ All executed 2026-11-19 on `feature/cosmos-genesis` (Python 3.14.5, Node 24):
   this (`configured` vs `authorized`).
 * **Other destinations** (TikTok, Instagram, Facebook) have no adapters
   yet; the UI shows them as unavailable.
+* The captions media picker filters the `file` kind; there is no dedicated
+  captions upload widget in GENESIS itself — SRT files reach the library
+  through the existing Studio upload/import paths (now accepted MIME types)
+  and are attached per project.
 * FFmpeg assembly re-encodes to the project's export settings; it does not
   yet support transition effects, text overlays or multi-track mixing
   beyond voiceover+music.

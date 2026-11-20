@@ -1,0 +1,179 @@
+{
+  "objectClass": {
+    "primaryType": "spiral galaxy emblem — volumetric astronomical scene (particle-dominant)",
+    "primaryDomain": "object",
+    "formLanguage": ["organic", "amorphous (particle-dominant)", "sculptural"],
+    "structureKind": ["layered shell (disc plane)", "repeated modules (arm particles, star sprites)", "single body (bulge)"],
+    "motionPotential": ["whole-object transform (slow rigid disc rotation)", "effect-emitter (subtle core pulse / twinkle)"],
+    "materialFamilies": ["emissive particulate medium", "glass-like glow sprites", "absorptive dust streaks"],
+    "notes": "No character anatomy. Identity lives in the two-arm spiral winding, the warm core against the cool blue/violet disc, and the traced arm hotspots — all emissive; no matte/metallic surfaces."
+  },
+  "scores": {
+    "silhouetteComplexity": 2,
+    "componentCount": 2,
+    "hierarchyDepth": 2,
+    "repetitionDensity": 3,
+    "materialLayerCount": 2,
+    "localDetailDensity": 2,
+    "occlusionRisk": 1,
+    "actionReadinessNeed": 0
+  },
+  "estimatedCounts": {
+    "macroComponents": 3,
+    "mesoComponents": 6,
+    "microFeatureGroups": 5,
+    "materialLayers": 3,
+    "repetitionSystems": 2
+  },
+  "reasoning": [
+    "Silhouette irregular (spiral arms extend past the disc) but bounding volume is a single tilted disc — 2/3.",
+    "Three macro assemblies (disc/spiral system, bulge+core, star-field backdrop); arms and sprite layers are meso; hotspots/dust/diffraction crosses are micro.",
+    "Repetition density is high by construction: hundreds of additive point sprites form the arms and backdrop — 3/3.",
+    "Materials are emission-dominated (arms, core, stars) plus dark absorptive dust streaks; no PBR dielectric/metal surface.",
+    "Occlusion limited to the disc's far side; single-view ambiguity resolved by deterministic seeding and documented as stylization.",
+    "Avatar use: static framing, slow rigid rotation only — no sockets, articulation or destruction seams."
+  ],
+  "specDepthDecision": {
+    "requiredDepth": "moderate",
+    "minimumComponentLevels": ["macro", "meso", "micro"],
+    "needsRepetitionSystems": true,
+    "needsMaterialLocalOverrides": true,
+    "needsMultipleReviewViews": true,
+    "needsActionReadyHierarchy": false,
+    "rationale": "Particle repetition systems and per-region emissive overrides ARE the identity; the avatar is a static camera subject, so action-rigging depth is intentionally shallow (root group pivot only)."
+  },
+  "unknowns": [],
+  "unknownsNote": "All single-view ambiguities were resolved by documented deterministic decisions recorded in spec.assumptions (far-side arm wrap = same winding; dust topology = seeded tangent streaks; star depth order = seeded size/brightness heuristic).",
+  "detailInventory": [
+    {
+      "id": "two-arm-chirality",
+      "kind": "contour",
+      "zone": "disc",
+      "observation": "Two dominant arms trail counter-clockwise outward from a short bar; ~1.5 visible windings each",
+      "mapsTo": {"ref": "two-arm-chirality"}
+    },
+    {
+      "id": "core-gradient",
+      "kind": "emissive",
+      "zone": "bulge",
+      "observation": "Core gradient #fff7d9 → #ffc46b → #ff8a3c center→rim, cross-shaped diffraction bloom",
+      "mapsTo": {"ref": "core-gradient"}
+    },
+    {
+      "id": "arm-hue-ramp",
+      "kind": "emissive",
+      "zone": "disc",
+      "observation": "Arms ramp cyan #7fd4ff (inner) → blue #4f7dff → violet #9b5cff (outer)",
+      "mapsTo": {"ref": "arm-hue-ramp"}
+    },
+    {
+      "id": "hotspot-tracing",
+      "kind": "emissive",
+      "zone": "disc",
+      "observation": "Bright white-cyan knots traced along both arms, denser at mid-radius",
+      "mapsTo": {"ref": "hotspot-tracing"}
+    },
+    {
+      "id": "diffraction-crosses",
+      "kind": "emissive",
+      "zone": "backdrop",
+      "observation": "Foreground stars carry 4-point diffraction crosses; backdrop stars are plain points",
+      "mapsTo": {"ref": "diffraction-crosses"}
+    },
+    {
+      "id": "inner-edge-dust",
+      "kind": "decal",
+      "zone": "disc",
+      "observation": "Dark #101226 filaments ride the inner edges of both arms, semi-opaque",
+      "mapsTo": {"ref": "inner-edge-dust"}
+    }
+  ],
+  "qualityContract": {
+    "qualityBar": "moderate",
+    "definitionOfDone": [
+      "At dashboard avatar size (30–96 px) and at review size (512 px), the model reads as the reference: a two-arm spiral galaxy with a warm golden core inside a cool blue→violet disc on near-black space.",
+      "Spiral chirality matches the reference (arms trail counter-clockwise outward); arm count is two dominant plus faint outer fragments.",
+      "Core-to-arm contrast reads warm-vs-cool at a glance; the arm hue ramp runs cyan (inner) → violet (outer).",
+      "All placement noise is seeded; the model renders identically across reloads.",
+      "The avatar renders at ≤6k triangles plus point sprites and holds ≥30 fps in the shared avatar runtime."
+    ],
+    "minimumSpecDepth": {
+      "macroComponents": 3,
+      "mesoComponents": 4,
+      "microFeatureGroups": 4,
+      "materialLayers": 3,
+      "repetitionSystems": 2,
+      "reviewViewpoints": 3
+    },
+    "featureGroups": [
+      {
+        "id": "spiral-structure",
+        "name": "Two-arm logarithmic spiral with correct chirality",
+        "required": true,
+        "qualityCriteria": [
+          "Arms originate at the bulge ends of a short bar and wind outward counter-clockwise, ~1.5 visible windings.",
+          "Arm width widens and brightness falls with radius; gaps between arms expose dark space.",
+          "Faint outer arm fragments extend past the dominant pair without forming a ring."
+        ],
+        "evidenceRefs": ["references/andromeda-admission.png#full-frame"],
+        "failureModes": [
+          "arms wind clockwise (chirality flip)",
+          "arms read as concentric rings instead of a spiral",
+          "a third dominant arm appears"
+        ]
+      },
+      {
+        "id": "core-contrast",
+        "name": "Warm bulge/core against cool disc",
+        "required": true,
+        "qualityCriteria": [
+          "Core gradient runs #fff7d9 → #ffc46b → #ff8a3c center→rim with a soft additive bloom and a subtle 4-point diffraction cross.",
+          "Core diameter ≈ 0.18–0.24 of disc diameter; bloom never washes out the inner arm region."
+        ],
+        "evidenceRefs": ["references/andromeda-admission.png#center-crop"],
+        "failureModes": [
+          "core reads white/blue (loses warm-vs-cool identity)",
+          "core bloom covers > 0.35 of the disc",
+          "core missing entirely"
+        ]
+      },
+      {
+        "id": "arm-hue-and-hotspots",
+        "name": "Arm hue ramp and traced hotspots",
+        "required": true,
+        "qualityCriteria": [
+          "Arm particles ramp cyan #7fd4ff (inner) → blue #4f7dff → violet #9b5cff (outer) as ordered stops, not a single flat blue.",
+          "White-cyan hotspot knots trace both arms, denser at mid-radius, individually resolvable at 512 px review size."
+        ],
+        "evidenceRefs": ["references/andromeda-admission.png#arm-regions"],
+        "failureModes": [
+          "single flat arm color (ramp missing)",
+          "hotspots scattered uniformly instead of tracing arms"
+        ]
+      },
+      {
+        "id": "star-field-and-dust",
+        "name": "Star field backdrop and dark dust filaments",
+        "required": true,
+        "qualityCriteria": [
+          "Backdrop: scattered white-blue points (a few with 4-point diffraction crosses) over #050510–#0a0a18 space with slight vignette.",
+          "Dark dust streaks ride the inner edges of the arms, semi-opaque #101226, never covering arm glow entirely."
+        ],
+        "evidenceRefs": ["references/andromeda-admission.png#corners-and-arm-edges"],
+        "failureModes": [
+          "flat black background with no star field",
+          "dust lanes read as grey smears across the whole disc"
+        ]
+      }
+    ],
+    "visualDeltaChecks": [
+      "Silhouette IoU of the luminous envelope vs the reference ≥ 0.55 at review size (emissive scenes have soft envelopes; this is not a hard-object gate).",
+      "Core region hue stays warm (R channel > B channel in the core crop).",
+      "Arm region hue stays cool (B ≥ R in the arm crop)."
+    ],
+    "antiShallowSpecRules": [
+      "No single-sprite 'galaxy texture' planes — the spiral must be constructed from placed particles.",
+      "No unseeded Math.random anywhere; every stochastic placement records its seed."
+    ]
+  }
+}

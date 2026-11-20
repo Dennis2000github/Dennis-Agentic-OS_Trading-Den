@@ -50,8 +50,8 @@
     modelsFor: null,
     modelQuery: "",
     providerId: null,
-    providerLocked: false,
     providers: [],
+    expandedProviders: {},
     providerSetup: null,
     providerSetupSig: null,
     modelsLoading: false,
@@ -382,7 +382,7 @@
   /* agent + model dropdowns (mirrors the Studio toolbar)                */
   /* ------------------------------------------------------------------ */
   function closeMenus(except) {
-    ["sb-agent-menu", "sb-provider-menu", "sb-model-menu"].forEach(function (id) {
+    ["sb-agent-menu", "sb-model-menu"].forEach(function (id) {
       if (id === except) return;
       var m = $(id);
       if (m) m.classList.add("hidden");
@@ -400,16 +400,31 @@
     var a = state.agents.filter(function (x) { return x.id === state.agentId; })[0];
     if (el) el.textContent = "Agent: " + (a ? a.name : "—");
   }
+  function providerById(id) {
+    return state.providers.filter(function (x) { return x.id === id; })[0] || null;
+  }
+  function providerName(id) {
+    var p = providerById(id);
+    return p ? (p.label || p.id) : (id || "Default");
+  }
+  function defaultProviderId() {
+    var current = state.models.filter(function (m) { return m.id === state.modelId; })[0];
+    if (current && current.provider) return current.provider;
+    var preferred = state.models.filter(function (m) { return m.is_default; })[0];
+    if (preferred && preferred.provider) return preferred.provider;
+    return state.providers.length ? state.providers[0].id : null;
+  }
   function setModelLabel() {
     var el = $("sb-model-label");
     if (!state.modelId) { if (el) el.textContent = "Model: CLI default"; return; }
     var m = state.models.filter(function (x) { return x.id === state.modelId; })[0];
     var name = m ? modelDisplay(m) : state.modelId;
-    if (el) el.textContent = "Model: " + name;
+    var provider = m && m.provider && state.providers.length > 1 ? providerName(m.provider) + " · " : "";
+    if (el) el.textContent = "Model: " + provider + name;
   }
 
-  /* OpenCode names models ``provider/model``; the provider has its own
-   * dropdown, so the model label shows just the model part. */
+  /* OpenCode names models ``provider/model``; the provider is already the
+   * group heading in the model menu, so rows show just the model part. */
   function modelDisplay(m) {
     if (!m) return "";
     var name = m.name || m.id || "";
@@ -418,60 +433,52 @@
     return name;
   }
 
-  function setProviderLabel() {
-    var el = $("sb-provider-label");
-    if (!el) return;
-    if (state.modelsLoading) { el.textContent = "Provider: …"; return; }
-    var p = state.providers.filter(function (x) { return x.id === state.providerId; })[0];
-    if (p) { el.textContent = "Provider: " + (p.label || p.id); return; }
-    var count = state.providers.length;
-    el.textContent = count > 1 ? "Provider: All (" + count + ")" : "Provider: —";
-  }
-
-  /* Provider list comes from the same /models payload as the model list: only
-   * providers the CLI actually reported are shown (never a hardcoded list). */
-  function renderProviders() {
-    var host = $("sb-provider-options");
-    var btn = $("sb-provider-btn");
-    if (btn) btn.disabled = !state.agentId;
-    if (!host) return;
-    renderProviderSetup();
-    if (!state.agentId) {
-      host.innerHTML = '<div class="sb-rail-empty">Select an agent first.</div>';
-      return;
-    }
-    if (state.modelsLoading) {
-      host.innerHTML = '<div class="sb-rail-empty">Loading providers…</div>';
-      return;
-    }
-    if (!state.providers.length) {
-      host.innerHTML = '<div class="sb-rail-empty">This agent did not report any provider. Configure it below, then press Refresh.</div>';
-      return;
-    }
-    var rows = [];
-    if (state.providers.length > 1) {
-      var total = state.providers.reduce(function (n, p) { return n + (p.model_count || 0); }, 0);
-      rows.push(providerRow("All providers", total + (total === 1 ? " model" : " models"),
-        !state.providerId, "__all__", true,
-        "Show models from every provider this agent reports."));
-    }
-    state.providers.forEach(function (p) {
-      var count = p.model_count || 0;
-      rows.push(providerRow(p.label || p.id, count + (count === 1 ? " model" : " models"),
-        state.providerId === p.id, p.id, p.available !== false, ""));
-    });
-    host.innerHTML = rows.join("");
-    icons();
-  }
-
-  function providerRow(label, countText, active, id, available, title) {
-    return '<button type="button" class="ws-menu-item' + (active ? " ws-menu-item-active" : "") +
-      (available ? "" : " ws-menu-item-disabled") + '" data-provider="' + esc(id) + '"' +
-      (available ? "" : ' disabled') + (title ? ' title="' + esc(title) + '"' : "") + '>' +
-      '<span class="ws-agent-dot" style="background:' + (available ? "#f59e0b" : "#ef4444") + '"></span>' +
-      '<span class="flex-1 min-w-0 text-left truncate">' + esc(label) + '</span>' +
-      '<span class="text-[10px] font-mono text-slate-500 shrink-0">' + esc(countText) + '</span>' +
+  function modelRow(m) {
+    var off = m.available === false;
+    var active = m.id === state.modelId;
+    return '<button class="ws-menu-item' + (active ? " ws-menu-item-active" : "") + (off ? " ws-menu-item-disabled" : "") + '"' +
+      ' data-model="' + esc(m.id) + '" data-model-provider="' + esc(m.provider || "") + '"' + (off ? " disabled" : "") + '>' +
+      '<span class="flex-1 min-w-0 text-left truncate">' + esc(modelDisplay(m)) + '</span>' +
+      (m.description && m.description !== m.provider
+        ? '<span class="text-[9.5px] text-slate-500 shrink-0 truncate max-w-[40%]">' + esc(m.description) + '</span>'
+        : '') +
       '</button>';
+  }
+
+  /* The Model menu is the only place a provider is chosen: every provider the
+   * agent reports gets a collapsible group (the default one opens first), and
+   * picking a model inside it selects that provider and model together. */
+  function modelProviderGroups(terms) {
+    var order = [];
+    state.providers.forEach(function (p) { order.push(p.id); });
+    state.models.forEach(function (m) {
+      var id = m.provider || "__default__";
+      if (order.indexOf(id) === -1) order.push(id);
+    });
+    var preferred = defaultProviderId() || "__default__";
+    if (order.indexOf(preferred) > 0) {
+      order.splice(order.indexOf(preferred), 1);
+      order.unshift(preferred);
+    }
+    return order.map(function (id) {
+      var provider = providerById(id);
+      var models = state.models.filter(function (m) {
+        var mid = m.provider || "__default__";
+        if (mid !== id) return false;
+        if (!terms.length) return true;
+        var hay = [m.name || m.id, m.id, m.description || "", m.provider || ""].join(" ").toLowerCase();
+        return terms.every(function (t) { return hay.indexOf(t) !== -1; });
+      });
+      return {
+        id: id,
+        label: id === "__default__" ? "Default" : providerName(id),
+        available: !provider || provider.available !== false,
+        total: state.models.filter(function (m) { return (m.provider || "__default__") === id; }).length,
+        models: models
+      };
+    }).filter(function (group) {
+      return group.models.length || !terms.length;
+    });
   }
 
   function renderProviderSetup() {
@@ -559,36 +566,6 @@
     }).catch(function () { if (stateEl) stateEl.textContent = "Could not check FreeLLMAPI settings."; });
   }
 
-  function resolveProviderId() {
-    var known = function (id) {
-      return state.providers.some(function (p) { return p.id === id; });
-    };
-    // An explicit pick wins, including an explicit "All providers" (null).
-    if (state.providerLocked) {
-      if (!state.providerId) return null;
-      if (known(state.providerId)) return state.providerId;
-    }
-    if (state.providerId && known(state.providerId)) return state.providerId;
-    var current = state.models.filter(function (m) { return m.id === state.modelId; })[0];
-    if (current && current.provider && known(current.provider)) return current.provider;
-    if (state.providers.length === 1) return state.providers[0].id;
-    return null;
-  }
-
-  function selectProvider(id) {
-    if (!state.agentId) return;
-    state.providerId = id || null;
-    state.providerLocked = true;
-    state.modelQuery = "";
-    setProviderLabel();
-    renderProviders();
-    renderModels();
-    // The provider is a filter; the model is the actual change. Open the
-    // filtered model list so the switch is completed in one flow.
-    closeMenus();
-    toggleMenu("sb-model-menu", "sb-model-btn");
-    focusModelSearch();
-  }
   function setModelNote(text) {
     var el = $("sb-model-note");
     if (!el) return;
@@ -618,12 +595,21 @@
     }).join("");
   }
   function renderModels() {
-    renderProviders();
-    setProviderLabel();
+    renderProviderSetup();
     var host = $("sb-model-options");
     var searchWrap = $("sb-model-search-wrap");
     var searchInput = $("sb-model-search");
     if (!host) return;
+    if (!state.agentId) {
+      if (searchWrap) searchWrap.classList.add("hidden");
+      host.innerHTML = '<div class="sb-rail-empty">Select an agent first.</div>';
+      return;
+    }
+    if (state.modelsLoading) {
+      if (searchWrap) searchWrap.classList.add("hidden");
+      host.innerHTML = '<div class="sb-rail-empty">Loading providers and models…</div>';
+      return;
+    }
     if (searchWrap) searchWrap.classList.toggle("hidden", !state.models.length);
     if (searchInput && searchInput.value !== state.modelQuery) searchInput.value = state.modelQuery;
     if (!state.models.length) {
@@ -631,27 +617,33 @@
       return;
     }
     var terms = (state.modelQuery || "").toLowerCase().trim().split(/\s+/).filter(Boolean);
-    var shown = state.models.filter(function (m) {
-      if (state.providerId && m.provider !== state.providerId) return false;
-      if (!terms.length) return true;
-      var hay = [m.name || m.id, m.id, m.description || "", m.provider || ""].join(" ").toLowerCase();
-      return terms.every(function (t) { return hay.indexOf(t) !== -1; });
-    });
-    if (!shown.length) {
+    var groups = modelProviderGroups(terms);
+    if (!groups.length) {
       host.innerHTML = '<div class="sb-rail-empty">No matching model.</div>';
       return;
     }
-    host.innerHTML = shown.map(function (m) {
-      var off = m.available === false;
-      var active = m.id === state.modelId;
-      return '<button class="ws-menu-item' + (active ? " ws-menu-item-active" : "") + (off ? " ws-menu-item-disabled" : "") + '"' +
-        ' data-model="' + esc(m.id) + '"' + (off ? " disabled" : "") + '>' +
-        '<span class="flex-1 min-w-0 text-left truncate">' + esc(modelDisplay(m)) + '</span>' +
-        (m.description && m.description !== m.provider
-          ? '<span class="text-[9.5px] text-slate-500 shrink-0 truncate max-w-[40%]">' + esc(m.description) + '</span>'
-          : '') +
-        '</button>';
+    var preferred = defaultProviderId() || "__default__";
+    host.innerHTML = groups.map(function (group) {
+      var remembered = state.expandedProviders[group.id];
+      var open = terms.length ? true : (remembered === undefined ? group.id === preferred : remembered);
+      var count = terms.length && group.models.length !== group.total
+        ? group.models.length + " / " + group.total + " models"
+        : group.total + (group.total === 1 ? " model" : " models");
+      var body = group.models.length
+        ? group.models.map(modelRow).join("")
+        : '<div class="model-provider-group-empty">No models reported for this provider.</div>';
+      return '<div class="model-provider-group" data-open="' + (open ? "true" : "false") + '">' +
+        '<button type="button" class="model-provider-group-head" data-sb-provider-toggle="' + esc(group.id) + '"' +
+          ' aria-expanded="' + (open ? "true" : "false") + '">' +
+          '<span class="ws-agent-dot" style="background:' + (group.available ? "#22c55e" : "#475569") + '"></span>' +
+          '<span class="flex-1 min-w-0 truncate">' + esc(group.label) + '</span>' +
+          '<span class="model-provider-group-count">' + esc(count) + '</span>' +
+          '<i data-lucide="chevron-down" class="model-provider-group-caret w-3 h-3"></i>' +
+        '</button>' +
+        '<div class="model-provider-group-body">' + body + '</div>' +
+      '</div>';
     }).join("");
+    icons();
   }
 
   function focusModelSearch() {
@@ -697,8 +689,8 @@
     if (changed) {
       state.modelId = null;
       state.providerId = null;
-      state.providerLocked = false;
       state.providers = [];
+      state.expandedProviders = {};
       state.providerSetup = null;
     }
     setAgentLabel();
@@ -715,7 +707,7 @@
       state.modelsLoading = false;
       state.providers = [];
       state.providerId = null;
-      state.providerLocked = false;
+      state.expandedProviders = {};
       state.providerSetup = null;
       renderModels();
       if (btn) btn.disabled = true;
@@ -734,8 +726,8 @@
         state.models = [];
         state.modelId = null;
         state.providers = [];
-        // Keep an explicit provider pick across the error so Refresh restores
-        // it once the CLI can list models again.
+        state.providerId = null;
+        state.expandedProviders = {};
         state.providerSetup = (r.data && r.data.provider_setup) || null;
         setModelLabel(); renderModels();
         setModelNote(r.ok ? "" : "Model list unavailable — using CLI default");
@@ -748,14 +740,16 @@
       state.modelId = keep ? state.modelId : current;
       state.providers = (r.data && r.data.providers) || [];
       state.providerSetup = (r.data && r.data.provider_setup) || null;
-      state.providerId = resolveProviderId();
+      var selected = state.models.filter(function (m) { return m.id === state.modelId; })[0];
+      state.providerId = selected && selected.provider ? selected.provider : null;
       setModelLabel(); renderModels(); setModelNote("");
     }).catch(function () {
       state.modelsLoading = false;
       state.models = [];
       state.modelId = null;
       state.providers = [];
-      // Keep the provider pick; a later successful load re-derives the label.
+      state.providerId = null;
+      state.expandedProviders = {};
       state.providerSetup = null;
       setModelLabel(); renderModels(); setModelNote("Couldn't load models — using CLI default");
     });
@@ -1657,36 +1651,15 @@
       state.modelId = null;
       state.modelQuery = "";
       state.providerId = null;
-      state.providerLocked = false;
       state.providers = [];
+      state.expandedProviders = {};
       state.providerSetup = null;
       setAgentLabel(); renderAgents(); closeMenus(); loadModels(false);
       if (agent && agent.registered === false) integrateAgent(id, agent.name);
     });
 
-    // Provider dropdown
-    var providerBtn = $("sb-provider-btn");
-    if (providerBtn) providerBtn.addEventListener("click", function (e) {
-      e.stopPropagation();
-      var wasHidden = $("sb-provider-menu").classList.contains("hidden");
-      toggleMenu("sb-provider-menu", "sb-provider-btn");
-      if (wasHidden) { renderProviders(); setProviderLabel(); }
-    });
-    var providerOpts = $("sb-provider-options");
-    if (providerOpts) providerOpts.addEventListener("click", function (e) {
-      var item = e.target.closest("[data-provider]");
-      if (!item || item.disabled) return;
-      // selectProvider opens the model menu; keep this click away from the
-      // document handler that would immediately close it again.
-      e.stopPropagation();
-      var id = item.getAttribute("data-provider");
-      selectProvider(id === "__all__" ? null : id);
-    });
-    var providerRefresh = $("sb-provider-refresh");
-    if (providerRefresh) providerRefresh.addEventListener("click", function (e) {
-      e.stopPropagation();
-      loadModels(true);
-    });
+    // Provider setup lives at the bottom of the Model menu; provider choice
+    // itself is folded into the model groups there.
     var providerSetup = $("sb-provider-setup");
     if (providerSetup) providerSetup.addEventListener("click", function (e) {
       if (!e.target.closest("#sb-provider-copy")) return;
@@ -1700,19 +1673,32 @@
       }
     });
 
-    // Model dropdown
+    // Model dropdown (one menu: providers are groups inside it)
     var modelBtn = $("sb-model-btn");
     if (modelBtn) modelBtn.addEventListener("click", function (e) {
       e.stopPropagation();
       var wasHidden = $("sb-model-menu").classList.contains("hidden");
       toggleMenu("sb-model-menu", "sb-model-btn");
-      if (wasHidden) focusModelSearch();
+      if (wasHidden) { renderModels(); focusModelSearch(); }
     });
     var modelOpts = $("sb-model-options");
     if (modelOpts) modelOpts.addEventListener("click", function (e) {
+      var toggle = e.target.closest("[data-sb-provider-toggle]");
+      if (toggle) {
+        e.stopPropagation();
+        var providerId = toggle.getAttribute("data-sb-provider-toggle");
+        var preferred = defaultProviderId() || "__default__";
+        var open = state.expandedProviders[providerId];
+        if (open === undefined) open = providerId === preferred;
+        state.expandedProviders[providerId] = !open;
+        renderModels();
+        return;
+      }
       var item = e.target.closest("[data-model]");
       if (!item || item.disabled) return;
       state.modelId = item.getAttribute("data-model");
+      var model = state.models.filter(function (m) { return m.id === state.modelId; })[0];
+      state.providerId = item.getAttribute("data-model-provider") || (model && model.provider) || null;
       state.modelQuery = "";
       setModelLabel(); renderModels(); closeMenus();
     });
@@ -1773,8 +1759,6 @@
     document.addEventListener("click", function (e) {
       var modelMenu = $("sb-model-menu");
       if (modelMenu && !modelMenu.classList.contains("hidden") && modelMenu.contains(e.target)) return;
-      var providerMenu = $("sb-provider-menu");
-      if (providerMenu && !providerMenu.classList.contains("hidden") && providerMenu.contains(e.target)) return;
       var agentMenu = $("sb-agent-menu");
       if (agentMenu && !agentMenu.classList.contains("hidden") && agentMenu.contains(e.target)) return;
       closeMenus();
