@@ -95,6 +95,7 @@ from backend import upif_service as dennis_upif_service
 from backend import upif_tools as dennis_upif_tools
 from backend import upif_websites as dennis_upif_websites
 from backend import tts as dennis_tts
+from backend import jarvis_os as dennis_jarvis_os
 from backend import digest as dennis_digest
 from backend import youtube_api as dennis_youtube_api
 from backend import cosmos_api as dennis_cosmos_api
@@ -1345,6 +1346,30 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
         # ==================================================================
         if path == '/api/tts/status':
             return self.send_json(dennis_tts.status())
+
+        # ==================================================================
+        # Jarvis OS upgrade layer — connections, adapters, routing, audit
+        # All reads are localhost-only; no provider key is ever returned.
+        # ==================================================================
+        if path == '/api/jarvis/health':
+            return self.send_json(dennis_jarvis_os.health())
+        if path == '/api/jarvis/connections':
+            return self.send_json({"sources": dennis_jarvis_os.connections()})
+        if path == '/api/jarvis/connections/test':
+            source_id = parsed.query and parse_qs(parsed.query).get('id', [None])[0]
+            return self.send_json(dennis_jarvis_os.test_connection(source_id))
+        if path == '/api/jarvis/audit':
+            return self.send_json({"entries": dennis_jarvis_os.audit_entries(
+                int((parse_qs(parsed.query or '').get('limit', ['100'])[0] or 100)))})
+        if path == '/api/jarvis/cosmos':
+            return self.send_json({"intelligences": dennis_jarvis_os.cosmos_intelligences()})
+        if path == '/api/jarvis/genesis':
+            return self.send_json(dennis_jarvis_os.genesis_panel())
+        if path == '/api/jarvis/trading-brief':
+            return self.send_json(dennis_jarvis_os.trading_brief())
+        if path == '/api/jarvis/route':
+            q = (parse_qs(parsed.query or '').get('q', [''])[0] or '')
+            return self.send_json(dennis_jarvis_os.tool_route(q))
         if path == '/api/tts/config':
             return self.send_json({"success": True, "config": dennis_tts.load_config()})
         if path == '/api/tts/voices':
@@ -2886,6 +2911,31 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
                 return self.send_json({"error": str(exc)}, 400)
         if path == '/api/tts/speech':
             return self._tts_speech(body)
+
+        # ==================================================================
+        # Jarvis OS write actions — confirmation + append-only audit required
+        # ==================================================================
+        if path == '/api/jarvis/audit':
+            if not body or not body.get('confirmed'):
+                return self.send_json({"error": "confirmation required"}, 400)
+            entry = dennis_jarvis_os.audit(
+                body.get('who') or 'local-owner', body.get('what') or 'unknown',
+                body.get('result') or 'requested')
+            return self.send_json({"success": True, "entry": entry})
+        if path == '/api/jarvis/genesis/action':
+            if not body or not body.get('confirmed'):
+                return self.send_json({"error": "confirmation required"}, 400)
+            kind = body.get('kind')
+            item = body.get('item') or {}
+            note = body.get('note') or ''
+            dennis_jarvis_os.audit('local-owner', f'genesis.{kind} requested for {item.get("id")}',
+                                   'awaiting-result')
+            token = self.headers.get('X-Dennis-Token') or ''
+            result = dennis_jarvis_os.genesis_action(kind, item, token, note)
+            dennis_jarvis_os.audit(
+                'local-owner', f'genesis.{kind} executed for {item.get("id")} via {result.get("endpoint")}',
+                'ok' if result.get('ok') else 'failed: ' + str(result.get('error') or result.get('status')))
+            return self.send_json(result, 200 if result.get('ok') else 502)
 
         # ==================================================================
         # OpenJarvis digest bridge (writes): generate, schedule, service.
@@ -5900,7 +5950,9 @@ def run(port=PORT):
         print("  Weekly briefing scheduler: on "
               f"({dennis_digest.weekly_schedule_info()['day']}s, "
               f"{dennis_digest.weekly_schedule_info()['hour']:02d}:00 local)")
-    bind_host = "127.0.0.1" if os.environ.get("DENNIS_DESKTOP") == "1" else ""
+    # Global rule: every listener binds to localhost only. Previously this
+    # bound "" (all interfaces) unless DENNIS_DESKTOP=1; patched 2026-11-20.
+    bind_host = "127.0.0.1"
     with DennisHTTPServer((bind_host, port), DennisOSHandler) as httpd:
         print(f"==========================================================")
         print(f"  DENNIS Agentic OS Server with In-OS Installer running at:")

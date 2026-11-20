@@ -164,7 +164,7 @@
           <span id="sidebar-installed-count" class="ml-auto text-[9px] font-mono px-1.5 py-0.5 rounded-full bg-slate-800/80 border border-slate-700 text-slate-400">0</span>
         </button>
 
-        <button class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 font-medium text-xs transition">
+        <button id="sidebar-nav-settings" class="sidebar-nav-item w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/40 font-medium text-xs transition">
           <i data-lucide="settings" class="w-4 h-4"></i>
           <span>Settings</span>
         </button>
@@ -859,6 +859,10 @@
               <p class="jarvis-subtitle-line">NEURAL INTERFACE &middot; <span class="text-emerald-400">ONLINE</span><span class="status-dot-pulse inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 ml-1 align-middle"></span></p>
             </div>
             <div class="flex items-center gap-2 shrink-0">
+              <button id="jarvis-mission-toggle" class="jarvis-mode-btn" type="button" aria-pressed="false" title="Show / hide the Genesis + Trading Den mission strip">
+                <i data-lucide="layout-dashboard" class="w-3.5 h-3.5"></i>
+                <span>Mission</span>
+              </button>
               <button id="jarvis-mode-toggle" class="jarvis-mode-btn" type="button" aria-pressed="true" title="Switch to the original view (show sidebars)">
                 <i data-lucide="maximize-2" class="w-3.5 h-3.5"></i>
                 <span>Mode</span>
@@ -938,9 +942,32 @@
             <div class="hud-panel mt-1 px-3 py-1.5 flex flex-wrap items-center gap-2">
               <p id="jarvis-bar-quote" class="flex-1 min-w-[12rem] text-xs italic text-cyan-200/90 text-center sm:text-left">&ldquo;At your service, sir.&rdquo;</p>
               <button id="jarvis-bar-wake" class="jarvis-bar-btn" title="Toggle voice wake (Hey Apollo &middot; Hermes &middot; Jarvis)"><i data-lucide="mic" class="w-3.5 h-3.5"></i><span>Wake word ON</span></button>
+              <button id="jarvis-bar-ptt" class="jarvis-bar-btn" title="Push to talk — hold to speak (works even if the browser voice API is unavailable)" aria-label="Push to talk"><i data-lucide="mic" class="w-3.5 h-3.5"></i><span>Push to talk</span></button>
+              <span id="jarvis-bar-listening" class="jarvis-bar-badge hidden" title="Microphone is live"><span class="w-1.5 h-1.5 rounded-full bg-rose-400 inline-block status-dot-pulse"></span> LISTENING</span>
               <span class="jarvis-bar-badge" title="Wake words: Hey Apollo &middot; Apollo &middot; Hermes &middot; Jarvis &middot; wake up">AUTO</span>
               <button id="jarvis-bar-briefing" class="jarvis-bar-btn" title="Generate today's briefing"><i data-lucide="newspaper" class="w-3.5 h-3.5"></i><span>Briefing</span></button>
               <span id="jarvis-bar-voice" class="jarvis-bar-btn" title="Voice preset &mdash; change it in Workspace &rarr; Voice Provider Registry"><i data-lucide="user" class="w-3.5 h-3.5"></i><span>JARVIS voice</span><i data-lucide="chevron-down" class="w-3 h-3 opacity-60"></i></span>
+            </div>
+          </div>
+
+          <!-- Mission Control strip (Phase 4): Genesis + Trading Den, read-only
+               except explicitly-confirmed Genesis actions. Hidden by default. -->
+          <div id="jarvis-mission-strip" class="hidden shrink-0 hud-panel p-3 overflow-y-auto" style="max-height:34vh">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              <section class="rounded-xl border border-slate-800 bg-slate-950/40 p-3">
+                <div class="flex items-center justify-between mb-2">
+                  <h3 class="text-xs font-bold text-cyan-300 flex items-center gap-1.5"><i data-lucide="film" class="w-3.5 h-3.5"></i> Genesis <span class="text-[9px] font-normal text-slate-500">read-only + confirmed actions</span></h3>
+                  <button id="jarvis-genesis-refresh" class="hud-icon-btn" title="Refresh Genesis"><i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i></button>
+                </div>
+                <div id="jarvis-genesis-content" class="space-y-1.5 text-[11px]"><p class="text-slate-500">Loading Genesis…</p></div>
+              </section>
+              <section class="rounded-xl border border-slate-800 bg-slate-950/40 p-3">
+                <div class="flex items-center justify-between mb-2">
+                  <h3 class="text-xs font-bold text-emerald-300 flex items-center gap-1.5"><i data-lucide="candlestick-chart" class="w-3.5 h-3.5"></i> Trading Den brief <span class="text-[9px] font-normal text-amber-400">DEMO DATA unless labelled live</span></h3>
+                  <button id="jarvis-trading-refresh" class="hud-icon-btn" title="Refresh Trading Den brief"><i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i></button>
+                </div>
+                <div id="jarvis-trading-content" class="space-y-1.5 text-[11px]"><p class="text-slate-500">Loading Trading Den brief…</p></div>
+              </section>
             </div>
           </div>
         </div>
@@ -3858,6 +3885,69 @@
 
       </section>
 
+      <!-- ========================================================================= -->
+      <!-- SETTINGS: Voice + Connections (patched in upgrade-cosmos, 2026-11-20)     -->
+      <!-- ========================================================================= -->
+      <section id="settings-view" class="hidden flex-1 flex flex-col gap-3.5 min-h-0 pb-6 overflow-y-auto">
+        <div class="relative shrink-0 rounded-2xl border border-cyan-900/40 bg-gradient-to-r from-[#07131a] via-[#091823] to-[#070e1c] p-5 shadow-2xl overflow-hidden">
+          <div class="absolute -right-16 -top-16 w-64 h-64 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none"></div>
+          <div class="relative z-10 flex flex-col gap-1.5">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-wider bg-cyan-950/70 border border-cyan-800/60 text-cyan-400 font-semibold w-fit">
+              <i data-lucide="settings" class="w-3 h-3 text-cyan-400"></i> Local Control
+            </span>
+            <h2 class="text-xl font-bold tracking-tight text-white">Settings</h2>
+            <p class="text-xs text-slate-400 max-w-2xl leading-relaxed">
+              Voice providers and connection status. All values are read from this machine only. Secrets never leave the OS keychain or
+              <code class="text-cyan-300 bg-slate-900/80 px-1 py-0.5 rounded font-mono text-[11px]">~/.jarvis</code> (0600); the browser only ever receives connection <em>status</em>, never keys.
+            </p>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
+          <!-- VOICE PANEL -->
+          <section class="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 flex flex-col gap-3">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-bold text-white flex items-center gap-2"><i data-lucide="volume-2" class="w-4 h-4 text-cyan-400"></i> Voice</h3>
+              <span id="jarvis-voice-status" class="text-[10px] font-mono px-2 py-0.5 rounded-full bg-slate-800/80 border border-slate-700 text-slate-400">loading…</span>
+            </div>
+            <div id="settings-voice-list" class="space-y-2 text-xs text-slate-300">
+              <p class="text-slate-500">Loading voice providers…</p>
+            </div>
+            <div class="pt-2 border-t border-slate-800">
+              <label class="block text-[10px] font-mono uppercase tracking-wider text-slate-500 mb-1.5">Preview text</label>
+              <div class="flex gap-2">
+                <input id="settings-voice-preview-text" type="text" value="At your service, sir." class="flex-1 bg-slate-950/70 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:border-cyan-500 focus:outline-none">
+                <button id="settings-voice-preview" class="px-3 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold transition flex items-center gap-1.5"><i data-lucide="play" class="w-3.5 h-3.5"></i> Preview</button>
+              </div>
+              <p id="settings-voice-preview-result" class="mt-1.5 text-[11px] text-slate-500"></p>
+            </div>
+          </section>
+
+          <!-- CONNECTIONS PANEL -->
+          <section class="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 flex flex-col gap-3">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-bold text-white flex items-center gap-2"><i data-lucide="plug" class="w-4 h-4 text-emerald-400"></i> Connections</h3>
+              <button id="settings-connections-refresh" class="hud-icon-btn" title="Re-check all connections"><i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i></button>
+            </div>
+            <p class="text-[11px] text-slate-500 leading-relaxed">Read-only status. "Test" only probes local endpoints; it never writes or starts anything.</p>
+            <div id="settings-connections-list" class="space-y-2 text-xs text-slate-300">
+              <p class="text-slate-500">Loading connections…</p>
+            </div>
+          </section>
+        </div>
+
+        <!-- AUDIT TRAIL -->
+        <section class="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 flex flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-white flex items-center gap-2"><i data-lucide="scroll-text" class="w-4 h-4 text-amber-400"></i> Audit trail <span class="text-[10px] font-normal text-slate-500">(append-only: who · what · when · result)</span></h3>
+            <button id="settings-audit-refresh" class="hud-icon-btn" title="Refresh audit trail"><i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i></button>
+          </div>
+          <div id="settings-audit-list" class="max-h-56 overflow-y-auto space-y-1 text-[11px] font-mono text-slate-400">
+            <p class="text-slate-500">Loading audit trail…</p>
+          </div>
+        </section>
+      </section>
+
     </main>
   </div>
 
@@ -4340,5 +4430,7 @@
   <script defer src="js/composio.js?v=20261115-hub1"></script>
   <script defer src="js/connectedApps.js?v=20261115-hub1"></script>
   <script defer src="js/connectedSkills.js?v=20261115-hub1"></script>
+  <!-- Jarvis OS upgrade layer: Voice/Connections settings + tool routing + dashboards -->
+  <script defer src="js/jarvisOs.js?v=20261120-upgrade1"></script>
 </body>
 </html>

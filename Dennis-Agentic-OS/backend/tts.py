@@ -64,6 +64,15 @@ PROVIDERS = {
         "local": False,
         "requires_key": True,
     },
+    "fish": {
+        "label": "Fish Audio (cloud, optional)",
+        "local": False,
+        "requires_key": True,
+        # Endpoint is configurable because no local docs were found on this
+        # machine and web verification was unavailable (HTTP 402). The value
+        # below is a documented-by-vendor default placeholder, NOT verified here.
+        "endpoint_verified_on_this_machine": False,
+    },
     "browser": {
         "label": "Browser voices (fallback only)",
         "local": True,
@@ -307,9 +316,86 @@ def _elevenlabs_key():
 
 def set_provider_secret(provider, api_key):
     """Store a provider API key backend-side (0600). Never echoes it back."""
-    if provider != "elevenlabs":
-        raise TTSError(f"no secret storage defined for provider: {provider}")
-    _save_secret("elevenlabs_api_key", str(api_key))
+    if provider == "elevenlabs":
+        _save_secret("elevenlabs_api_key", str(api_key))
+        return
+    if provider == "fish":
+        # Fish Audio keys live in ~/.jarvis (0700 dir / 0600 file), never in
+        # the repository. No browser UI writes this value.
+        from . import jarvis_os
+        jarvis_os.ensure_private_home()
+        secrets = {}
+        try:
+            with open(jarvis_os.SECRETS_FILE, "r", encoding="utf-8") as handle:
+                secrets = json.load(handle)
+        except (OSError, ValueError):
+            secrets = {}
+        if not isinstance(secrets, dict):
+            secrets = {}
+        secrets["fish_audio_api_key"] = str(api_key)
+        with open(jarvis_os.SECRETS_FILE, "w", encoding="utf-8") as handle:
+            json.dump(secrets, handle)
+        os.chmod(jarvis_os.SECRETS_FILE, 0o600)
+        return
+    raise TTSError(f"no secret storage defined for provider: {provider}")
+
+
+def _fish_key():
+    """Fish Audio key from env or ~/.jarvis/secrets.json (0600). Never returned."""
+    try:
+        from . import jarvis_os
+        return os.environ.get("FISH_AUDIO_API_KEY") or jarvis_os.read_secret("fish_audio_api_key") or ""
+    except Exception:
+        return os.environ.get("FISH_AUDIO_API_KEY") or ""
+
+
+def fish_audio_status():
+    key = _fish_key()
+    return {
+        "configured": bool(key),
+        "endpoint": os.environ.get("FISH_AUDIO_TTS_URL", "https://api.fish.audio/v1/audio/speech"),
+        "endpoint_verified_on_this_machine": False,
+        "note": "No local Fish Audio docs found; web check unavailable (HTTP 402). "
+                "Set FISH_AUDIO_TTS_URL if your account uses a different path.",
+    }
+
+
+def fish_audio_speech(text, voice_id=None, model_id=None):
+    """Call Fish Audio TTS via stdlib HTTPS. Returns (bytes, 'audio/mpeg', None)."""
+    import urllib.parse
+    key = _fish_key()
+    if not key:
+        raise TTSError("Fish Audio is not configured (no API key in environment or ~/.jarvis/secrets.json)")
+    url = os.environ.get("FISH_AUDIO_TTS_URL", "https://api.fish.audio/v1/audio/speech")
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme != "https":
+        raise TTSError("Fish Audio endpoint must be https")
+    host = parsed.hostname or "api.fish.audio"
+    port = parsed.port or 443
+    path = (parsed.path or "/v1/audio/speech") + (("?" + parsed.query) if parsed.query else "")
+    payload = json.dumps({
+        "model": model_id or os.environ.get("FISH_AUDIO_MODEL", "speech-1.5"),
+        "input": text,
+        "voice": voice_id or os.environ.get("FISH_AUDIO_VOICE", "jarvis-british-male"),
+    }).encode("utf-8")
+    try:
+        conn = http.client.HTTPSConnection(host, port, timeout=30)
+        conn.request("POST", path, body=payload, headers={
+            "Authorization": "Bearer " + key,
+            "Content-Type": "application/json",
+            "Accept": "audio/mpeg",
+        })
+        resp = conn.getresponse()
+        body = resp.read()
+        status = resp.status
+        ctype = resp.getheader("Content-Type") or "audio/mpeg"
+        conn.close()
+    except OSError as exc:
+        raise TTSError("Fish Audio request failed: " + type(exc).__name__)
+    if status != 200 or not body:
+        snippet = body[:200].decode("utf-8", "replace") if body else "empty response"
+        raise TTSError(f"Fish Audio failed (HTTP {status}): {snippet}")
+    return body, ctype if "audio" in ctype else "audio/mpeg", None
 
 
 # ---------------------------------------------------------------------------
@@ -517,6 +603,13 @@ def generate(text, studio="apollo", preset_slug=None, voice_id=None,
         return audio, ctype, rate, {"provider": "elevenlabs",
                                     "preset": preset_slug,
                                     "voice_id": voice_id or (preset or {}).get("voice_id")}
+    if provider == "fish":
+        audio, ctype, rate = fish_audio_speech(
+            text, voice_id or (preset or {}).get("voice_id"))
+        return audio, ctype, rate, {"provider": "fish",
+                                    "preset": preset_slug,
+                                    "voice_id": voice_id or (preset or {}).get("voice_id"),
+                                    "endpoint_verified_on_this_machine": False}
     # kokoro (default)
     voice = voice_id or (preset or {}).get("voice_id") or "bm_george"
     cfg = load_config()
@@ -647,6 +740,8 @@ def status():
             entry["enabled"] = True
         elif pid == "elevenlabs":
             entry["enabled"] = bool(_elevenlabs_key())
+        elif pid == "fish":
+            entry["enabled"] = bool(_fish_key())
         else:
             entry["enabled"] = True
         providers_view[pid] = entry
@@ -668,6 +763,7 @@ def status():
             "health": health or {},
         },
         "elevenlabs": elevenlabs_status(),
+        "fish": fish_audio_status(),
     }
 
 

@@ -6,5 +6,8 @@ __pycache__/
 *.pyc
 .env
 .env.*
+node_modules/
+.jarvis/
+**/.jarvis/
 OpenJarvis/
 audit_config.py

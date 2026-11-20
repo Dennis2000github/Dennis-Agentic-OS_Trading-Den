@@ -36,6 +36,7 @@ class HermesGalaxy {
       this.init();
     }
     this.initAudioAndVoice();
+    this.bindPushToTalk();
     this.initTtsBridge();
   }
 
@@ -369,7 +370,15 @@ class HermesGalaxy {
     const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRec) {
       this.hasSpeechRec = false;
-      this.updateUiStatus('Click to Wake (Voice API N/A)', 'slate');
+      this.browserVoiceFallback = true;
+      this.updateUiStatus('Browser voice API unavailable — use Push to talk', 'slate');
+      // Visible fallback notice: voice input still works via the PTT button
+      // (which uses the same SpeechRecognition if available, or a typed command).
+      const quote = document.getElementById('jarvis-bar-quote');
+      if (quote && !quote.dataset.voiceFallback) {
+        quote.dataset.voiceFallback = '1';
+        quote.textContent = 'Browser voice API unavailable — use "Push to talk" or type a command. TTS playback still works.';
+      }
       return;
     }
 
@@ -476,6 +485,18 @@ class HermesGalaxy {
     this.playAckChime();
     this.targetAudioLevel = 0.9;
     const lower = cmd.toLowerCase().trim();
+
+    // 0. Tool routing layer — adapters answer known status/brief intents
+    //    from local data. Unknown intents fall through to the normal brain
+    //    command handling below. No provider key or write is involved.
+    if (window.JarvisOs && window.JarvisOs.route) {
+      const routed = window.JarvisOs.route(cmd);
+      if (routed && routed.handled) {
+        this.updateTranscriptText(`Apollo: "${routed.speech}"`);
+        this.respond(routed.speech);
+        return;
+      }
+    }
 
     // 1. Workspace
     if (lower.includes('workspace')) {
@@ -858,6 +879,103 @@ class HermesGalaxy {
         slate: 'bg-slate-500'
       }[color] || 'bg-slate-500');
     }
+  }
+
+  // -----------------------------------------------------------------------
+  // Push-to-talk: hold the JARVIS-bar button (or press and hold Space when
+  // not typing) to dictate a command. Uses a dedicated one-shot Recognition
+  // so it does not fight the continuous wake-word loop. If the browser has
+  // no SpeechRecognition at all, falls back to a typed command.
+  // -----------------------------------------------------------------------
+  bindPushToTalk() {
+    const btn = document.getElementById('jarvis-bar-ptt');
+    const indicator = document.getElementById('jarvis-bar-listening');
+    if (!btn) return;
+
+    const setIndicator = (on) => {
+      if (!indicator) return;
+      indicator.classList.toggle('hidden', !on);
+    };
+
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let pttRec = null;
+
+    const startPtt = () => {
+      if (!SpeechRec) {
+        const typed = window.prompt('Browser voice input unavailable. Type your command:');
+        if (typed && typed.trim()) this.executeVoiceCommand(typed.trim());
+        return;
+      }
+      if (this._pttActive) return;
+      this._pttActive = true;
+      this.browserVoiceFallback = false;
+      // Suspend the continuous wake loop so it does not transcribe us twice.
+      this._speechSuspended = true;
+      if (this.recognition && this.isListening) {
+        try { this.recognition.stop(); } catch (_) {}
+      }
+      setIndicator(true);
+      this.setStateSafe('listening');
+      this.updateUiStatus('Push to talk — listening...', 'cyan');
+
+      try {
+        pttRec = new SpeechRec();
+        pttRec.continuous = false;
+        pttRec.interimResults = true;
+        pttRec.lang = 'en-US';
+        pttRec.onstart = () => { setIndicator(true); };
+        pttRec.onresult = (event) => {
+          let text = '';
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            text += event.results[i][0].transcript;
+          }
+          const clean = text.trim();
+          if (!clean) return;
+          this.updateTranscriptText(`Dennis: "${clean}"`);
+          if (event.results[event.results.length - 1].isFinal) {
+            this._pttFinal = clean;
+          }
+        };
+        pttRec.onerror = (event) => {
+          if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+            this.updateUiStatus('Mic Denied — check browser permissions', 'slate');
+          }
+        };
+        pttRec.onend = () => this.finishPtt();
+        pttRec.start();
+      } catch (_) {
+        this.finishPtt();
+      }
+    };
+
+    this.finishPtt = () => {
+      if (!this._pttActive) return;
+      this._pttActive = false;
+      setIndicator(false);
+      const finalText = (this._pttFinal || '').trim();
+      this._pttFinal = '';
+      if (finalText) {
+        this.executeVoiceCommand(finalText);
+      }
+      // Resume the continuous wake loop.
+      this._speechSuspended = false;
+      if (this.isVoiceWakeActive && this.recognition && !this.isListening) {
+        setTimeout(() => {
+          if (this.isVoiceWakeActive && !this.isListening && !this._speechSuspended) {
+            try { this.recognition.start(); } catch (_) {}
+          }
+        }, 350);
+      }
+    };
+
+    btn.addEventListener('pointerdown', (e) => { e.preventDefault(); startPtt(); });
+    btn.addEventListener('pointerup', () => { if (pttRec) { try { pttRec.stop(); } catch (_) {} } });
+    btn.addEventListener('pointercancel', () => { if (pttRec) { try { pttRec.stop(); } catch (_) {} } });
+    btn.addEventListener('pointerleave', () => { if (this._pttActive && pttRec) { try { pttRec.stop(); } catch (_) {} } });
+  }
+
+  setStateSafe(next) {
+    this.state = next;
   }
 
   bindVoiceControls() {

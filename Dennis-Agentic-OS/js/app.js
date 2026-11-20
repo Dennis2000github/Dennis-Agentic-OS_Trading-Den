@@ -95,6 +95,7 @@ function switchMainView(viewName) {
   const skillBuilderView = document.getElementById('skill-builder-view');
   const pluginsView = document.getElementById('plugins-view');
   const galaxyView = document.getElementById('memory-galaxy-view');
+  const settingsView = document.getElementById('settings-view');
   const jarvisNav = document.getElementById('sidebar-nav-jarvis');
   const workspaceNav = document.getElementById('sidebar-nav-workspace');
   const tradingNav = document.getElementById('sidebar-nav-trading');
@@ -105,6 +106,7 @@ function switchMainView(viewName) {
   const galaxyNav = document.getElementById('sidebar-nav-galaxy');
   const studioNav = document.getElementById('sidebar-nav-studio');
   const cosmosNav = document.getElementById('sidebar-nav-cosmos');
+  const settingsNav = document.getElementById('sidebar-nav-settings');
 
   const navs = [
     { nav: jarvisNav, view: 'jarvis' },
@@ -116,9 +118,10 @@ function switchMainView(viewName) {
     { nav: galaxyNav, view: 'memory-galaxy' },
     { nav: hermesNav, view: 'hermes' },
     { nav: skillBuilderNav, view: 'skill-builder' },
-    { nav: pluginsNav, view: 'plugins' }
+    { nav: pluginsNav, view: 'plugins' },
+    { nav: settingsNav, view: 'settings' }
   ];
-  const VIEWS = ['jarvis', 'workspace', 'trading-den', 'vault', 'memory-galaxy', 'hermes', 'studio', 'cosmos', 'skill-builder', 'plugins'];
+  const VIEWS = ['jarvis', 'workspace', 'trading-den', 'vault', 'memory-galaxy', 'hermes', 'studio', 'cosmos', 'skill-builder', 'plugins', 'settings'];
   // Legacy view names that now live as tabs inside the Plugins hub.
   // (freellm / connections surfaces were removed with their dead backend;
   // those legacy names now fall through to the JARVIS default.)
@@ -161,6 +164,7 @@ function switchMainView(viewName) {
   if (osMain) osMain.classList.toggle('os-studio-active', active === 'studio');
   if (skillBuilderView) skillBuilderView.classList.toggle('hidden', active !== 'skill-builder');
   if (pluginsView) pluginsView.classList.toggle('hidden', active !== 'plugins');
+  if (settingsView) settingsView.classList.toggle('hidden', active !== 'settings');
   // Legacy deep links (installed-plugins) land on the matching Plugins hub
   // tab instead of a standalone view that no longer exists.
   if (active === 'plugins' && LEGACY_PLUGIN_VIEWS[viewName] && window.PluginsHub) {
@@ -189,6 +193,7 @@ function switchMainView(viewName) {
   if (active === 'plugins' && window.Plugins) window.Plugins.refresh();
   if (active === 'plugins' && window.PluginsHub) window.PluginsHub.refresh();
   if (active === 'memory-galaxy' && window.MemoryGalaxy) window.MemoryGalaxy.refresh();
+  if (active === 'settings' && window.JarvisOs) window.JarvisOs.refresh();
 }
 window.switchMainView = switchMainView;
 
@@ -254,6 +259,8 @@ function initSidebar() {
         switchMainView('plugins');
       } else if (label.includes('workspace')) {
         switchMainView('workspace');
+      } else if (label.includes('settings')) {
+        switchMainView('settings');
       }
     });
   });

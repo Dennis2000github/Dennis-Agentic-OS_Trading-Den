@@ -6,7 +6,10 @@
   "main": "electron/main.js",
   "scripts": {
     "start": "python3 app.py",
-    "desktop": "electron ."
+    "desktop": "electron .",
+    "boot": "bash scripts/boot.sh",
+    "stop": "bash scripts/stop.sh",
+    "doctor": "python3 scripts/doctor.py"
   },
   "devDependencies": {
     "electron": "45.1.0"
