@@ -3,6 +3,27 @@
 All dates Asia/Manila. Scope: **`Dennis-Agentic-OS/` only** (OpenJarvis is adjacent context, untouched).
 Nothing was installed. Existing bridge, voice setup and dashboards were patched, not rebuilt.
 
+## 2026-11-20 — Follow-ups after the upgrade
+
+- **Pushed** local `main` (`6f90f25`) to `origin/full-project`.
+- **Kokoro local TTS started** — `python3 scripts/kokoro_service.py start` → PID 57233,
+  `127.0.0.1:8880`, healthy, model `kokoro-v1.0` loaded, 54 voices. No install needed
+  (venv, packages and weights were already provisioned). Settings > Voice now reports it online.
+- **Fish Audio endpoint corrected** using official docs (docs.fish.audio, verified 2026-11-20):
+  the initial `/v1/audio/speech` guess was wrong. Real contract is
+  `POST https://api.fish.audio/v1/tts`, `Authorization: Bearer`, a `model` header
+  (`s2.1-pro` default), and JSON `{text, format, reference_id?}`. Key is read from
+  `FISH_API_KEY` (or `FISH_AUDIO_API_KEY`, or `~/.jarvis/secrets.json`). Status now reports
+  `endpoint_verified_on_this_machine: true`. **No live call was made — no key exists on this
+  machine.** To use it: set `FISH_API_KEY`, or POST the key once to `/api/tts/secret`
+  (stored 0600, never echoed).
+- **COSMOS honesty fix**: `executions.json` genuinely contains only 9 ANDROMEDA records;
+  POLARIS/PLEIADES/QUASAR/HELIOS have zero. Instead of a bare `unknown`, those intelligences now
+  report `status: "no executions recorded"`, `record_count: 0`, and `task: "no execution recorded"`
+  with the source path. **No execution data was invented.** To produce real records, the COSMOS
+  engine (`backend/cosmos_engine.py:run`) must actually be run for those agents — that is a separate,
+  explicitly-confirmed action because it invokes providers and writes data.
+
 ## 2026-11-20 — Phase 5: lock-down, boot, doctor
 
 - Added `npm run boot`, `npm run stop`, `npm run doctor` to `Dennis-Agentic-OS/package.json`.

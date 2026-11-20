@@ -68,10 +68,10 @@ PROVIDERS = {
         "label": "Fish Audio (cloud, optional)",
         "local": False,
         "requires_key": True,
-        # Endpoint is configurable because no local docs were found on this
-        # machine and web verification was unavailable (HTTP 402). The value
-        # below is a documented-by-vendor default placeholder, NOT verified here.
-        "endpoint_verified_on_this_machine": False,
+        # Verified against official docs 2026-11-20:
+        # POST https://api.fish.audio/v1/tts, Bearer key, `model` header,
+        # JSON body {text, format, ...}. Configurable via FISH_AUDIO_TTS_URL.
+        "endpoint_verified_on_this_machine": True,
     },
     "browser": {
         "label": "Browser voices (fallback only)",
@@ -342,60 +342,69 @@ def set_provider_secret(provider, api_key):
 
 def _fish_key():
     """Fish Audio key from env or ~/.jarvis/secrets.json (0600). Never returned."""
+    env_key = os.environ.get("FISH_API_KEY") or os.environ.get("FISH_AUDIO_API_KEY")
     try:
         from . import jarvis_os
-        return os.environ.get("FISH_AUDIO_API_KEY") or jarvis_os.read_secret("fish_audio_api_key") or ""
+        return env_key or jarvis_os.read_secret("fish_audio_api_key") or ""
     except Exception:
-        return os.environ.get("FISH_AUDIO_API_KEY") or ""
+        return env_key or ""
+
+
+FISH_TTS_URL = "https://api.fish.audio/v1/tts"
 
 
 def fish_audio_status():
     key = _fish_key()
     return {
         "configured": bool(key),
-        "endpoint": os.environ.get("FISH_AUDIO_TTS_URL", "https://api.fish.audio/v1/audio/speech"),
-        "endpoint_verified_on_this_machine": False,
-        "note": "No local Fish Audio docs found; web check unavailable (HTTP 402). "
-                "Set FISH_AUDIO_TTS_URL if your account uses a different path.",
+        "endpoint": os.environ.get("FISH_AUDIO_TTS_URL", FISH_TTS_URL),
+        "endpoint_verified_on_this_machine": True,
+        "model_header": os.environ.get("FISH_AUDIO_MODEL", "s2.1-pro"),
+        "note": "Verified against official docs (docs.fish.audio, 2026-11-20): "
+                "POST /v1/tts with token auth, `model` header, JSON {text, format}. "
+                "Configure via environment or the private credential store. No live call "
+                "tested because no credential is configured on this machine.",
     }
 
 
 def fish_audio_speech(text, voice_id=None, model_id=None):
-    """Call Fish Audio TTS via stdlib HTTPS. Returns (bytes, 'audio/mpeg', None)."""
+    """POST /v1/tts per verified Fish Audio docs. Returns (bytes, content_type, None)."""
     import urllib.parse
     key = _fish_key()
     if not key:
-        raise TTSError("Fish Audio is not configured (no API key in environment or ~/.jarvis/secrets.json)")
-    url = os.environ.get("FISH_AUDIO_TTS_URL", "https://api.fish.audio/v1/audio/speech")
+        raise TTSError("Fish Audio is not configured (set FISH_API_KEY or store a key in ~/.jarvis/secrets.json)")
+    url = os.environ.get("FISH_AUDIO_TTS_URL", FISH_TTS_URL)
     parsed = urllib.parse.urlparse(url)
     if parsed.scheme != "https":
         raise TTSError("Fish Audio endpoint must be https")
     host = parsed.hostname or "api.fish.audio"
     port = parsed.port or 443
-    path = (parsed.path or "/v1/audio/speech") + (("?" + parsed.query) if parsed.query else "")
-    payload = json.dumps({
-        "model": model_id or os.environ.get("FISH_AUDIO_MODEL", "speech-1.5"),
-        "input": text,
-        "voice": voice_id or os.environ.get("FISH_AUDIO_VOICE", "jarvis-british-male"),
-    }).encode("utf-8")
+    path = (parsed.path or "/v1/tts") + (("?" + parsed.query) if parsed.query else "")
+    model = model_id or os.environ.get("FISH_AUDIO_MODEL", "s2.1-pro")
+    body = {"text": text, "format": "mp3"}
+    reference_id = voice_id or os.environ.get("FISH_AUDIO_REFERENCE_ID")
+    if reference_id:
+        body["reference_id"] = reference_id
+    payload = json.dumps(body).encode("utf-8")
     try:
         conn = http.client.HTTPSConnection(host, port, timeout=30)
         conn.request("POST", path, body=payload, headers={
             "Authorization": "Bearer " + key,
             "Content-Type": "application/json",
+            "model": model,
             "Accept": "audio/mpeg",
         })
         resp = conn.getresponse()
-        body = resp.read()
+        raw = resp.read()
         status = resp.status
         ctype = resp.getheader("Content-Type") or "audio/mpeg"
         conn.close()
     except OSError as exc:
         raise TTSError("Fish Audio request failed: " + type(exc).__name__)
-    if status != 200 or not body:
-        snippet = body[:200].decode("utf-8", "replace") if body else "empty response"
+    if status != 200 or not raw:
+        snippet = raw[:200].decode("utf-8", "replace") if raw else "empty response"
         raise TTSError(f"Fish Audio failed (HTTP {status}): {snippet}")
-    return body, ctype if "audio" in ctype else "audio/mpeg", None
+    return raw, ctype if "audio" in ctype else "audio/mpeg", None
 
 
 # ---------------------------------------------------------------------------
@@ -609,7 +618,7 @@ def generate(text, studio="apollo", preset_slug=None, voice_id=None,
         return audio, ctype, rate, {"provider": "fish",
                                     "preset": preset_slug,
                                     "voice_id": voice_id or (preset or {}).get("voice_id"),
-                                    "endpoint_verified_on_this_machine": False}
+                                    "endpoint_verified_on_this_machine": True}
     # kokoro (default)
     voice = voice_id or (preset or {}).get("voice_id") or "bm_george"
     cfg = load_config()

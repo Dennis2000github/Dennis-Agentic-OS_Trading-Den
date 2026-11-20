@@ -131,7 +131,7 @@
         : '<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-400">needs key / offline</span>';
       var note = '';
       if (pid === 'fish') {
-        note = '<div class="mt-1 text-[10px] text-amber-400/90">Endpoint unverified on this machine — no local docs found; web check unavailable (HTTP 402). Set FISH_AUDIO_TTS_URL if your account differs.</div>';
+        note = '<div class="mt-1 text-[10px] text-slate-500">Verified against official docs: POST /v1/tts, key via FISH_API_KEY. No key configured here, so no live call tested.</div>';
       } else if (pid === 'kokoro') {
         note = '<div class="mt-1 text-[10px] text-slate-500">Local service at ' + esc((status.kokoro && status.kokoro.url) || '127.0.0.1:8880') +
           ' — ' + (reachable ? 'reachable' : 'unreachable') + '</div>';

@@ -245,7 +245,9 @@ def cosmos_intelligences():
                 return 0.0
         mine.sort(key=_key, reverse=True)
         latest = mine[0] if mine else {}
-        status = "unknown"
+        # Honest default: no execution record means exactly that — never invent
+        # a status or a task for an intelligence that has never run here.
+        status = "no executions recorded" if not mine else "unknown"
         if latest:
             started = latest.get("started_at")
             recent = isinstance(started, (int, float)) and (now - float(started) < 600)
@@ -262,9 +264,10 @@ def cosmos_intelligences():
             "name": name,
             "role": role,
             "status": status,
-            "current_task": str(latest.get("task") or "none recorded"),
+            "current_task": str(latest.get("task") or ("no task recorded" if latest else "no execution recorded")),
             "last_activity_time": str(latest.get("finished_iso") or latest.get("started_iso") or "unknown"),
             "source": source,
+            "record_count": len(mine),
             "evidence": {
                 "executions": len(mine),
                 "last_error": (latest.get("error") or {}).get("message") if isinstance(latest.get("error"), dict) else None,
