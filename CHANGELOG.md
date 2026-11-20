@@ -3,6 +3,21 @@
 All dates Asia/Manila. Scope: **`Dennis-Agentic-OS/` only** (OpenJarvis is adjacent context, untouched).
 Nothing was installed. Existing bridge, voice setup and dashboards were patched, not rebuilt.
 
+## 2026-11-21 — Fish Audio key rotated (owner-supplied replacement)
+
+- Owner supplied a genuinely new key (verified different from the original by SHA-256 prefix:
+  old `7b8c7b051b7ad77c…`, new `d94afe1e669dcccd…`). The first "replacement" they pasted was
+  byte-identical to the original and was **rejected** — no change was made until a distinct key arrived.
+- Replaced the `FISH_API_KEY` line in `.env` (still 0600, gitignored, untracked). No key value appears
+  in logs, git, or browser payloads.
+- Restarted the app (PID 60507, `127.0.0.1:8080` only) and placed a live `POST /v1/tts` call with the
+  new key: HTTP 200, `audio/mpeg`, **55,169 bytes**, valid MP3 magic `fffb90c4`, saved to
+  `data/tts/fish_rotation_test.mp3` (gitignored test artifact, not committed).
+- **Only after** the new key was verified, permanently revoked the exposed original key via
+  `POST https://api.fish.audio/apikey/revoke` → **HTTP 202 accepted** (no auth required per official docs).
+  The old key was held in a 0600 file under `~/.jarvis` solely for this step and that file was deleted.
+- Two append-only audit entries recorded at 2026-11-21T00:05:56+08:00 (key installed / old key revoked).
+
 ## 2026-11-20 — Fish Audio key configured from local .env
 
 - Created a repo-root `.env` with `FISH_API_KEY` at mode **0600**, ignored by `.gitignore` (`.env`,
