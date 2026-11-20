@@ -2899,6 +2899,10 @@
       if (modelHost) modelHost.addEventListener("click", function (event) {
         var agentHead = event.target.closest("[data-runtime-agent-toggle]");
         if (agentHead) {
+          // The re-render below detaches the clicked node; stop the event from
+          // reaching the document outside-click handler, which would otherwise
+          // collapse the entire model menu instead of expanding this group.
+          event.stopPropagation();
           var agentGroup = agentHead.getAttribute("data-runtime-agent-toggle");
           var agentOpen = S.agentExpanded[agentGroup];
           if (agentOpen === undefined) agentOpen = agentGroup === agentPreferredProvider();
@@ -2913,6 +2917,9 @@
         }
         var head = event.target.closest("[data-runtime-provider-toggle]");
         if (head) {
+          // Same detached-target issue as the agent group above: keep the
+          // document outside-click handler from closing the model menu.
+          event.stopPropagation();
           var providerId = head.getAttribute("data-runtime-provider-toggle");
           var currentOpen = S.runtimeExpanded[providerId];
           if (currentOpen === undefined) currentOpen = providerId === genEntry(runtimeGenStep()).provider;

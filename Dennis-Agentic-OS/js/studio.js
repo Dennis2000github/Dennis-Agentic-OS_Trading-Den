@@ -3787,6 +3787,10 @@
     if (modelOptions) modelOptions.addEventListener("click", function (event) {
       var group = event.target.closest("[data-studio-provider-toggle]");
       if (group) {
+        // renderModels() below replaces the menu's innerHTML, detaching the
+        // clicked node. Without this, the document-level outside-click handler
+        // sees a detached target and closes the whole dropdown.
+        event.stopPropagation();
         var providerId = group.getAttribute("data-studio-provider-toggle");
         var open = group.closest(".model-provider-group").getAttribute("data-open") !== "true";
         S.expandedProviders[providerId] = open;
