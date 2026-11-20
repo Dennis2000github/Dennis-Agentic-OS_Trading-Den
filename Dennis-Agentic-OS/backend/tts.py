@@ -362,8 +362,8 @@ def fish_audio_status():
         "model_header": os.environ.get("FISH_AUDIO_MODEL", "s2.1-pro"),
         "note": "Verified against official docs (docs.fish.audio, 2026-11-20): "
                 "POST /v1/tts with token auth, `model` header, JSON {text, format}. "
-                "Configure via environment or the private credential store. No live call "
-                "tested because no credential is configured on this machine.",
+                "Configure via environment or the private credential store. "
+                "This status endpoint never places a live call.",
     }
 
 

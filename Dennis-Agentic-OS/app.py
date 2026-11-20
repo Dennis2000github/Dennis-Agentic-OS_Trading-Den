@@ -5896,6 +5896,32 @@ class DennisHTTPServer(http.server.ThreadingHTTPServer):
         super().handle_error(request, client_address)
 
 
+def _load_dotenv():
+    """Load KEY=VALUE pairs from .env into os.environ (stdlib-only, no deps).
+
+    Searches the app directory first, then the repo root. Values already in
+    the environment win. Nothing is logged or sent to a browser client.
+    """
+    app_dir = os.path.dirname(os.path.abspath(__file__))
+    root_dir = os.path.dirname(app_dir)
+    for path in (os.path.join(app_dir, ".env"), os.path.join(root_dir, ".env")):
+        if not os.path.isfile(path):
+            continue
+        try:
+            with open(path, "r", encoding="utf-8") as fh:
+                for raw in fh:
+                    line = raw.strip()
+                    if not line or line.startswith("#") or "=" not in line:
+                        continue
+                    name, _, value = line.partition("=")
+                    name = name.strip()
+                    value = value.strip().strip('"').strip("'")
+                    if name and name not in os.environ:
+                        os.environ[name] = value
+        except OSError:
+            pass
+
+
 def _ensure_denma_runtime():
     """Re-launch under an interpreter that can host the DenMa engine in-process.
 
@@ -5973,5 +5999,6 @@ def run(port=PORT):
 
 if __name__ == '__main__':
     port = int(sys.argv[1]) if len(sys.argv) > 1 else PORT
+    _load_dotenv()
     _ensure_denma_runtime()
     run(port)

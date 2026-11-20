@@ -131,7 +131,7 @@
         : '<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-400">needs key / offline</span>';
       var note = '';
       if (pid === 'fish') {
-        note = '<div class="mt-1 text-[10px] text-slate-500">Verified against official docs: POST /v1/tts, key via FISH_API_KEY. No key configured here, so no live call tested.</div>';
+        note = '<div class="mt-1 text-[10px] text-slate-500">Verified against official docs: POST /v1/tts, key via FISH_API_KEY from local .env (0600). Never sent to the browser.</div>';
       } else if (pid === 'kokoro') {
         note = '<div class="mt-1 text-[10px] text-slate-500">Local service at ' + esc((status.kokoro && status.kokoro.url) || '127.0.0.1:8880') +
           ' — ' + (reachable ? 'reachable' : 'unreachable') + '</div>';

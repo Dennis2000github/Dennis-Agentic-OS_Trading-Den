@@ -3,6 +3,18 @@
 All dates Asia/Manila. Scope: **`Dennis-Agentic-OS/` only** (OpenJarvis is adjacent context, untouched).
 Nothing was installed. Existing bridge, voice setup and dashboards were patched, not rebuilt.
 
+## 2026-11-20 — Fish Audio key configured from local .env
+
+- Created a repo-root `.env` with `FISH_API_KEY` at mode **0600**, ignored by `.gitignore` (`.env`,
+  `.env.*`) and **never staged or committed**. The key value is never logged or returned to the browser.
+- Added a stdlib-only `_load_dotenv()` in `app.py` (app dir, then repo root; existing environment wins),
+  called before `_ensure_denma_runtime()` so the value survives the DenMa re-exec. No new dependency.
+- Live `/api/tts/status` now reports `fish.configured: true`, correct `/v1/tts` endpoint, `s2.1-pro`
+  model header, and **no key fields in the payload** (doctor: 13 pass/info, 0 FAIL).
+- Note: the earlier standing rule was "secrets only in keychain / `~/.jarvis` (0600)". This `.env` was
+  created at the user's explicit request; it is chmod 600 and gitignored, but it is a deviation from
+  that rule and is deliberately kept out of version control. No live paid TTS call was placed.
+
 ## 2026-11-20 — Follow-ups after the upgrade
 
 - **Pushed** local `main` (`6f90f25`) to `origin/full-project`.
