@@ -13,7 +13,11 @@ Nothing was installed. Existing bridge, voice setup and dashboards were patched,
   model header, and **no key fields in the payload** (doctor: 13 pass/info, 0 FAIL).
 - Note: the earlier standing rule was "secrets only in keychain / `~/.jarvis` (0600)". This `.env` was
   created at the user's explicit request; it is chmod 600 and gitignored, but it is a deviation from
-  that rule and is deliberately kept out of version control. No live paid TTS call was placed.
+  that rule and is deliberately kept out of version control.
+- **Live call test (owner-approved):** `fish_audio_speech()` → `POST /v1/tts` returned HTTP 200,
+  `audio/mpeg`, **58,095 bytes**, valid MP3 magic `fffb90c4`, saved to `data/tts/fish_test.mp3`
+  (test artifact, not committed). Logged to the append-only audit at 2026-11-20T23:52:18+08:00.
+  This confirms the key, endpoint, `model: s2.1-pro` header and JSON body all work end to end.
 
 ## 2026-11-20 — Follow-ups after the upgrade
 
