@@ -21,6 +21,12 @@
     state: C.emptyState(),
     backlogAds: [],
     backlogYoutube: null,
+    backlogAdsQuery: "",
+    backlogAdsStatus: "",
+    backlogYoutubeQuery: "",
+    backlogYoutubeStatus: "",
+    research: null,
+    competitors: null,
     modalSubmit: null,
     toastTimer: null
   };
@@ -107,6 +113,50 @@
   }
 
   // -----------------------------------------------------------------------
+  // Backlog management state (the authoritative Ads + YouTube interfaces)
+  // -----------------------------------------------------------------------
+  function fetchBacklogAds() {
+    var params = new URLSearchParams();
+    params.set("limit", "60");
+    if (S.backlogAdsStatus) params.set("status", S.backlogAdsStatus);
+    if (S.backlogAdsQuery) params.set("q", S.backlogAdsQuery);
+    return api("/api/cosmos/backlog/ads?" + params.toString()).then(function (data) {
+      S.backlogAds = data.products || [];
+    });
+  }
+
+  function fetchBacklogYoutube() {
+    var params = new URLSearchParams();
+    if (S.backlogYoutubeStatus) params.set("status", S.backlogYoutubeStatus);
+    if (S.backlogYoutubeQuery) params.set("q", S.backlogYoutubeQuery);
+    var suffix = params.toString() ? "?" + params.toString() : "";
+    return api("/api/studio/youtube/topics" + suffix).then(function (data) {
+      S.backlogYoutube = {
+        counts: data.counts || {},
+        total: data.total || 0,
+        topics: data.topics || [],
+        statuses: data.statuses || []
+      };
+    });
+  }
+
+  function fetchResearch() {
+    return Promise.all([
+      api("/api/studio/youtube/research").catch(function () { return { validations: [] }; }),
+      api("/api/studio/youtube/competitors").catch(function () { return { competitors: [] }; })
+    ]).then(function (results) {
+      S.research = results[0] || { validations: [] };
+      S.competitors = results[1] || { competitors: [] };
+    });
+  }
+
+  function loadBacklogs() {
+    var jobs = [fetchBacklogAds(), fetchBacklogYoutube()];
+    if (S.state.activeAgent === "quasar") jobs.push(fetchResearch());
+    return Promise.all(jobs).catch(function () { /* blocks render with empty state */ });
+  }
+
+  // -----------------------------------------------------------------------
   // Data loading
   // -----------------------------------------------------------------------
   function loadAgent(agentId) {
@@ -131,16 +181,6 @@
     });
   }
 
-  function loadBacklogs() {
-    return Promise.all([
-      api("/api/cosmos/backlog/ads?limit=12").catch(function () { return { products: [] }; }),
-      api("/api/cosmos/backlog/youtube").catch(function () { return { counts: {}, topics: [] }; })
-    ]).then(function (results) {
-      S.backlogAds = results[0].products || [];
-      S.backlogYoutube = results[1] || { counts: {}, topics: [] };
-    });
-  }
-
   function refresh(options) {
     var opts = options || {};
     S.state.error = null;
@@ -152,6 +192,10 @@
       if (!opts.keepAgent) {
         var route = C.parseHash(window.location.hash);
         if (route.agent) C.setActiveAgent(S.state, route.agent);
+      }
+      if (S.state.activeAgent === C.GENESIS_ID) {
+        // GENESIS loads its own production data through its own module.
+        return null;
       }
       return loadAgent(S.state.activeAgent);
     }).then(function () {
@@ -172,14 +216,28 @@
     S.state.error = null;
     S.state.notice = null;
     render();
+    if (id === C.GENESIS_ID) {
+      if (window.CosmosGenesis) window.CosmosGenesis.refresh();
+      return;
+    }
     loadAgent(id).catch(function (err) {
       S.state.error = err.message || String(err);
+    }).then(function () {
+      if (id === "quasar") {
+        // QUASAR's YouTube domain hosts the migrated research workflows.
+        return fetchResearch().catch(function () { /* shown as empty state */ });
+      }
+      return null;
     }).then(render);
   }
 
   function reloadCurrentAgent() {
     // Refresh the overview too: drafting and status changes move counts that
     // other agents' headers and the backlog blocks display.
+    if (S.state.activeAgent === C.GENESIS_ID) {
+      if (window.CosmosGenesis) window.CosmosGenesis.refresh();
+      return Promise.resolve();
+    }
     return api("/api/cosmos/overview").then(function (overview) {
       C.mergeOverview(S.state, overview);
       return loadAgent(S.state.activeAgent);
@@ -395,66 +453,298 @@
   }
 
   function adsBacklogBlock() {
+    // The single authoritative Ads Product Backlog management interface.
+    // Ads Studio links here instead of hosting its own duplicate screen.
     var counts = (S.state.counts.ads_backlog || {});
-    var rows = (S.backlogAds || []).slice(0, 8);
-    var options = rows.length ? rows.map(function (product) {
+    var rows = S.backlogAds || [];
+    var statusOptions = ["", "discovered", "drafted", "reviewing", "approved",
+      "ready_for_creation", "in_production", "published", "archived"];
+    var list = rows.length ? rows.map(function (product) {
       var currentIndex = ADS_STATUS_ORDER.indexOf(product.status);
       var allowed = ADS_STATUS_ORDER.slice(Math.max(0, currentIndex)).concat(["archived"]).filter(function (status, index, list) {
         return list.indexOf(status) === index;
       });
+      var provenance = product.provenance || {};
       return [
         '<div class="cosmos-backlog-row">',
         '  <div class="cosmos-backlog-main"><b>' + esc(product.name) + "</b>",
-        '    <span class="cosmos-muted">' + esc(product.merchant || "No merchant") + " · " + esc(formatPrice(product.price, "PHP")) + "</span>",
+        '    <span class="cosmos-muted">' + esc(product.merchant || "No merchant") + " · " + esc(formatPrice(product.price, "PHP")) +
+        (product.category ? " · " + esc(product.category) : "") + "</span>",
         product.provenance && product.provenance.agent_id
-          ? '<span class="cosmos-provenance">from ' + esc(product.provenance.agent_id.toUpperCase()) + "</span>"
+          ? '<span class="cosmos-provenance">from ' + esc(product.provenance.agent_id.toUpperCase()) +
+            (provenance.recommendation_id ? " · rec " + esc(provenance.recommendation_id) : "") + "</span>"
           : "",
         "  </div>",
+        '  <div class="cosmos-backlog-actions">',
         '  <select data-cosmos-product="' + attr(product.id) + '" aria-label="Product status">' +
         allowed.map(function (status) {
           return '<option value="' + attr(status) + '"' + (status === product.status ? " selected" : "") + ">" + esc(STATUS_LABELS[status] || status) + "</option>";
         }).join("") + "</select>",
+        '  <button type="button" class="cosmos-btn is-ghost" data-cosmos-edit-product="' + attr(product.id) + '">Edit</button>',
+        product.archived
+          ? ""
+          : '<button type="button" class="cosmos-btn is-danger is-ghost" data-cosmos-delete-product="' + attr(product.id) + '" data-cosmos-delete-name="' + attr(product.name) + '">Delete</button>',
+        "  </div>",
         "</div>"
       ].join("\n");
     }).join("") : "";
     return [
       '<section class="cosmos-backlog">',
       '  <div class="cosmos-section-head"><div><h3>Ads Product Backlog</h3>',
-      '    <p>Drafts land here first. Publishing is never automatic.</p></div>',
+      '    <p>The authoritative product pipeline. Ads Studio uses this same data; publishing stays in GENESIS.</p></div>',
       '    <span class="cosmos-count">' + esc(counts.total || 0) + " active</span></div>",
-      rows.length ? '<div class="cosmos-backlog-list">' + options + "</div>" : emptyBlock("No products yet", "Draft an Ads recommendation, or open Ads Studio to add one manually."),
-      '  <button type="button" class="cosmos-btn is-ghost" data-cosmos-open-studio="ads">Open Ads Studio backlog</button>',
+      '  <div class="cosmos-backlog-toolbar">',
+      '    <input type="search" placeholder="Search products…" value="' + attr(S.backlogAdsQuery) + '" data-cosmos-ads-search aria-label="Search products">',
+      '    <select data-cosmos-ads-status aria-label="Filter by status">' +
+      statusOptions.map(function (status) {
+        return '<option value="' + attr(status) + '"' + (S.backlogAdsStatus === status ? " selected" : "") + ">" +
+          (status ? esc(STATUS_LABELS[status] || status) : "All statuses") + "</option>";
+      }).join("") + "</select>",
+      '    <button type="button" class="cosmos-btn" data-cosmos-add-product>Add product</button>',
+      "  </div>",
+      rows.length ? '<div class="cosmos-backlog-list">' + list + "</div>" : emptyBlock("No products match", "Adjust the search or draft an Ads recommendation into the backlog."),
+      "</section>"
+    ].join("\n");
+  }
+
+  function openProductModal(product) {
+    var isNew = !product;
+    var data = product || {};
+    var body = '<p class="cosmos-modal-note">' + (isNew
+      ? "Add a product manually. It enters the pipeline as <b>drafted</b>."
+      : "Editing <b>" + esc(data.name) + "</b>. Lifecycle history is preserved.") + "</p>" +
+      '<div id="cosmos-modal-error" class="cosmos-error hidden"></div>' +
+      '<div class="cosmos-template-form">' +
+      cosmosTextField("name", "Name", data.name, true) +
+      cosmosTextField("merchant", "Merchant", data.merchant) +
+      cosmosTextField("category", "Category", data.category) +
+      cosmosTextField("product_url", "Product URL", data.product_url) +
+      cosmosTextField("image_url", "Image URL", data.image_url) +
+      '<div class="cosmos-field-row">' +
+      cosmosNumberField("price_amount", "Price", data.price && data.price.amount) +
+      cosmosTextField("price_currency", "Currency", (data.price && data.price.currency) || "PHP") +
+      "</div>" +
+      cosmosTextField("target_audience", "Target audience", data.target_audience) +
+      cosmosTextField("reason", "Reason / note", data.reason) +
+      "</div>";
+    openModal(isNew ? "Add product" : "Edit product", body, isNew ? "Add product" : "Save product", function () {
+      var host = $("cosmos-modal-body");
+      var read = function (name) {
+        var el = host.querySelector('[data-product-field="' + name + '"]');
+        return el ? el.value.trim() : "";
+      };
+      var payload = {
+        name: read("name"),
+        merchant: read("merchant"),
+        category: read("category"),
+        product_url: read("product_url"),
+        image_url: read("image_url"),
+        target_audience: read("target_audience"),
+        reason: read("reason"),
+        price: {
+          amount: read("price_amount") === "" ? null : Number(read("price_amount")),
+          currency: read("price_currency") || "PHP"
+        }
+      };
+      if (isNew) {
+        return api("/api/cosmos/backlog/ads", { method: "POST", body: payload }).then(function () {
+          toast("Product added.");
+          S.state.notice = { tone: "ok", title: "Product added", body: "It is now in the backlog as drafted." };
+          return reloadCurrentAgent();
+        });
+      }
+      return api("/api/cosmos/backlog/ads/" + encodeURIComponent(data.id), { method: "PATCH", body: payload }).then(function () {
+        toast("Product saved.");
+        return reloadCurrentAgent();
+      });
+    });
+  }
+
+  function cosmosTextField(name, label, value, required) {
+    return '<label class="cosmos-field"><span>' + esc(label) + (required ? " *" : "") + '</span><input data-product-field="' + attr(name) + '" value="' + attr(value || "") + '"></label>';
+  }
+
+  function cosmosNumberField(name, label, value) {
+    return '<label class="cosmos-field"><span>' + esc(label) + '</span><input type="number" min="0" step="0.01" data-product-field="' + attr(name) + '" value="' + attr(value == null ? "" : value) + '"></label>';
+  }
+
+  function deleteProduct(productId, name) {
+    var body = '<p class="cosmos-modal-note">Soft-delete <b>' + esc(name || productId) + "</b>? The record is kept for provenance but removed from the active backlog. This cannot be undone from the UI.</p>" +
+      '<div id="cosmos-modal-error" class="cosmos-error hidden"></div>';
+    openModal("Delete product", body, "Delete", function () {
+      return api("/api/cosmos/backlog/ads/" + encodeURIComponent(productId), { method: "DELETE" }).then(function () {
+        toast("Product deleted.");
+        S.state.notice = { tone: "warn", title: "Product deleted", body: "The record was soft-deleted; history is preserved." };
+        return reloadCurrentAgent();
+      });
+    }, "danger");
+  }
+
+  var YOUTUBE_STATUS_ORDER = ["idea", "researching", "validated", "approved", "scripted", "in_production", "published", "rejected"];
+
+  function quasarResearchBlock() {
+    // Research & evidence workflows migrated from YouTube Studio. QUASAR's
+    // YouTube Intelligence domain is the intelligence-side home for analyst
+    // validations and competitor observations (evidence rules unchanged).
+    var data = S.research || {};
+    var rules = data.rules || {};
+    var validations = data.validations || [];
+    var competitors = (S.competitors && S.competitors.competitors) || [];
+    return [
+      '<section class="cosmos-backlog">',
+      '  <div class="cosmos-section-head"><div><h3>Research &amp; Evidence — YouTube</h3>',
+      '    <p>Analyst validations and competitor observations, migrated from YouTube Studio. Scores remain analyst estimates, never measured platform data.</p></div>',
+      '    <span class="cosmos-count">' + esc(validations.length) + " validations</span></div>",
+      rules && rules.validation ? '<p class="cosmos-muted">Approval threshold: ' + esc(rules.validation.approval_threshold || 18) + "/" + esc(rules.validation.max_total || 25) + " — sourced criteria pass, flags trigger review.</p>" : "",
+      validations.length ? '<div class="cosmos-backlog-list">' + validations.slice(0, 10).map(function (validation) {
+        return [
+          '<div class="cosmos-backlog-row">',
+          '  <div class="cosmos-backlog-main"><b>' + esc(validation.subject) + "</b>",
+          '    <span class="cosmos-muted">' + esc(validation.total_score) + "/" + esc(validation.max_total) + " · " + esc(validation.verdict) +
+          (validation.topic_id ? " · topic " + esc(validation.topic_id) : "") + " · " + esc(C.formatWhen(validation.created_iso)) + "</span>",
+          (validation.flags || []).length ? '<span class="cosmos-provenance">flags: ' + esc(validation.flags.join(", ")) + "</span>" : "",
+          "  </div>",
+          '  <div class="cosmos-backlog-actions">',
+          validation.topic_id ? "" : '<button type="button" class="cosmos-btn is-ghost" data-cosmos-validation-topic="' + attr(validation.id) + '">To topic</button>',
+          '  <button type="button" class="cosmos-btn is-danger is-ghost" data-cosmos-validation-delete="' + attr(validation.id) + '">Delete</button>',
+          "  </div>",
+          "</div>"
+        ].join("\n");
+      }).join("") + "</div>" : emptyBlock("No saved validations", "Validations created in research workflows are kept here with their sources."),
+      '  <button type="button" class="cosmos-btn is-ghost" data-cosmos-add-validation>Record a validation</button>',
+      "</section>",
+      '<section class="cosmos-backlog">',
+      '  <div class="cosmos-section-head"><div><h3>Competitor Intelligence</h3>',
+      '    <p>Observations are tagged observed or assumed — assumptions never become evidence.</p></div>',
+      '    <span class="cosmos-count">' + esc(competitors.length) + " competitors</span></div>",
+      competitors.length ? '<div class="cosmos-backlog-list">' + competitors.slice(0, 10).map(function (competitor) {
+        return [
+          '<details class="cosmos-card-more cosmos-competitor"><summary><b>' + esc(competitor.name) + "</b>" +
+          (competitor.reference ? ' <span class="cosmos-provenance">reference</span>' : "") + " — " +
+          esc((competitor.observations || []).length + " observation(s)") + "</summary>",
+          competitor.positioning ? '<p class="cosmos-muted">' + esc(competitor.positioning) + "</p>" : "",
+          '<ul class="cosmos-sources">' + (competitor.observations || []).slice(-6).map(function (observation) {
+            return "<li><b>" + esc(observation.basis || "observed") + "</b> — " + esc(observation.note) + "</li>";
+          }).join("") + "</ul>",
+          '<div class="cosmos-backlog-actions">',
+          '  <input type="text" placeholder="New observation…" maxlength="600" data-cosmos-observation-input="' + attr(competitor.id) + '" aria-label="New observation for ' + attr(competitor.name) + '">',
+          '  <button type="button" class="cosmos-btn is-ghost" data-cosmos-competitor-observe="' + attr(competitor.id) + '">Add observation</button>',
+          "</div>",
+          "</details>"
+        ].join("");
+      }).join("") + "</div>" : emptyBlock("No competitors tracked", "Add a competitor to start recording observations."),
+      '  <button type="button" class="cosmos-btn is-ghost" data-cosmos-add-competitor>Add competitor</button>',
       "</section>"
     ].join("\n");
   }
 
   function youtubeBacklogBlock() {
+    // The single authoritative YouTube Topic Backlog management interface,
+    // backed by the existing youtube_topics store and its transition rules.
     var data = S.backlogYoutube || {};
     var counts = data.counts || (S.state.counts.youtube_backlog || {});
-    var topics = (data.topics || []).slice(0, 8);
+    var topics = data.topics || [];
     var summary = Object.keys(counts).filter(function (key) {
       return key !== "total" && counts[key];
     }).map(function (key) {
       return esc((STATUS_LABELS[key] || key) + ": " + counts[key]);
     }).join(" · ");
+    var list = topics.length ? topics.map(function (topic) {
+      return [
+        '<div class="cosmos-backlog-row">',
+        '  <div class="cosmos-backlog-main"><b>' + esc(topic.title) + "</b>",
+        '    <span class="cosmos-muted">' + esc(topic.pillar || "—") + " · " + esc(topic.priority || "P2") +
+        (topic.validation_id ? " · validated" : "") + (topic.script_id ? " · scripted" : "") + " · " + esc(C.formatWhen(topic.created_iso)) + "</span>",
+        topic.notes ? '<details class="cosmos-card-more"><summary>Provenance &amp; notes</summary><p>' + esc(topic.notes) + "</p></details>" : "",
+        "  </div>",
+        '  <div class="cosmos-backlog-actions">',
+        '  <select data-cosmos-topic="' + attr(topic.id) + '" aria-label="Topic status">' +
+        YOUTUBE_STATUS_ORDER.concat([]).map(function (status) {
+          return '<option value="' + attr(status) + '"' + (status === topic.status ? " selected" : "") + ">" + esc(STATUS_LABELS[status] || status) + "</option>";
+        }).join("") + "</select>",
+        '  <button type="button" class="cosmos-btn is-ghost" data-cosmos-topic-detail="' + attr(topic.id) + '">Details</button>',
+        "  </div>",
+        "</div>"
+      ].join("\n");
+    }).join("") : "";
     return [
       '<section class="cosmos-backlog">',
       '  <div class="cosmos-section-head"><div><h3>YouTube Topic Backlog</h3>',
-      '    <p>The existing Topic Backlog remains the only topic destination.</p></div>',
+      '    <p>The authoritative topic pipeline — same store, same forward-only rules as the Studio used to expose.</p></div>',
       '    <span class="cosmos-count">' + esc(data.total || counts.total || 0) + " topics</span></div>",
       summary ? '<p class="cosmos-muted">' + summary + "</p>" : "",
-      topics.length ? '<div class="cosmos-backlog-list">' + topics.map(function (topic) {
-        return [
-          '<div class="cosmos-backlog-row">',
-          '  <div class="cosmos-backlog-main"><b>' + esc(topic.title) + "</b>",
-          '    <span class="cosmos-muted">' + esc(topic.priority || "P2") + " · " + esc(C.formatWhen(topic.created_iso)) + "</span></div>",
-          badge(topic.status),
-          "</div>"
-        ].join("\n");
-      }).join("") + "</div>" : emptyBlock("No topics yet", "Draft a YouTube recommendation into the Topic Backlog."),
-      '  <button type="button" class="cosmos-btn is-ghost" data-cosmos-open-studio="youtube">Open YouTube Studio backlog</button>',
+      '  <div class="cosmos-backlog-toolbar">',
+      '    <input type="search" placeholder="Search topics…" value="' + attr(S.backlogYoutubeQuery) + '" data-cosmos-yt-search aria-label="Search topics">',
+      '    <select data-cosmos-yt-status aria-label="Filter by status">' +
+      [""].concat(YOUTUBE_STATUS_ORDER).map(function (status) {
+        return '<option value="' + attr(status) + '"' + (S.backlogYoutubeStatus === status ? " selected" : "") + ">" +
+          (status ? esc(STATUS_LABELS[status] || status) : "All statuses") + "</option>";
+      }).join("") + "</select>",
+      "  </div>",
+      topics.length ? '<div class="cosmos-backlog-list">' + list + "</div>" : emptyBlock("No topics match", "Draft a YouTube recommendation into the backlog, or add a topic manually."),
+      '  <button type="button" class="cosmos-btn" data-cosmos-add-topic>Add topic</button>',
       "</section>"
     ].join("\n");
+  }
+
+  function openTopicDetail(topicId) {
+    var topic = (S.backlogYoutube.topics || []).find(function (item) { return item.id === topicId; });
+    if (!topic) return;
+    var rows = [];
+    function push(label, value) { if (value !== null && value !== undefined && value !== "") rows.push('<div class="cosmos-kv"><span>' + esc(label) + "</span><b>" + esc(value) + "</b></div>"); }
+    push("Status", topic.status);
+    push("Priority", topic.priority);
+    push("Pillar", topic.pillar);
+    push("Angle", topic.angle);
+    push("Audience question", topic.audience_question);
+    push("Search intent", topic.search_intent);
+    push("Commercial relevance", topic.commercial_relevance);
+    push("Score", topic.score);
+    push("Validation", topic.validation_id);
+    push("Script", topic.script_id);
+    push("Project", topic.project_id);
+    push("Published video", topic.published_video_id);
+    push("Channel", topic.channel_id);
+    push("Rejected reason", topic.rejected_reason);
+    var body = '<div class="cosmos-kv-grid">' + rows.join("") + "</div>" +
+      (topic.notes ? '<p class="cosmos-modal-note"><b>Provenance:</b> ' + esc(topic.notes) + "</p>" : "") +
+      (topic.competitor_coverage && topic.competitor_coverage.length
+        ? '<p class="cosmos-modal-note"><b>Competitor coverage:</b> ' + topic.competitor_coverage.map(function (c) {
+            return esc(c.competitor + (c.basis ? " (" + c.basis + ")" : ""));
+          }).join(" · ") + "</p>"
+        : "");
+    openModal("Topic — " + (topic.title || topicId), body, "Close", null);
+  }
+
+  function openAddTopicModal() {
+    var body = '<p class="cosmos-modal-note">Add a topic manually. It enters the pipeline as an <b>idea</b>.</p>' +
+      '<div id="cosmos-modal-error" class="cosmos-error hidden"></div>' +
+      '<div class="cosmos-template-form">' +
+      cosmosTextField("topic_title", "Title", "", true) +
+      cosmosTextField("topic_angle", "Angle", "") +
+      cosmosTextField("topic_pillar", "Pillar", "") +
+      '<label class="cosmos-field"><span>Priority</span><select data-product-field="topic_priority"><option>P1</option><option selected>P2</option><option>P3</option></select></label>' +
+      "</div>";
+    openModal("Add topic", body, "Add topic", function () {
+      var host = $("cosmos-modal-body");
+      var read = function (name) {
+        var el = host.querySelector('[data-product-field="' + name + '"]');
+        return el ? el.value.trim() : "";
+      };
+      var payload = {
+        title: read("topic_title"),
+        angle: read("topic_angle"),
+        pillar: read("topic_pillar"),
+        priority: read("topic_priority") || "P2"
+      };
+      var channel = S.state.config.activeYoutubeChannelId;
+      var query = channel ? "?channel_id=" + encodeURIComponent(channel) : "";
+      return api("/api/studio/youtube/topics" + query, { method: "POST", body: payload }).then(function () {
+        toast("Topic added.");
+        S.state.notice = { tone: "ok", title: "Topic added", body: "It entered the backlog as an idea." };
+        return reloadCurrentAgent();
+      });
+    });
   }
 
   function divisionPanel(division, agent) {
@@ -481,6 +771,7 @@
         : emptyBlock("No cards yet", "Run " + (((agent.capabilities || {})[division] || {}).action_label || "the capability") + " to produce reviewable cards."),
       "</section>",
       division === "ads" ? adsBacklogBlock() : youtubeBacklogBlock(),
+      (division === "youtube" && agent.id === "quasar") ? quasarResearchBlock() : "",
       '<section class="cosmos-history">',
       '  <div class="cosmos-section-head"><div><h3>Execution history</h3><p>This agent\'s own runs in this division only.</p></div>',
       '    <span class="cosmos-count">' + executions.length + "</span></div>",
@@ -532,7 +823,7 @@
       var agents = S.state.agents.length ? S.state.agents : C.AGENT_ORDER.map(function (id) {
         return { id: id, name: id.toUpperCase(), role: "" };
       });
-      tabs.innerHTML = agents.map(function (agent) {
+      var agentTabs = agents.map(function (agent) {
         var id = C.normalizeAgent(agent.id);
         var active = id === S.state.activeAgent;
         var local = C.agentState(S.state, id);
@@ -542,7 +833,19 @@
           '<span class="cosmos-agent-tab-copy"><b>' + esc(agent.name || id.toUpperCase()) + "</b><em>" + esc(agent.role || "") + "</em></span>" +
           (pending ? '<span class="cosmos-agent-tab-count">' + esc(pending) + "</span>" : "") +
           "</button>";
-      }).join("");
+      });
+      // GENESIS: the shared production destination, visually distinguished
+      // from the five intelligence agents. A system dashboard, not an agent.
+      var genesisActive = S.state.activeAgent === C.GENESIS_ID;
+      var genesisCounts = (S.state.counts && S.state.counts.genesis) || {};
+      var genesisBusy = ((genesisCounts.renders || {}).active || 0) + ((genesisCounts.publications || {}).scheduled || 0);
+      agentTabs.push('<button type="button" role="tab" aria-selected="' + (genesisActive ? "true" : "false") +
+        '" class="cosmos-agent-tab cosmos-tab-genesis' + (genesisActive ? " is-active" : "") + '" data-cosmos-agent="' + attr(C.GENESIS_ID) + '">' +
+        '<span class="cosmos-agent-tab-mark is-genesis"><i data-lucide="orbit"></i></span>' +
+        '<span class="cosmos-agent-tab-copy"><b>GENESIS</b><em>Production · Render · Publish</em></span>' +
+        (genesisBusy ? '<span class="cosmos-agent-tab-count">' + esc(genesisBusy) + "</span>" : "") +
+        "</button>");
+      tabs.innerHTML = agentTabs.join("");
     }
   }
 
@@ -568,6 +871,11 @@
     alertBlock();
     var host = $("cosmos-agent");
     if (!host) return;
+    if (S.state.activeAgent === C.GENESIS_ID) {
+      // GENESIS owns the host while its tab is active.
+      if (window.CosmosGenesis) window.CosmosGenesis.render(host);
+      return;
+    }
     if (S.state.loading && !S.state.initialized) {
       host.innerHTML = '<div class="cosmos-loading"><span class="cosmos-spinner"></span><b>Loading the five agents…</b><p>Reading local configuration, executions and backlogs.</p></div>';
       icons();
@@ -854,6 +1162,135 @@
     });
   }
 
+  function changeTopicStatus(topicId, status) {
+    var payload = { status: status };
+    api("/api/studio/youtube/topics/" + encodeURIComponent(topicId) + "/status", {
+      method: "POST", body: payload
+    }).then(function () {
+      toast("Topic status updated.");
+      return reloadCurrentAgent();
+    }).catch(function (err) {
+      S.state.notice = { tone: "warn", title: "Status not changed", body: err.message || String(err) };
+      return reloadCurrentAgent();
+    });
+  }
+
+  function validationToTopic(validationId) {
+    api("/api/studio/youtube/research/" + encodeURIComponent(validationId) + "/to-topic", { method: "POST" })
+      .then(function (data) {
+        toast("Validation converted to a topic.");
+        S.state.notice = { tone: "ok", title: "Topic created", body: (data.topic && data.topic.title) || "The validation became a backlog topic." };
+        return reloadCurrentAgent();
+      }).catch(function (err) {
+        S.state.notice = { tone: "warn", title: "Conversion failed", body: err.message || String(err) };
+        render();
+      });
+  }
+
+  function deleteValidation(validationId) {
+    api("/api/studio/youtube/research/" + encodeURIComponent(validationId), { method: "DELETE" })
+      .then(function () {
+        toast("Validation deleted.");
+        return fetchResearch().then(render);
+      }).catch(function (err) {
+        S.state.notice = { tone: "warn", title: "Delete failed", body: err.message || String(err) };
+        render();
+      });
+  }
+
+  function openValidationModal() {
+    var body = '<p class="cosmos-modal-note">Record an analyst validation. Score each criterion 1–5 with a basis (estimate or sourced); sourced criteria carry a label. Nothing invents platform data.</p>' +
+      '<div id="cosmos-modal-error" class="cosmos-error hidden"></div>' +
+      '<div class="cosmos-template-form">' +
+      cosmosTextField("val_subject", "Subject", "", true) +
+      cosmosTextField("val_pillar", "Pillar", "") +
+      '<div class="cosmos-field-row">' +
+      cosmosNumberField("val_rpm", "RPM potential (1-5)", 3) +
+      cosmosNumberField("val_demand", "Proven demand (1-5)", 3) +
+      "</div>" +
+      '<div class="cosmos-field-row">' +
+      cosmosNumberField("val_geo", "Geographic audience (1-5)", 3) +
+      cosmosNumberField("val_sustain", "Sustainability (1-5)", 3) +
+      cosmosNumberField("val_gap", "Content gap (1-5)", 3) +
+      "</div>" +
+      '<label class="cosmos-field"><span>Summary</span><textarea rows="2" data-product-field="val_summary"></textarea></label>' +
+      "</div>";
+    openModal("Record niche validation", body, "Save validation", function () {
+      var host = $("cosmos-modal-body");
+      var read = function (name) {
+        var el = host.querySelector('[data-product-field="' + name + '"]');
+        return el ? el.value.trim() : "";
+      };
+      var num = function (name) {
+        var el = host.querySelector('[data-product-field="' + name + '"]');
+        return Math.max(1, Math.min(5, Number(el && el.value) || 3));
+      };
+      var payload = {
+        subject: read("val_subject"),
+        pillar: read("val_pillar"),
+        summary: read("val_summary"),
+        criteria: [
+          { id: "rpm_potential", score: num("val_rpm") },
+          { id: "proven_demand", score: num("val_demand") },
+          { id: "geographic_audience", score: num("val_geo") },
+          { id: "content_sustainability", score: num("val_sustain") },
+          { id: "content_gap", score: num("val_gap") }
+        ]
+      };
+      return api("/api/studio/youtube/research", { method: "POST", body: payload }).then(function () {
+        toast("Validation saved.");
+        S.state.notice = { tone: "ok", title: "Validation saved", body: "Scores are analyst estimates — sources stay attached to the record." };
+        return reloadCurrentAgent();
+      });
+    });
+  }
+
+  function openCompetitorModal() {
+    var body = '<p class="cosmos-modal-note">Track a competitor channel. Observations you record are tagged per-entry as observed or assumed.</p>' +
+      '<div id="cosmos-modal-error" class="cosmos-error hidden"></div>' +
+      '<div class="cosmos-template-form">' +
+      cosmosTextField("comp_name", "Name", "", true) +
+      cosmosTextField("comp_url", "URL", "") +
+      cosmosTextField("comp_positioning", "Positioning", "") +
+      "</div>";
+    openModal("Add competitor", body, "Add competitor", function () {
+      var host = $("cosmos-modal-body");
+      var read = function (name) {
+        var el = host.querySelector('[data-product-field="' + name + '"]');
+        return el ? el.value.trim() : "";
+      };
+      return api("/api/studio/youtube/competitors", {
+        method: "POST",
+        body: { name: read("comp_name"), url: read("comp_url"), positioning: read("comp_positioning") }
+      }).then(function () {
+        toast("Competitor added.");
+        return fetchResearch().then(render);
+      });
+    });
+  }
+
+  function addObservation(competitorId, note) {
+    if (!note) {
+      toast("Write the observation first.", "warn");
+      return;
+    }
+    api("/api/studio/youtube/competitors/" + encodeURIComponent(competitorId) + "/observations", {
+      method: "POST", body: { note: note, basis: "observed" }
+    }).then(function () {
+      toast("Observation recorded.");
+      return fetchResearch().then(render);
+    }).catch(function (err) {
+      S.state.notice = { tone: "warn", title: "Observation failed", body: err.message || String(err) };
+      render();
+    });
+  }
+
+  var backlogDebounceTimers = {};
+  function backlogDebounce(key, fn) {
+    if (backlogDebounceTimers[key]) clearTimeout(backlogDebounceTimers[key]);
+    backlogDebounceTimers[key] = setTimeout(fn, 320);
+  }
+
   function setActiveTemplate(division, templateId) {
     api("/api/cosmos/config/active", {
       method: "POST", body: { domain: division, template_id: templateId }
@@ -879,19 +1316,6 @@
       S.state.error = err.message || String(err);
       render();
     });
-  }
-
-  function openStudio(workspace) {
-    closeModal();
-    if (window.StudioWorkspaces) {
-      window.switchMainView("studio");
-      setTimeout(function () {
-        try { window.StudioWorkspaces.go(workspace, workspace === "ads" ? "backlog" : "backlog"); } catch (err) { /* fall back to default */ }
-      }, 0);
-      return;
-    }
-    window.location.hash = workspace === "ads" ? "#studio/ads/backlog" : "#studio/youtube/backlog";
-    window.switchMainView("studio");
   }
 
   // -----------------------------------------------------------------------
@@ -925,6 +1349,31 @@
         if (event.target.hasAttribute("data-cosmos-channel")) return setActiveChannel(event.target.value);
         var product = event.target.getAttribute("data-cosmos-product");
         if (product) return changeProductStatus(product, event.target.value);
+        var topic = event.target.getAttribute("data-cosmos-topic");
+        if (topic) return changeTopicStatus(topic, event.target.value);
+        if (event.target.hasAttribute("data-cosmos-ads-status")) {
+          S.backlogAdsStatus = event.target.value;
+          return fetchBacklogAds().then(render).catch(function () { render(); });
+        }
+        if (event.target.hasAttribute("data-cosmos-yt-status")) {
+          S.backlogYoutubeStatus = event.target.value;
+          return fetchBacklogYoutube().then(render).catch(function () { render(); });
+        }
+      });
+
+      host.addEventListener("input", function (event) {
+        if (event.target.hasAttribute("data-cosmos-ads-search")) {
+          S.backlogAdsQuery = event.target.value;
+          backlogDebounce("ads", function () {
+            fetchBacklogAds().then(render).catch(function () { /* keep view */ });
+          });
+        }
+        if (event.target.hasAttribute("data-cosmos-yt-search")) {
+          S.backlogYoutubeQuery = event.target.value;
+          backlogDebounce("yt", function () {
+            fetchBacklogYoutube().then(render).catch(function () { /* keep view */ });
+          });
+        }
       });
 
       host.addEventListener("click", function (event) {
@@ -934,8 +1383,28 @@
         if (run) return execute(run);
         var edit = button.getAttribute("data-cosmos-edit-template");
         if (edit) return openTemplateEditor(edit);
-        var open = button.getAttribute("data-cosmos-open-studio");
-        if (open) return openStudio(open);
+        if (button.hasAttribute("data-cosmos-add-product")) return openProductModal(null);
+        var editProduct = button.getAttribute("data-cosmos-edit-product");
+        if (editProduct) {
+          var found = (S.backlogAds || []).find(function (item) { return item.id === editProduct; });
+          return openProductModal(found);
+        }
+        var deleteProduct = button.getAttribute("data-cosmos-delete-product");
+        if (deleteProduct) return deleteProduct(deleteProduct, button.getAttribute("data-cosmos-delete-name"));
+        if (button.hasAttribute("data-cosmos-add-topic")) return openAddTopicModal();
+        var topicDetail = button.getAttribute("data-cosmos-topic-detail");
+        if (topicDetail) return openTopicDetail(topicDetail);
+        var validationTopic = button.getAttribute("data-cosmos-validation-topic");
+        if (validationTopic) return validationToTopic(validationTopic);
+        var validationDelete = button.getAttribute("data-cosmos-validation-delete");
+        if (validationDelete) return deleteValidation(validationDelete);
+        if (button.hasAttribute("data-cosmos-add-validation")) return openValidationModal();
+        var observe = button.getAttribute("data-cosmos-competitor-observe");
+        if (observe) {
+          var input = host.querySelector('[data-cosmos-observation-input="' + observe + '"]');
+          return addObservation(observe, input ? input.value.trim() : "");
+        }
+        if (button.hasAttribute("data-cosmos-add-competitor")) return openCompetitorModal();
         var action = button.getAttribute("data-cosmos-action");
         if (!action) return;
         var id = button.getAttribute("data-cosmos-id");
@@ -994,7 +1463,11 @@
       return refresh();
     },
     selectAgent: selectAgent,
-    state: function () { return S.state; }
+    state: function () { return S.state; },
+    // Shared modal + toast surface (used by the GENESIS module too).
+    toast: toast,
+    openModal: openModal,
+    closeModal: closeModal
   };
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);

@@ -120,6 +120,28 @@
   function applyHash(options) {
     var route = WSS.parseHash(window.location.hash);
     if (!route) return false;
+    // Consolidated sections (Ads/YouTube backlog, publishing, YouTube
+    // intelligence) redirect into COSMOS — the authoritative home for that
+    // content. Old deep links land on the real view instead of a removed
+    // panel.
+    if (route.view === "cosmos") {
+      if (window.switchMainView) window.switchMainView("cosmos");
+      if (window.Cosmos && window.Cosmos.selectAgent) {
+        window.Cosmos.selectAgent(route.target);
+      }
+      var next = "#cosmos/" + (route.target || "");
+      if (window.location.hash !== next) {
+        try {
+          window.history.replaceState(null, "", next);
+        } catch (err) {
+          window.location.hash = next;
+        }
+      }
+      if (route.note && window.Cosmos && window.Cosmos.toast) {
+        window.Cosmos.toast(route.note);
+      }
+      return true;
+    }
     if (document.getElementById("studio-view") &&
         document.getElementById("studio-view").classList.contains("hidden") &&
         window.switchMainView) {

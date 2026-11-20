@@ -98,6 +98,8 @@ from backend import tts as dennis_tts
 from backend import digest as dennis_digest
 from backend import youtube_api as dennis_youtube_api
 from backend import cosmos_api as dennis_cosmos_api
+from backend import genesis_render as dennis_genesis_render
+from backend import genesis_publish as dennis_genesis_publish
 from backend import studio_create as dennis_studio_create
 from backend.sandbox import ExecContext
 
@@ -966,7 +968,7 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
         reachable for the same-origin embedded dashboard (guarded by the
         cross-site check instead of the token, which the iframe cannot send).
         """
-        public = ('/api/auth/session',)
+        public = ('/api/auth/session', '/api/cosmos/genesis/publishing/youtube/callback')
         if parsed.path.startswith('/api/') and parsed.path not in public:
             if not self._require_owner(parsed):
                 return False
@@ -1397,6 +1399,17 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
 
         # COSMOS multi-agent intelligence (read).
         if path == '/api/cosmos' or path.startswith('/api/cosmos/'):
+            # The Google OAuth redirect lands here as a top-level browser
+            # navigation: it must answer with HTML, not JSON.
+            if path.startswith('/api/cosmos/genesis/publishing/youtube/callback'):
+                status, payload = dennis_cosmos_api.handle('GET', path, parse_qs(parsed.query), None)
+                if isinstance(payload, dict) and payload.get('__html__'):
+                    body = payload['__html__'].encode('utf-8')
+                    self.send_response(status)
+                    self.send_header('Content-Type', 'text/html; charset=utf-8')
+                    self.send_header('Content-Length', str(len(body)))
+                    self.end_headers()
+                    return self.wfile.write(body)
             status, payload = dennis_cosmos_api.handle('GET', path, parse_qs(parsed.query), None)
             return self.send_json(payload, status)
 
@@ -5867,6 +5880,11 @@ def run(port=PORT):
     atexit.register(dennis_denma.BACKEND.stop)
     STUDIO_RUNNER.recover()
     atexit.register(STUDIO_RUNNER.shutdown)
+    # GENESIS production workflow: reuse the shared StudioRunner for
+    # provider-backed generation, and start the publishing scheduler for
+    # owner-approved scheduled uploads.
+    dennis_genesis_render.set_runner(STUDIO_RUNNER)
+    dennis_genesis_publish.start_scheduler()
     # UPIF: register provider adapters + discover generation models. Read-only
     # bootstrap; no credentials required, no generation executed.
     from backend import upif_bootstrap as dennis_upif_bootstrap

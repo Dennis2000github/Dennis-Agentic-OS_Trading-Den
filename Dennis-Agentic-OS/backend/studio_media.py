@@ -261,7 +261,7 @@ def list_items(kind=None, role="output", query=None, limit=60):
         items = list(_read_index().get("items") or [])
     if kind:
         items = [x for x in items if x.get("kind") == kind]
-    if role:
+    if role and role != "all":
         items = [x for x in items if x.get("role", "output") == role]
     if query:
         needle = str(query).lower()
@@ -279,6 +279,14 @@ def get(media_id):
             if record.get("id") == media_id:
                 return _public(record)
     raise MediaError("Media not found.")
+
+
+def find(media_id):
+    """Return a media record or ``None`` instead of raising for unknown ids."""
+    try:
+        return get(media_id)
+    except MediaError:
+        return None
 
 
 def open_path(media_id):

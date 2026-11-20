@@ -164,6 +164,30 @@ ok("deep links round-trip and reject non-cosmos hashes", () => {
   assert.strictEqual(Cosmos.hashForAgent("quasar"), "#cosmos/quasar");
 });
 
+ok("GENESIS is a first-class view route, not a sixth agent", () => {
+  assert.strictEqual(Cosmos.GENESIS_ID, "genesis");
+  assert.strictEqual(Cosmos.AGENT_ORDER.length, 5);
+  assert.deepStrictEqual(Cosmos.parseHash("#cosmos/genesis"), { view: "cosmos", agent: "genesis" });
+  assert.strictEqual(Cosmos.hashForAgent("genesis"), "#cosmos/genesis");
+  assert.strictEqual(Cosmos.hashForAgent("GENESIS"), "#cosmos/genesis");
+});
+
+ok("the GENESIS view survives overview refreshes", () => {
+  const state = Cosmos.emptyState();
+  Cosmos.setActiveAgent(state, "genesis");
+  assert.strictEqual(state.activeAgent, "genesis");
+  Cosmos.mergeOverview(state, { agents: [], counts: {} });
+  assert.strictEqual(state.activeAgent, "genesis", "mergeOverview must not reset GENESIS to andromeda");
+  assert.ok(!state.byAgent.genesis, "GENESIS never gets an agent dashboard state");
+  // Unknown values keep the current selection (pre-existing normalizeAgent
+  // semantics); mergeOverview itself resets a truly unknown stored agent.
+  Cosmos.setActiveAgent(state, "bogus");
+  assert.strictEqual(state.activeAgent, "genesis");
+  state.activeAgent = "bogus";
+  Cosmos.mergeOverview(state, { agents: [], counts: {} });
+  assert.strictEqual(state.activeAgent, "andromeda");
+});
+
 ok("formatting and status helpers stay deterministic", () => {
   assert.strictEqual(Cosmos.formatDuration(850), "850 ms");
   assert.strictEqual(Cosmos.formatDuration(4200), "4.2 s");
@@ -174,6 +198,16 @@ ok("formatting and status helpers stay deterministic", () => {
   assert.strictEqual(Cosmos.statusTone("proposed"), "info");
   assert.strictEqual(Cosmos.evidenceLabel("third_party_claim"), "Third-party claim");
   assert.strictEqual(Cosmos.evidenceLabel("hypothesis"), "AI hypothesis");
+});
+
+ok("GENESIS production statuses get honest tones", () => {
+  assert.strictEqual(Cosmos.statusToneExtended("complete"), "ok");
+  assert.strictEqual(Cosmos.statusToneExtended("succeeded"), "ok");
+  assert.strictEqual(Cosmos.statusToneExtended("awaiting_approval"), "warn");
+  assert.strictEqual(Cosmos.statusToneExtended("failed"), "danger");
+  assert.strictEqual(Cosmos.statusToneExtended("assembling"), "info");
+  assert.strictEqual(Cosmos.statusToneExtended("queued"), "muted");
+  assert.strictEqual(Cosmos.statusToneExtended("published"), "ok");
 });
 
 console.log("\n" + passed + " COSMOS state tests passed.");
