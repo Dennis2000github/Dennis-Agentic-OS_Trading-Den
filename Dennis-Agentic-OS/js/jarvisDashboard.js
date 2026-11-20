@@ -612,8 +612,8 @@
   }
 
   // ------------------------------------------------------------------
-  // Briefing history (OpenJarvis digest bridge). Offline => offer to
-  // start the single shared service; busy => honest "Synthesizing…".
+  // Briefing history (native Step 5 briefing module). Offline => honest
+  // reason; busy => honest "Building…".
   // ------------------------------------------------------------------
   function briefingRow(kind, when, text, opts) {
     var full = String(text || "");
@@ -692,8 +692,8 @@
       var online = !!(d && d.available === true);
       state.briefOnline = online;
       if (!online) {
-        list.innerHTML = '<p class="text-[11px] text-slate-500">Briefing service offline. ' +
-          esc((d && d.reason) ? d.reason : "OpenJarvis is not running.") + "</p>";
+        list.innerHTML = '<p class="text-[11px] text-slate-500">Briefing module offline. ' +
+          esc((d && d.reason) ? d.reason : "Native briefing module unavailable.") + "</p>";
         updateGenerateButton();
         updateBriefCount();
         return;
@@ -737,40 +737,39 @@
   function generateBriefing(kind) {
     if (state.briefBusy) return;
     kind = kind === "weekly" ? "weekly" : "daily";
-    state.briefKind = kind;
-    state.briefBusy = true;
-    updateGenerateButton();
-    var url = state.briefOnline ? "/api/digest/generate" : "/api/digest/service";
-    var body = state.briefOnline ? { kind: kind } : { action: "start" };
-    if (!state.briefOnline) {
-      hudToast("Starting the OpenJarvis briefing service, sir\u2026");
-    } else {
+    var title = kind === "weekly" ? "Generate weekly briefing" : "Generate daily briefing";
+    var message = "This reads live local OS state (connections, COSMOS, Genesis, Trading Den, audit, voice) and writes a briefing plus cached audio under ~/.jarvis/briefings. Continue?";
+    var ask = (window.JarvisOs && typeof window.JarvisOs.confirm === 'function')
+      ? window.JarvisOs.confirm(title, message, "Sources: backend/jarvis_os.py + backend/tts.py")
+      : Promise.resolve(window.confirm(message));
+    ask.then(function (yes) {
+      if (!yes) return;
+      state.briefKind = kind;
+      state.briefBusy = true;
+      updateGenerateButton();
       hudToast(kind === "weekly"
-        ? "Synthesizing your weekly briefing, sir. This looks back seven days and can take a few minutes."
-        : "Synthesizing your daily briefing, sir. The GLM engine can take a minute or two.");
-    }
-    postJSON(url, body)
-      .then(function (d) {
-        state.briefBusy = false;
-        state.briefKind = "";
-        updateGenerateButton();
-        if (state.briefOnline) {
+        ? "Building your weekly briefing from local OS state, sir\u2026"
+        : "Building your daily briefing from local OS state, sir\u2026");
+      return postJSON('/api/digest/generate', { kind: kind, confirmed: true })
+        .then(function (d) {
+          state.briefBusy = false;
+          state.briefKind = "";
+          updateGenerateButton();
           if (d && d.available) {
             hudToast(kind === "weekly"
               ? "Your weekly briefing is ready, sir."
               : "Your daily briefing is ready, sir.");
           } else {
-            hudToast("Briefing failed. " + ((d && d.reason) || "Check the OpenJarvis service."));
+            hudToast("Briefing failed. " + ((d && (d.reason || d.error)) || "Check the native briefing module."));
           }
-        }
-        loadBriefings();
-      })
-      .catch(function () {
-        state.briefBusy = false;
-        state.briefKind = "";
-        updateGenerateButton();
-        hudToast("The request failed \u2014 the OS backend may be restarting.");
-      });
+          loadBriefings();
+        });
+    }).catch(function () {
+      state.briefBusy = false;
+      state.briefKind = "";
+      updateGenerateButton();
+      hudToast("The request failed \u2014 the OS backend may be restarting.");
+    });
   }
 
   // ------------------------------------------------------------------

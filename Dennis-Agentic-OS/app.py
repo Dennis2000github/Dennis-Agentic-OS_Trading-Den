@@ -96,7 +96,7 @@ from backend import upif_tools as dennis_upif_tools
 from backend import upif_websites as dennis_upif_websites
 from backend import tts as dennis_tts
 from backend import jarvis_os as dennis_jarvis_os
-from backend import digest as dennis_digest
+from backend import briefing as dennis_digest  # native Step 5 briefing (no sibling service)
 from backend import youtube_api as dennis_youtube_api
 from backend import cosmos_api as dennis_cosmos_api
 from backend import genesis_render as dennis_genesis_render
@@ -774,7 +774,7 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
         }
 
     def _digest_audio(self):
-        """GET /api/digest/audio — stream today's OpenJarvis briefing audio."""
+        """GET /api/digest/audio — serve locally cached briefing audio (read-only)."""
         try:
             data, ctype = dennis_digest.audio()
         except dennis_digest.DigestError as exc:
@@ -1378,7 +1378,7 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
             return self._tts_audio_file(path[len('/api/tts/audio/'):])
 
         # ==================================================================
-        # OpenJarvis digest bridge (daily briefings; sibling service :8000)
+        # Native briefings (Step 5 setup; local data, no external service)
         # ==================================================================
         if path == '/api/digest':
             return self.send_json(dennis_digest.latest())
@@ -2938,8 +2938,11 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
             return self.send_json(result, 200 if result.get('ok') else 502)
 
         # ==================================================================
-        # OpenJarvis digest bridge (writes): generate, schedule, service.
+        # Native briefing writes — confirmation + append-only audit required
         # ==================================================================
+        _digest_writes = ('/api/digest/generate', '/api/digest/schedule', '/api/digest/service')
+        if path in _digest_writes and not (body or {}).get('confirmed'):
+            return self.send_json({"error": "confirmation required"}, 400)
         if path == '/api/digest/generate':
             kind = (body or {}).get("kind") or "daily"
             try:
@@ -5971,7 +5974,7 @@ def run(port=PORT):
               f"({', '.join(info['providers'])})")
     except Exception as exc:
         print(f"  UPIF bootstrap skipped: {exc}")
-    # Weekly briefing auto-run (OpenJarvis bridge; env-gated, daemon thread).
+    # Weekly briefing auto-run (native Step 5 module; env-gated, daemon thread).
     if dennis_digest.start_weekly_scheduler():
         print("  Weekly briefing scheduler: on "
               f"({dennis_digest.weekly_schedule_info()['day']}s, "

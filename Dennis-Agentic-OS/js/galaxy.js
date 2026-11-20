@@ -566,7 +566,7 @@ class HermesGalaxy {
       return;
     }
 
-    // 3g. Daily briefing (OpenJarvis digest bridge)
+    // 3g. Daily briefing (native Step 5 briefing module)
     if (lower.includes('briefing') || lower.includes('brief me')) {
       this.handleBriefingCommand();
       return;
@@ -784,7 +784,7 @@ class HermesGalaxy {
   }
 
   // -----------------------------------------------------------------------
-  // 6b. DAILY BRIEFING (OpenJarvis digest bridge → spoken in the JARVIS voice)
+  // 6b. DAILY BRIEFING (native briefing module → spoken in the JARVIS voice)
   // -----------------------------------------------------------------------
   handleBriefingCommand() {
     this.respond('One moment, Dennis. Retrieving your briefing.');
@@ -792,7 +792,7 @@ class HermesGalaxy {
       .then((r) => r.json())
       .then((d) => {
         if (!d || d.available !== true) {
-          this.respond('The briefing service is offline. Use the briefing panel on my dashboard to start it, Dennis.');
+          this.respond('The local briefing module is unavailable. Check the briefing panel on my dashboard, Dennis.');
           return;
         }
         if (!d.digest || !d.digest.text) {

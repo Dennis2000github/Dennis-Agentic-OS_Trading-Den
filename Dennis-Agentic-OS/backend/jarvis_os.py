@@ -23,7 +23,10 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(ROOT, "data")
 COSMOS_DIR = os.path.join(DATA_DIR, "cosmos")
 GENESIS_DIR = os.path.join(COSMOS_DIR, "genesis")
-OPENJARVIS_DIR = os.path.normpath(os.path.join(ROOT, "..", "OpenJarvis"))
+LOCAL_BRIDGE_FILES = (
+    os.path.join(ROOT, "backend", "execution_router.py"),
+    os.path.join(ROOT, "backend", "runner.py"),
+)
 DENMA_DB = os.path.join(ROOT, "trading_den", "MMcloneLoopEngineering", "data", "denma_history.db")
 LOCAL_BASE = "http://127.0.0.1:8080"
 
@@ -160,7 +163,7 @@ CONNECTION_SOURCES = [
     ("cosmos", "COSMOS intelligences", "data/cosmos/executions.json + GET /api/cosmos/* (localhost)"),
     ("genesis", "GENESIS production", "data/cosmos/genesis/projects.json, renders.json + GET /api/cosmos/genesis/*"),
     ("trading-den", "Trading Den (read-only)", "trading_den/MMcloneLoopEngineering/data/denma_history.db + GET /api/bots/list, /api/screener"),
-    ("claude-agent-sdk", "Claude Agent SDK bridge", "sibling OpenJarvis/src/openjarvis/agents/claude_code.py (local files)"),
+    ("local-agent-bridge", "Local agent bridge", "backend/execution_router.py + backend/runner.py (in this OS)"),
     ("kokoro-tts", "Kokoro local voice", "127.0.0.1:8880 health endpoint"),
     ("openclaw", "OpenClaw gateway", "launchd ai.openclaw.gateway on 127.0.0.1:18789"),
 ]
@@ -187,11 +190,12 @@ def _connection_check(source_id):
         detail = f"DB read-only OK ({count} realized rows); bots endpoint " + (
             "OK" if ok else f"unavailable ({payload})")
         return "Connected", detail
-    if source_id == "claude-agent-sdk":
-        path = os.path.join(OPENJARVIS_DIR, "src", "openjarvis", "agents", "claude_code.py")
-        if os.path.isfile(path):
-            return "Connected", "Found " + os.path.relpath(path, os.path.dirname(ROOT))
-        return "Not connected", f"Missing {path}"
+    if source_id == "local-agent-bridge":
+        found = [os.path.relpath(p, ROOT) for p in LOCAL_BRIDGE_FILES if os.path.isfile(p)]
+        if len(found) == len(LOCAL_BRIDGE_FILES):
+            return "Connected", "Found " + ", ".join(found)
+        missing = [os.path.relpath(p, ROOT) for p in LOCAL_BRIDGE_FILES if not os.path.isfile(p)]
+        return "Not connected", "Missing: " + ", ".join(missing)
     if source_id == "kokoro-tts":
         return ("Connected" if _tcp_open("127.0.0.1", 8880) else "Not connected",
                 "TCP probe 127.0.0.1:8880")

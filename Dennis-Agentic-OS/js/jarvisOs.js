@@ -389,6 +389,7 @@
 
   // ---------- public API ---------------------------------------------------
   var JarvisOs = {
+    confirm: confirmAction,
     refresh: function () {
       loadVoice();
       loadConnections();

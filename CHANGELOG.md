@@ -1,7 +1,33 @@
 # Changelog — DENNIS Agentic OS upgrade (`upgrade-cosmos`)
 
-All dates Asia/Manila. Scope: **`Dennis-Agentic-OS/` only** (OpenJarvis is adjacent context, untouched).
+All dates Asia/Manila. Scope: **`Dennis-Agentic-OS/` only** (the sibling OpenJarvis checkout itself
+was never modified; the OS's dependency on it was removed on 2026-11-21).
 Nothing was installed. Existing bridge, voice setup and dashboards were patched, not rebuilt.
+
+## 2026-11-21 — OpenJarvis dependency removed; native Step 5 briefings
+
+- Replaced the sibling-repo digest bridge with `backend/briefing.py`: local-only, no `:8000`
+  service and no sibling checkout. The `/api/digest/*` contract is preserved so the JARVIS
+  briefing panel and voice command keep working. Every section carries its source path and
+  missing values are reported as `unknown` — nothing is invented.
+- `POST /api/digest/generate|schedule|service` now require `confirmed:true` (Step 1 write rule);
+  the dashboard asks through `window.JarvisOs.confirm` before posting. GET routes stay read-only
+  and `/api/digest/audio` never generates on a read.
+- Artifacts live under `~/.jarvis/briefings` (directory 0700, files 0600): `daily.json`,
+  `weekly.json`, `history.json`, `schedule.json`, `latest.wav`, `briefing.log`. Generation writes
+  an append-only audit entry.
+- The full evidence-heavy text stays on screen; local CPU TTS speaks a bounded (~390 char)
+  real-data summary. The first full-text attempt made Kokoro hang past 180 s on CPU, so the
+  spoken audio was deliberately condensed without dropping the on-screen evidence.
+- Repointed the bridge connection card from `../OpenJarvis/.../claude_code.py` to the OS's own
+  `backend/execution_router.py` + `backend/runner.py`; `OPENJARVIS_DIR` removed from `jarvis_os.py`.
+- Removed the now-unused `backend/digest.py`, `scripts/openjarvis_service.py` and
+  `docs/OPENJARVIS_VOICE_SETUP.md`. Older audit docs still mention OpenJarvis as history.
+- `tests/test_digest_routes.py` rewritten: **18 tests pass**. Syntax checks pass. Live smoke:
+  digest GETs 200, unconfirmed POST 400, one confirmed generation produced a 1,230,892-byte WAV
+  in 86.6 s, audio GET 200, audit entry written. `npm run doctor`: **13 pass/info, 0 FAIL**.
+- Kokoro was restarted to clear the stuck full-text synthesis; the app was restarted and remains
+  bound to `127.0.0.1:8080` only.
 
 ## 2026-11-21 — Fish Audio key rotated (owner-supplied replacement)
 
