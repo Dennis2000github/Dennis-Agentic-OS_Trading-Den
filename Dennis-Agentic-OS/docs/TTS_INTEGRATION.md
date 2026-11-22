@@ -39,13 +39,14 @@ OpenAI-compatible provider: `tts.provider: openai` +
 | `tts_service/models/` | Official Kokoro v1.0 weights: `kokoro-v1.0.onnx` (325 MB fp32) + `voices-v1.0.bin` (27 MB, 54 voices incl. `bm_george`/`bm_lewis`). `kokoro-v1.0.int8.onnx` is a smaller/faster alternative (`KOKORO_MODEL` env). |
 | `tts_service/.venv/` | Isolated Python 3.12 runtime: `kokoro-onnx 0.6.1`, `onnxruntime`, `espeakng_loader` (bundled espeak-ng — no system G2P deps). |
 | `scripts/kokoro_service.py` | Service manager: `start | stop | restart | status | health`. PID file `data/tts/service.pid`, log `data/tts/service.log`. Never double-starts. |
-| `backend/tts.py` | Central TTS Router: provider registry (kokoro default, elevenlabs optional, browser fallback-only), 3-level provider resolution, presets, secrets (0600), concurrency cap, saved voiceovers (`data/tts/audio`), service control. |
-| `app.py` | Routes: `GET /api/tts/{status,config,voices,audio/<file>}`, `POST /api/tts/{config,service,speech}`. All owner-token gated (`X-Dennis-Token`); speech supports `stream: true` (chunked PCM relay) and `save: true` (persist + descriptor). |
-| `js/tts.js` | `window.DennisTTS`: speak/queue/cancel, PCM streaming player (Web Audio), WAV fallback, browser-fallback engine, status/config APIs. |
-| `js/galaxy.js` | `speak()` routes via DennisTTS (browser synthesis kept as explicit fallback only); mic suspension during speech; general voice commands submitted to the **selected agent** via `window.DennisAgentBridge` → `/api/chat`, real agent reply spoken through Kokoro. |
+| `backend/tts.py` | Central TTS Router: provider registry (kokoro default, fish + elevenlabs optional, browser fallback-only), verified model catalog (`MODEL_CATALOG`, free-first `cost` order), 3-level provider resolution, per-scope model/voice prefs, presets, secrets (0600), concurrency cap, saved voiceovers (`data/tts/audio`), service control, read-only `catalog()`. |
+| `app.py` | Routes: `GET /api/tts/{status,catalog,config,voices,audio/<file>}`, `POST /api/tts/{config,secret,service,service/start,service/stop,speech}`. All owner-token gated (`X-Dennis-Token`); every POST write route requires `confirmed:true` and appends an audit entry (`who/what/when/result`). Speech supports `stream: true` (chunked PCM relay) and `save: true` (persist + descriptor). |
+| `js/tts.js` | `window.DennisTTS`: speak/queue/cancel, PCM streaming player (Web Audio), WAV fallback, browser-fallback engine, status/config APIs, `catalog()`. Every write helper auto-attaches `confirmed:true` — callers must show `window.JarvisOs.confirm` first. |
+| `js/galaxy.js` | `speak()` routes via DennisTTS (browser synthesis kept as explicit fallback only); mic suspension during speech; general voice commands submitted to the **selected agent** via `window.DennisAgentBridge` → `/api/chat`, real agent reply spoken through Kokoro. Legacy Apollo voice panel saves now require a confirmation. |
 | `js/app.js` | `window.DennisAgentBridge`: reads `activeAgentState`/`activeModelState`, submits chat queries, returns the real reply. |
-| `js/voiceRegistry.js` | Settings card (global default, per-studio presets, service toggle, ElevenLabs key) + per-studio voiceover panels with save/download. |
-| `index.html` | Apollo widget voice controls + status line + provider panel; Voice Provider Registry card in settings; studio voiceover mounts; script tags for `tts.js` and `voiceRegistry.js`. |
+| `js/voicePicker.js` | Shared Provider → Model → Voice picker (free-first, local-first). One component on the JARVIS bottom bar (scopes: Apollo + Global, plus service toggle and ElevenLabs key field) and auto-mounted in the Ads and YouTube studio headers. Panel is portaled to `<body>` so `.hud-panel` clip-path / studio `overflow:hidden` can never cut it off. Replaces the old `voiceRegistry.js` (deleted 2026-11-22); registry capabilities live on in the picker's registry section and Settings → Voice. |
+| `css/voice-picker.css` | Picker styles (fixed-position panel, free/free-tier/paid/deprecated cost badges, toast). |
+| `index.html` | Apollo widget voice controls + status line; `#jarvis-bar-voice`, `#studio-ads-voice`, `#studio-youtube-voice` picker mount slots; includes for `tts.js` + `voicePicker.js` + `voice-picker.css`. The old Workspace "Voice Provider Registry" card was removed — capabilities retained in the picker and Settings → Voice. |
 | `tests/test_tts_routes.py` | 15 route/unit tests (stdlib unittest). |
 | `tests/e2e_tts_kokoro.py` | End-to-end against the live service (status → voices → WAV → PCM stream). |
 
@@ -105,18 +106,43 @@ whole-file synthesis **and** the streaming voice-mode path both produced
 
 | Endpoint | Purpose |
 |---|---|
-| `GET /api/tts/status` | providers, global default, per-studio prefs, kokoro health, elevenlabs quota |
-| `GET /api/tts/config` / `POST` | read / patch config (studios, presets, apollo flags, `provider_secrets`) |
+| `GET /api/tts/status` | providers (live `available`/`default` flags), global default provider/model/voice, per-studio prefs, kokoro health, fish/elevenlabs status, `models` catalog |
+| `GET /api/tts/catalog` | read-only, free-first picker catalog: providers → verified models (`cost: free / free-tier / paid / deprecated`) → voices; Kokoro voices are discovered **live** from the local service (54), cloud voice IDs are owner-entered (no authenticated list calls) |
+| `GET /api/tts/config` / `POST` | read / patch config (global + per-studio `provider`/`model_id`/`voice_id`, presets, apollo flags, `provider_secrets`). **POST requires `confirmed:true`** → 400 `confirmation required` otherwise; every save/secret/service action is audit-logged |
 | `GET /api/tts/voices` | voice catalog from the Kokoro service |
-| `POST /api/tts/speech` | generate: `{text, studio, preset, voice_id, speed, lang, response_format, stream, save, name}` → audio bytes, chunked PCM (`stream:true`), or saved-audio descriptor (`save:true`) |
-| `POST /api/tts/service` | `{action: start|stop|restart|status}` |
+| `POST /api/tts/speech` | generate: `{text, studio, preset, voice_id, speed, lang, response_format, stream, save, name}` → audio bytes, chunked PCM (`stream:true`), or saved-audio descriptor (`save:true`). Model resolution: explicit → studio → preset → global default, validated against the verified catalog |
+| `POST /api/tts/service` | `{action: start|stop|restart|status}`; start/stop/restart require `confirmed:true` |
+| `POST /api/tts/secret`, `/api/tts/service/start`, `/api/tts/service/stop` | explicit write routes, each requiring `confirmed:true` and audit-logged |
 | `GET /api/tts/audio/<file>` | serve saved voiceovers |
+
+### Model catalog (verified sources, never guessed)
+
+- **Kokoro** — `kokoro-v1.0` (free, local inference; 54 voices discovered live from
+  `GET http://127.0.0.1:8880/v1/audio/voices`).
+- **Fish Audio** — `s2.1-pro-free` (free), `s2.1-pro`, `s2-pro` (paid), `s1` (deprecated,
+  retired 2026-12-31). Source: Fish developer docs.
+- **ElevenLabs** — `eleven_flash_v2`, `eleven_flash_v2_5`, `eleven_multilingual_v2`
+  (free-tier), `eleven_v3`, `eleven_v4`, `eleven_v4_turbo` (paid). Source: ElevenLabs docs.
+
+The catalog sorts local-first, then free → free-tier → paid → deprecated. A preset's
+voice only applies when that preset targets the same provider, so switching a studio to
+Fish/ElevenLabs never sends a Kokoro voice ID upstream.
 
 Presets live in `data/tts/config.json`. `jarvis-british-male` = `bm_george`
 (fallback `bm_lewis`), lang `en-gb`, speed 1.03, output pcm. Presets are
 provider-independent: a preset without an explicit provider follows the
 studio preference, which follows the global default. Changing the Ads Studio
 preference can never alter Apollo's voice.
+
+### Voice picker placement
+
+- **JARVIS dashboard** — bottom bar, right side (`#jarvis-bar-voice`): scopes
+  Apollo + Global default, plus the registry section (Kokoro start/stop, ElevenLabs
+  key field — posted to the backend store, never echoed back).
+- **Ads Studio** header (`#studio-ads-voice`) and **YouTube Studio** header
+  (`#studio-youtube-voice`) — per-studio scope.
+- Every save opens `window.JarvisOs.confirm` (Step 1), then POSTs `confirmed:true`;
+  the backend appends an audit entry. Saves of paid models say so in the dialog.
 
 ## Test results (2026-11-10)
 
@@ -187,7 +213,10 @@ Model load: ~6–14 s at service start (lazy by default; the manager warms it).
    resumes after.
 7. "Go to sleep" → sleep chime, standby.
 8. Mic toggle mutes/unmutes wake; ⚙ panel: preview/test/speed/provider save.
-9. Settings → Voice Provider Registry: global default, per-studio presets,
-   service toggle, ElevenLabs key field.
-10. Ads Studio / YouTube Studio voiceover panels: generate + audio player +
-    download from `data/tts/audio/`.
+9. JARVIS bottom bar → voice picker: Provider → Model → Voice (Kokoro live
+   voices), Apollo/Global scope, Kokoro service toggle, ElevenLabs key field;
+   Save asks for confirmation and is audit-logged.
+10. Settings → Voice: per-provider availability badges, effective-provider
+    status pill, verified model count.
+11. Ads Studio / YouTube Studio header pickers: same Provider → Model → Voice
+    flow scoped to that studio.

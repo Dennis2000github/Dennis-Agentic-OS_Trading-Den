@@ -75,7 +75,8 @@ def check_syntax():
     if not node:
         fail("js syntax", "node not found")
         return
-    js = ["js/app.js", "js/galaxy.js", "js/jarvisOs.js"]
+    js = ["js/app.js", "js/galaxy.js", "js/jarvisOs.js",
+          "js/tts.js", "js/voicePicker.js", "js/jarvisDashboard.js"]
     bad = []
     for rel in js:
         f = os.path.join(APP, rel)
@@ -126,7 +127,9 @@ def check_confirmation_and_readonly():
     post_block = src[post_start:] if post_start >= 0 else ""
     get_block = src[get_start:post_start] if 0 <= get_start < post_start else ""
 
-    writes = ["/api/jarvis/audit", "/api/jarvis/genesis/action"]
+    writes = ["/api/jarvis/audit", "/api/jarvis/genesis/action",
+              "/api/tts/config", "/api/tts/secret",
+              "/api/tts/service/start", "/api/tts/service/stop"]
     bad = [w for w in writes if w in post_block and
            post_block[post_block.find(w):post_block.find(w) + 400].find("confirmed") < 0]
     if bad:

@@ -4,6 +4,56 @@ All dates Asia/Manila. Scope: **`Dennis-Agentic-OS/` only** (the sibling OpenJar
 was never modified; the OS's dependency on it was removed on 2026-11-21).
 Nothing was installed. Existing bridge, voice setup and dashboards were patched, not rebuilt.
 
+## 2026-11-22 — Voice Provider → Model → Voice picker (free-first, local-first)
+
+- New shared picker `js/voicePicker.js` + `css/voice-picker.css` mounted on the JARVIS
+  dashboard bottom bar (`#jarvis-bar-voice`, scopes Apollo + Global default, plus a
+  registry section with the Kokoro service toggle and the ElevenLabs key field) and
+  auto-mounted in the Ads (`#studio-ads-voice`) and YouTube (`#studio-youtube-voice`)
+  studio headers. Replaces the Workspace "Voice Provider Registry" card (removed);
+  the registry capabilities remain available in the picker's registry section and
+  Settings → Voice. `js/voiceRegistry.js` deleted.
+- New read-only `GET /api/tts/catalog`: providers sorted local-first then
+  free → free-tier → paid → deprecated, with a **verified** model catalog — Fish
+  (`s2.1-pro-free` free; `s2.1-pro`, `s2-pro` paid; `s1` deprecated) from the Fish
+  developer docs; ElevenLabs (`eleven_flash_v2`, `eleven_flash_v2_5`,
+  `eleven_multilingual_v2` free-tier; v3/v4/v4-turbo paid) from the ElevenLabs docs;
+  Kokoro `kokoro-v1.0` (free, local) with its **54 voices discovered live** from the
+  local service. No authenticated list calls are made; cloud voice IDs are owner-entered.
+- `backend/tts.py`: per-scope `model_id`/`voice_id` + global defaults
+  (`global_default_model_id`/`global_default_voice_id`), catalog validation
+  (`_validate_model_id`), model passthrough in `generate()` for Fish/ElevenLabs/Kokoro,
+  `status()` now reports live `available`/`default` per provider and exposes
+  `models`. A preset's voice only applies when the preset targets the same provider,
+  so switching a studio to a cloud provider never leaks a Kokoro voice ID upstream.
+- Step 1 write rules completed for voice: `POST /api/tts/config`, `/api/tts/secret`,
+  `/api/tts/service`, `/api/tts/service/start`, `/api/tts/service/stop` all require
+  `confirmed:true` (400 otherwise) and append an audit entry (`who/what/when/result`).
+  `DennisTTS` write helpers auto-attach `confirmed:true` after the caller confirms;
+  the picker and the legacy Apollo voice panel both ask via `window.JarvisOs.confirm`
+  first (paid models say so in the dialog).
+- UI fixes found by browser testing: the Jarvis confirm overlay used `z-[9999]` /
+  `bg-black/70`, which the pre-compiled Tailwind build does not contain — without a
+  real z-index the neural-core canvas (under a `z-index:10` ancestor) painted over the
+  dialog and swallowed Confirm/Cancel clicks; now inline `z-index:9999` + backdrop.
+  The picker panel is portaled to `<body>` with fixed positioning so `.hud-panel`
+  clip-path and studio `overflow:hidden` can no longer clip the dropdown.
+- Global default verified/restored via the audited API: `kokoro` / `kokoro-v1.0` /
+  `bm_george`; JARVIS + Narrator presets normalized (no drift). Unconfirmed POST
+  returns 400; confirmed saves audited.
+- `scripts/doctor.py` extended: JS syntax list now covers `tts.js`, `voicePicker.js`,
+  `jarvisDashboard.js`; the write-confirmation check now verifies all 6 gated write
+  routes → **13 pass/info, 0 fail**.
+- Verification: `tests.test_tts` + `tests.test_tts_routes` **32/32**, JS suites
+  (`node --test tests/*.test.js`) **6/6**, `tests/e2e_tts_kokoro.py` PASS (54 voices,
+  valid WAV + PCM stream), read-only Playwright browser smoke **22/22** (dashboard +
+  both studio headers render unclipped, live voices listed, confirm dialog wired,
+  Settings badges correct, registry card gone), UI save → audited entry written, live
+  `/api/tts/speech` 200 (129,068-byte WAV). App bound to `127.0.0.1:8080` only;
+  Kokoro on `127.0.0.1:8880` only. Pre-existing unrelated test failures (freellmapi
+  imports, UPIF, plugins, stale skill-builder cache-bust expectation) are documented
+  and were left untouched.
+
 ## 2026-11-21 — OpenJarvis dependency removed; native Step 5 briefings
 
 - Replaced the sibling-repo digest bridge with `backend/briefing.py`: local-only, no `:8000`
