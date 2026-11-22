@@ -259,94 +259,164 @@ class DispatcherTests(EditorialTestBase):
         self.assertEqual(status, 404)
 
 
-class LLMProfileTests(EditorialTestBase):
+class LLMAgentModelTests(EditorialTestBase):
+    """The adapter follows the Workspace Agent/Model registry, not profiles."""
+
+    CLI_AGENT = {"id": "opencode", "name": "OpenCode", "transport": "cli"}
+    CHAT_AGENT = {"id": "deepseek-harness", "name": "DeepSeek Harness", "transport": "chat"}
+
     def setUp(self):
         super().setUp()
-        for name in (
-            "DENNIS_YT_LLM_PROVIDER", "DENNIS_YT_LLM_BASE_URL",
-            "DENNIS_YT_LLM_API_KEY", "DENNIS_YT_LLM_MODEL",
-            "DENNIS_YT_LLM_OPENCODE_MODEL", "DENNIS_OPENCODE_BIN",
-        ):
-            self.env_patch = mock.patch.dict(os.environ, {}, clear=False)
-            self.env_patch.start()
-            self.addCleanup(self.env_patch.stop)
-            os.environ.pop(name, None)
+        self.registry = mock.patch.object(
+            studio_llm.agent_registry, "get_agent", side_effect=self._fake_agent,
+        )
+        self.registry.start()
+        self.addCleanup(self.registry.stop)
 
-    def test_default_profile_is_opencode_glm(self):
-        self.assertEqual(studio_llm.profile(), "opencode")
-        self.assertEqual(studio_llm.model(), studio_llm.DEFAULT_OPENCODE_MODEL)
+    def _fake_agent(self, agent_id):
+        if agent_id == self.CLI_AGENT["id"]:
+            return dict(self.CLI_AGENT)
+        if agent_id == self.CHAT_AGENT["id"]:
+            return dict(self.CHAT_AGENT)
+        return None
 
-    def test_configure_persists_profile_and_model(self):
-        status = studio_llm.configure({"provider": "openai_compatible", "model": "deepseek-chat"})
-        self.assertEqual(status["provider"], "openai_compatible")
-        self.assertEqual(status["model"], "deepseek-chat")
-        self.assertEqual(studio_llm.profile(), "openai_compatible")
-        self.assertEqual(studio_llm.model(), "deepseek-chat")
-        # switch back with no model: profile default applies again
-        status = studio_llm.configure({"provider": "opencode"})
-        self.assertEqual(studio_llm.model(), studio_llm.DEFAULT_OPENCODE_MODEL)
+    def _cli_environment(self, calls):
+        return [
+            mock.patch.object(studio_llm.agent_registry, "resolve_binary", return_value="/usr/bin/opencode"),
+            mock.patch.object(
+                studio_llm.agent_registry, "one_shot_argv",
+                side_effect=lambda agent, prompt, binary=None, model_id="":
+                    [binary or "/usr/bin/opencode", "run"] + (["-m", model_id] if model_id else []) + [prompt],
+            ),
+            mock.patch.object(studio_llm.agent_registry, "get_augmented_env", return_value=dict(os.environ)),
+            mock.patch.object(studio_llm.execution_router, "native_model_id", side_effect=lambda model_id: model_id),
+        ]
 
-    def test_configure_rejects_unknown_provider(self):
+    def test_default_selection_is_opencode_without_model(self):
+        self.assertEqual(studio_llm.selection(), {"agent_id": "opencode", "model": ""})
+        self.assertEqual(studio_llm.model(), "")
+
+    def test_configure_persists_agent_and_model(self):
+        status = studio_llm.configure({"agent_id": "opencode", "model": "zai/glm-5.3-flash"})
+        self.assertEqual(status["agent_id"], "opencode")
+        self.assertEqual(status["model"], "zai/glm-5.3-flash")
+        self.assertEqual(studio_llm.selection(), {"agent_id": "opencode", "model": "zai/glm-5.3-flash"})
+        # An agent chosen without a model means "the agent CLI's own default".
+        status = studio_llm.configure({"agent_id": "opencode"})
+        self.assertEqual(status["model"], "")
+        self.assertEqual(studio_llm.model(), "")
+
+    def test_configure_rejects_unknown_agent(self):
         with self.assertRaises(studio_llm.LLMError) as ctx:
-            studio_llm.configure({"provider": "nope"})
+            studio_llm.configure({"agent_id": "nope"})
         self.assertEqual(ctx.exception.status, 400)
+        self.assertEqual(ctx.exception.code, "invalid_agent")
 
-    def test_env_used_when_settings_empty(self):
-        with mock.patch.dict(os.environ, {"DENNIS_YT_LLM_PROVIDER": "openai_compatible"}):
-            self.assertEqual(studio_llm.profile(), "openai_compatible")
+    def test_status_reports_unregistered_agent_honestly(self):
+        workspaces.update_settings("youtube", {"llm": {"agent_id": "ghost", "model": ""}})
+        status = studio_llm.status()
+        self.assertFalse(status["configured"])
+        self.assertEqual(status["agent_id"], "ghost")
+        self.assertTrue(status.get("hint_setup"))
 
-    def test_status_reports_unconfigured_openai_backend(self):
-        with mock.patch.object(studio_llm.deepseek_harness, "api_key", return_value=("", "none")):
-            status = studio_llm.configure({"provider": "openai_compatible"})
-            self.assertFalse(status["configured"])
-            self.assertTrue(status.get("hint_setup"))
+    def test_status_reports_chat_agent_without_key(self):
+        workspaces.update_settings("youtube", {"llm": {"agent_id": "deepseek-harness", "model": ""}})
+        with mock.patch.object(studio_llm.deepseek_harness, "api_key", return_value=("", "none")), \
+                mock.patch.object(studio_llm.model_catalog, "is_connection_model", return_value=False):
+            status = studio_llm.status()
+        self.assertFalse(status["configured"])
+        self.assertTrue(status.get("hint_setup"))
 
-    def test_complete_opencode_runs_cli(self):
+    def test_complete_cli_runs_one_shot(self):
         calls = []
 
-        def fake_run(argv, capture_output, text, timeout):
+        def fake_run(argv, capture_output, text, env, timeout):
             calls.append(argv)
-            result = mock.Mock()
-            result.returncode = 0
-            result.stdout = "MODEL ANSWER"
-            result.stderr = ""
-            return result
+            return mock.Mock(returncode=0, stdout="MODEL ANSWER", stderr="")
 
-        with mock.patch.object(studio_llm, "_opencode_binary", return_value="/usr/bin/opencode"), \
-                mock.patch.object(studio_llm.subprocess, "run", side_effect=fake_run):
+        patches = self._cli_environment(calls)
+        for patch in patches:
+            patch.start()
+            self.addCleanup(patch.stop)
+        with mock.patch.object(studio_llm.subprocess, "run", side_effect=fake_run):
             result = studio_llm.complete(
                 [{"role": "system", "content": "SYS"}, {"role": "user", "content": "QUESTION"}],
                 temperature=0.5,
             )
         self.assertEqual(result["content"], "MODEL ANSWER")
+        self.assertEqual(result["agent_id"], "opencode")
         argv = calls[0]
         self.assertEqual(argv[0], "/usr/bin/opencode")
         self.assertIn("run", argv)
-        self.assertIn(studio_llm.DEFAULT_OPENCODE_MODEL, argv)
         self.assertIn("SYS", argv[-1])
         self.assertIn("QUESTION", argv[-1])
 
-    def test_complete_opencode_missing_binary_is_honest(self):
-        with mock.patch.object(studio_llm, "_opencode_binary", return_value=None):
+    def test_complete_uses_the_stored_model_for_the_cli(self):
+        studio_llm.configure({"agent_id": "opencode", "model": "zai/glm-5.3-flash"})
+        calls = []
+
+        def fake_run(argv, capture_output, text, env, timeout):
+            calls.append(argv)
+            return mock.Mock(returncode=0, stdout="OK", stderr="")
+
+        for patch in self._cli_environment(calls):
+            patch.start()
+            self.addCleanup(patch.stop)
+        with mock.patch.object(studio_llm.subprocess, "run", side_effect=fake_run):
+            result = studio_llm.complete([{"role": "user", "content": "hi"}])
+        self.assertEqual(result["content"], "OK")
+        self.assertIn("-m", calls[0])
+        self.assertEqual(calls[0][calls[0].index("-m") + 1], "zai/glm-5.3-flash")
+
+    def test_complete_missing_binary_is_honest(self):
+        with mock.patch.object(studio_llm.agent_registry, "resolve_binary", return_value=None):
             with self.assertRaises(studio_llm.LLMError) as ctx:
                 studio_llm.complete([{"role": "user", "content": "hi"}])
         self.assertEqual(ctx.exception.status, 409)
         self.assertEqual(ctx.exception.code, "llm_not_configured")
 
-    def test_complete_opencode_empty_output_is_error(self):
+    def test_complete_empty_output_is_error(self):
         result = mock.Mock(returncode=0, stdout="", stderr="")
-        with mock.patch.object(studio_llm, "_opencode_binary", return_value="/usr/bin/true"), \
-                mock.patch.object(studio_llm.subprocess, "run", return_value=result):
+        for patch in self._cli_environment([]):
+            patch.start()
+            self.addCleanup(patch.stop)
+        with mock.patch.object(studio_llm.subprocess, "run", return_value=result):
             with self.assertRaises(studio_llm.LLMError) as ctx:
                 studio_llm.complete([{"role": "user", "content": "hi"}])
         self.assertEqual(ctx.exception.code, "llm_empty_response")
 
-    def test_complete_openai_requires_key(self):
-        studio_llm.configure({"provider": "openai_compatible"})
-        with mock.patch.object(studio_llm.deepseek_harness, "api_key", return_value=("", "none")):
+    def test_complete_chat_requires_key(self):
+        with mock.patch.object(studio_llm.deepseek_harness, "api_key", return_value=("", "none")), \
+                mock.patch.object(studio_llm.model_catalog, "is_connection_model", return_value=False):
             with self.assertRaises(studio_llm.LLMError) as ctx:
-                studio_llm.complete([{"role": "user", "content": "hi"}])
+                studio_llm.complete([{"role": "user", "content": "hi"}], agent_id="deepseek-harness")
         self.assertEqual(ctx.exception.status, 409)
+        self.assertEqual(ctx.exception.code, "llm_not_configured")
+
+    def test_complete_overrides_selection_per_call(self):
+        """COSMOS divisions pass their own agent/model without touching Studio."""
+        studio_llm.configure({"agent_id": "opencode", "model": "zai/glm-5.3-flash"})
+        captured = {}
+
+        def fake_request_json(method, url, headers=None, body=None, timeout=None, retries=0):
+            captured["url"] = url
+            captured["body"] = body
+            return {"choices": [{"message": {"content": "CHAT ANSWER"}}], "usage": {"total_tokens": 3}}
+
+        with mock.patch.object(studio_llm.deepseek_harness, "api_key", return_value=("sk-test", "settings")), \
+                mock.patch.object(studio_llm.model_catalog, "is_connection_model", return_value=False), \
+                mock.patch.object(studio_llm.execution_router, "native_model_id", side_effect=lambda m: m), \
+                mock.patch.object(studio_llm.studio_http, "request_json", side_effect=fake_request_json):
+            result = studio_llm.complete(
+                [{"role": "user", "content": "hi"}],
+                agent_id="deepseek-harness",
+                model_id="deepseek-chat",
+            )
+        self.assertEqual(result["content"], "CHAT ANSWER")
+        self.assertEqual(result["agent_id"], "deepseek-harness")
+        self.assertEqual(captured["body"]["model"], "deepseek-chat")
+        # The Studio selection is untouched by the per-call override.
+        self.assertEqual(studio_llm.selection(), {"agent_id": "opencode", "model": "zai/glm-5.3-flash"})
 
 
 if __name__ == "__main__":

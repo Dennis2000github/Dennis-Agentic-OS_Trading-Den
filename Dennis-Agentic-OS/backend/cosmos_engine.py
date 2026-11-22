@@ -21,6 +21,7 @@ import time
 from . import ads_backlog
 from . import cosmos_common as common
 from . import cosmos_config
+from . import cosmos_llm
 from . import cosmos_registry
 from . import cosmos_store
 from . import studio_llm
@@ -449,12 +450,11 @@ def run(agent_id, division, task, source_notes="", template_id=None, channel_id=
         task = "Execute your %s responsibility using the active configuration." % capability_def["label"]
 
     snapshot = cosmos_config.effective(division, template_id=template_id, channel_id=channel_id)
-    try:
-        llm_status = studio_llm.status()
-    except Exception:
-        llm_status = {}
-    model = llm_status.get("model") or studio_llm.model()
-    provider = llm_status.get("provider") or studio_llm.profile()
+    # Each intelligence/division runs with its own Agent + Model choice. A
+    # division with no stored choice inherits the shared Studio selection.
+    llm_choice = cosmos_llm.resolve(agent_id, division)
+    model = llm_choice.get("model") or ""
+    provider = llm_choice.get("agent_id") or ""
 
     recent = cosmos_store.list_recommendations(agent_id=agent_id, division=division, limit=10).get("recommendations", [])
     context = {
@@ -480,6 +480,8 @@ def run(agent_id, division, task, source_notes="", template_id=None, channel_id=
                 {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ],
+            agent_id=llm_choice.get("agent_id"),
+            model_id=model or None,
             temperature=0.35,
             max_tokens=8000,
         )

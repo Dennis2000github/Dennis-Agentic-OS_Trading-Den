@@ -56,6 +56,7 @@
   <!-- UI UX Pro Max design system skin (design-system/dennis-agentic-os/MASTER.md) -->
   <link rel="stylesheet" href="css/theme-uiuxpro.css?v=20261112-uupm1">
   <link rel="stylesheet" href="css/cosmos.css?v=20261120-avatars1">
+  <link rel="stylesheet" href="css/voice-picker.css?v=20261122-voice-picker">
 </head>
 <body class="bg-[#060913] text-slate-100 h-screen overflow-hidden flex flex-col font-sans select-none">
 
@@ -784,59 +785,11 @@
           </div>
         </div>
 
-        <!-- 6. VOICE PROVIDER REGISTRY (centralized TTS — Kokoro default) -->
-        <div class="glass-panel rounded-2xl p-3.5 flex flex-col justify-between border border-blue-900/40 bg-[#090e1f]/75 hover:border-blue-700/50 transition">
-          <div>
-            <div class="flex items-start gap-2 mb-2.5">
-              <div class="p-1.5 rounded-lg bg-blue-500/10 text-cyan-400 border border-blue-500/20">
-                <i data-lucide="volume-2" class="w-4 h-4"></i>
-              </div>
-              <div>
-                <h3 class="font-bold text-xs text-white">Voice Provider Registry</h3>
-                <p class="text-[10px] text-slate-400">Centralized TTS — one engine for every workspace</p>
-              </div>
-            </div>
-
-            <div class="space-y-2 mt-3 text-xs">
-              <div class="flex items-center justify-between py-1 border-b border-slate-800/50">
-                <div class="flex items-center gap-2">
-                  <span id="vr-service-dot" class="w-2 h-2 rounded-full bg-slate-500"></span>
-                  <span id="vr-service-text" class="text-[10.5px] text-slate-400">Checking Kokoro service…</span>
-                </div>
-                <button id="vr-service-toggle" class="text-[10px] px-2 py-0.5 rounded-full bg-blue-950/70 text-cyan-300 border border-blue-800/60 hover:border-cyan-500/60">Start</button>
-              </div>
-              <div class="py-1 border-b border-slate-800/50">
-                <label class="block text-[9px] uppercase tracking-wide text-slate-500 mb-0.5">Global default provider</label>
-                <select id="vr-global-provider" class="w-full rounded-md bg-[#111a30] border border-slate-800 text-[11px] text-slate-200 px-2 py-1.5 focus:border-cyan-600 outline-none"></select>
-              </div>
-              <div class="py-1 border-b border-slate-800/50 grid grid-cols-3 gap-1.5">
-                <div>
-                  <label class="block text-[9px] uppercase tracking-wide text-slate-500 mb-0.5">Apollo</label>
-                  <select data-vr-studio-preset="apollo" class="w-full rounded-md bg-[#111a30] border border-slate-800 text-[10px] text-slate-200 px-1.5 py-1 focus:border-cyan-600 outline-none"></select>
-                </div>
-                <div>
-                  <label class="block text-[9px] uppercase tracking-wide text-slate-500 mb-0.5">Ads</label>
-                  <select data-vr-studio-preset="ads" class="w-full rounded-md bg-[#111a30] border border-slate-800 text-[10px] text-slate-200 px-1.5 py-1 focus:border-cyan-600 outline-none"></select>
-                </div>
-                <div>
-                  <label class="block text-[9px] uppercase tracking-wide text-slate-500 mb-0.5">YouTube</label>
-                  <select data-vr-studio-preset="youtube" class="w-full rounded-md bg-[#111a30] border border-slate-800 text-[10px] text-slate-200 px-1.5 py-1 focus:border-cyan-600 outline-none"></select>
-                </div>
-              </div>
-              <div class="py-1">
-                <label class="block text-[9px] uppercase tracking-wide text-slate-500 mb-0.5">ElevenLabs API key (optional, stored backend-side)</label>
-                <div class="flex gap-1.5">
-                  <input id="vr-elevenlabs-key" type="password" placeholder="sk_…" autocomplete="off" class="flex-1 rounded-md bg-[#111a30] border border-slate-800 text-[10px] text-slate-200 px-2 py-1.5 focus:border-cyan-600 outline-none">
-                  <button id="vr-elevenlabs-save" class="rounded-md bg-blue-950/80 border border-cyan-900/60 text-[10px] text-cyan-300 px-2 hover:border-cyan-500/60">Save</button>
-                </div>
-                <div id="vr-elevenlabs-status" class="text-[9px] text-slate-500 mt-1">Not configured</div>
-              </div>
-            </div>
-          </div>
-          <button id="vr-save" class="w-full mt-3 py-1.5 px-3 rounded-xl bg-blue-950/60 hover:bg-blue-900/60 border border-blue-800/60 text-cyan-400 text-xs font-semibold flex items-center justify-center gap-1.5 transition">
-            Save voice preferences
-          </button>
-        </div>
+        <!-- Voice Provider Registry card removed 2026-11-22.
+             Provider/model/voice selection now lives in the shared picker on
+             the JARVIS bottom bar and in each studio header. Service + key
+             controls are retained in the picker's registry section and in
+             Settings → Voice. -->
 
         </div>
       </section>
@@ -946,7 +899,7 @@
               <span id="jarvis-bar-listening" class="jarvis-bar-badge hidden" title="Microphone is live"><span class="w-1.5 h-1.5 rounded-full bg-rose-400 inline-block status-dot-pulse"></span> LISTENING</span>
               <span class="jarvis-bar-badge" title="Wake words: Hey Apollo &middot; Apollo &middot; Hermes &middot; Jarvis &middot; wake up">AUTO</span>
               <button id="jarvis-bar-briefing" class="jarvis-bar-btn" title="Generate today's briefing"><i data-lucide="newspaper" class="w-3.5 h-3.5"></i><span>Briefing</span></button>
-              <span id="jarvis-bar-voice" class="jarvis-bar-btn" title="Voice preset &mdash; change it in Workspace &rarr; Voice Provider Registry"><i data-lucide="user" class="w-3.5 h-3.5"></i><span>JARVIS voice</span><i data-lucide="chevron-down" class="w-3 h-3 opacity-60"></i></span>
+              <span id="jarvis-bar-voice" class="studio-voice-slot" title="Voice provider, model and voice"></span>
             </div>
           </div>
 
@@ -1572,6 +1525,7 @@
             </button>
           </div>
           <div class="collart-header-right">
+            <span id="studio-ads-voice" class="studio-voice-slot" title="Ads Studio voice provider, model and voice"></span>
             <span id="studio-status" class="studio-pill collart-status">
               <span class="studio-pill-dot"></span><span id="studio-status-text">Checking setup…</span>
             </span>
@@ -2704,6 +2658,7 @@
                 <p>Research. Script. Visualize. Animate. Publish.</p>
               </div>
               <div class="yt-topbar-actions">
+                <span id="studio-youtube-voice" class="yt-voice-slot" title="YouTube Studio voice provider, model and voice"></span>
                 <!-- Build-agent selection lives in the shared Studio header and the
                      Activity console (one shared state) — not duplicated here.
                      Project creation is prompt-first: the composer below is the
@@ -2735,10 +2690,10 @@
                   </div>
                   <textarea id="yt-create-prompt" rows="4" maxlength="2000" placeholder="e.g. 5 tax deductions self-employed owners miss every filing season"></textarea>
                   <!-- Agent + Model live just below the prompt box (Workspace
-                       pattern). Both come from the backend LLM status — the
-                       Agent menu lists the real runner profiles and the
-                       Model menu lists that runner's models; there are no
-                       hardcoded values here. -->
+                       pattern). The Agent menu comes from
+                       /api/agents/availability and the Model menu from that
+                       agent's /api/agents/<id>/models catalog; there are no
+                       hardcoded provider profiles here. -->
                   <div class="yt-runtime-row" aria-label="Agent and model">
                     <div class="yt-runtime-field">
                       <span class="yt-runtime-label">Agent</span>
@@ -2766,6 +2721,9 @@
                           <div class="ws-menu-title flex items-center justify-between">
                             <span>Models by provider</span>
                             <button id="yt-llm-model-refresh" type="button" class="ws-icon-btn" title="Refresh models"><i data-lucide="refresh-cw" class="w-3 h-3"></i></button>
+                          </div>
+                          <div class="px-1.5 pb-1">
+                            <input id="yt-llm-model-search" type="text" aria-label="Search text-generation models" placeholder="Search models…" autocomplete="off" spellcheck="false" class="w-full bg-[#0b1226] border border-[#22304f] rounded-lg px-2 py-1 text-[11px] text-slate-200 placeholder-slate-600 outline-none focus:border-cyan-500/60">
                           </div>
                           <div id="yt-llm-model-options" class="max-h-60 overflow-y-auto"></div>
                         </div>
@@ -2958,23 +2916,50 @@
 
                 <section class="yt-card">
                   <div class="yt-card-head">
-                    <div><h3>Text generation</h3><p>Default: GLM-5.3-Flash through the OpenCode CLI. Switch to any OpenAI-compatible API.</p></div>
+                    <div><h3>Text generation</h3><p>The same Agent and Model setup as the Workspace — no separate provider profile.</p></div>
                   </div>
                   <div id="yt-llm-status" class="yt-llm-status"></div>
-                  <div class="yt-composer-grid yt-llm-form">
-                    <label class="yt-field"><span>Provider profile</span>
-                      <select id="yt-llm-provider" aria-label="LLM provider profile">
-                        <option value="opencode">OpenCode CLI — GLM-5.3-Flash (default)</option>
-                        <option value="openai_compatible">OpenAI-compatible API (DeepSeek)</option>
-                      </select>
-                    </label>
-                    <label class="yt-field"><span>Model (optional)</span>
-                      <input id="yt-llm-model" type="text" maxlength="120" placeholder="Profile default">
-                    </label>
+                  <!-- Agent + Model: the Agent menu lists /api/agents/availability
+                       and the Model menu groups that agent's own catalog from
+                       /api/agents/<id>/models. Picking a model picks its provider. -->
+                  <div class="yt-runtime-row" aria-label="Agent and model">
+                    <div class="yt-runtime-field">
+                      <span class="yt-runtime-label">Agent</span>
+                      <div class="yt-runtime-anchor">
+                        <button id="yt-settings-llm-agent-btn" type="button" class="yt-runtime-btn" title="Agent that runs text generation" disabled>
+                          <i data-lucide="bot" class="w-3.5 h-3.5 text-cyan-300"></i>
+                          <span id="yt-settings-llm-agent-label" class="truncate">Agent: —</span>
+                          <i data-lucide="chevron-down" class="w-3 h-3 text-slate-500"></i>
+                        </button>
+                        <div id="yt-settings-llm-agent-menu" class="ws-menu yt-runtime-menu is-hidden">
+                          <div class="ws-menu-title">Agents</div>
+                          <div id="yt-settings-llm-agent-options" class="max-h-56 overflow-y-auto"></div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="yt-runtime-field">
+                      <span class="yt-runtime-label">Model</span>
+                      <div class="yt-runtime-anchor">
+                        <button id="yt-settings-llm-model-btn" type="button" class="yt-runtime-btn" title="Generation model" disabled>
+                          <i data-lucide="cpu" class="w-3.5 h-3.5 text-fuchsia-300"></i>
+                          <span id="yt-settings-llm-model-label" class="truncate">Model: —</span>
+                          <i data-lucide="chevron-down" class="w-3 h-3 text-slate-500"></i>
+                        </button>
+                        <div id="yt-settings-llm-model-menu" class="ws-menu yt-runtime-menu is-hidden">
+                          <div class="ws-menu-title flex items-center justify-between">
+                            <span>Models by provider</span>
+                            <button id="yt-settings-llm-model-refresh" type="button" class="ws-icon-btn" title="Refresh models"><i data-lucide="refresh-cw" class="w-3 h-3"></i></button>
+                          </div>
+                          <div class="px-1.5 pb-1">
+                            <input id="yt-settings-llm-model-search" type="text" aria-label="Search text-generation models" placeholder="Search models…" autocomplete="off" spellcheck="false" class="w-full bg-[#0b1226] border border-[#22304f] rounded-lg px-2 py-1 text-[11px] text-slate-200 placeholder-slate-600 outline-none focus:border-cyan-500/60">
+                          </div>
+                          <div id="yt-settings-llm-model-options" class="max-h-60 overflow-y-auto"></div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                   <div class="yt-composer-foot">
-                    <p class="yt-hint" data-info-tip>The selection is stored server-side for this workspace. Keys are never stored in the page.</p>
-                    <button id="yt-llm-save" type="button" class="collart-btn-soft"><i data-lucide="save" class="w-4 h-4"></i><span>Save</span></button>
+                    <p class="yt-hint" data-info-tip>Selections are stored server-side for this workspace. Agent CLI credentials stay with the agent.</p>
                   </div>
                 </section>
 
@@ -4397,7 +4382,7 @@
   <script defer src="vendor/codemirror/addon/selection/active-line.js"></script>
   <script defer src="js/cosmos.js"></script>
   <script defer src="js/tts.js?v=20261110-tts-router"></script>
-  <script defer src="js/voiceRegistry.js?v=20261110-voice-registry"></script>
+  <script defer src="js/voicePicker.js?v=20261122-voice-picker"></script>
   <script defer src="js/galaxy.js?v=20261110-apollo-kokoro"></script>
   <script defer src="js/panelState.js"></script>
   <script defer src="js/agentDashboards.js"></script>

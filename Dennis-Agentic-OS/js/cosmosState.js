@@ -83,7 +83,9 @@
         activeYoutubeTemplateId: null,
         activeChannelId: null
       },
-      llm: { configured: false, provider: null, model: null },
+      llm: { configured: false, agent_id: null, model: null },
+      llmAgents: [],
+      llmSelections: {},
       counts: {},
       activeAgent: AGENT_ORDER[0],
       byAgent: {},
@@ -141,6 +143,38 @@
     return target;
   }
 
+  /* Per-intelligence LLM choices. A division with no stored selection
+     inherits the shared Studio Agent/Model choice. */
+  function llmSelection(state, intelligence, division) {
+    var id = normalizeAgent(intelligence);
+    var part = normalizeDivision(division);
+    var store = (state && state.llmSelections) || {};
+    var entry = store[id] || {};
+    var own = entry[part];
+    if (own && own.agent_id) {
+      return { agent_id: own.agent_id, model: own.model || "", inherited: false };
+    }
+    var fallback = (state && state.llm) || {};
+    return {
+      agent_id: fallback.agent_id || "",
+      model: fallback.model || "",
+      inherited: true
+    };
+  }
+
+  function setLLMSelection(state, intelligence, division, selection) {
+    var id = normalizeAgent(intelligence);
+    var part = normalizeDivision(division);
+    var store = state.llmSelections || (state.llmSelections = {});
+    var entry = store[id] || (store[id] = {});
+    var value = selection || {};
+    entry[part] = {
+      agent_id: value.agent_id || "",
+      model: value.model || ""
+    };
+    return entry[part];
+  }
+
   function mergeOverview(state, overview) {
     var data = overview || {};
     state.agents = Array.isArray(data.agents) ? data.agents.slice() : [];
@@ -153,6 +187,8 @@
     state.config.activeYoutubeChannelId = config.active_youtube_channel_id || state.config.activeYoutubeChannelId;
     state.config.channels = Array.isArray(data.channels) ? data.channels.slice() : [];
     state.llm = data.llm || state.llm;
+    state.llmSelections = (data.llm_selections && typeof data.llm_selections === "object")
+      ? data.llm_selections : {};
     state.counts = data.counts || state.counts;
     // GENESIS stays selected across refreshes; only unknown agent ids fall back.
     if (state.activeAgent !== GENESIS_ID && AGENT_ORDER.indexOf(state.activeAgent) === -1) state.activeAgent = AGENT_ORDER[0];
@@ -351,6 +387,8 @@
     setBusy: setBusy,
     setDivisionError: setDivisionError,
     setDivisionData: setDivisionData,
+    llmSelection: llmSelection,
+    setLLMSelection: setLLMSelection,
     mergeOverview: mergeOverview,
     applyConfig: applyConfig,
     templatesFor: templatesFor,

@@ -28,7 +28,16 @@
     research: null,
     competitors: null,
     modalSubmit: null,
-    toastTimer: null
+    toastTimer: null,
+    // Per-division Agent/Model dropdowns (same Workspace pattern as Studio).
+    llmAgents: [],
+    llmAgentsLoading: null,
+    llmModels: {},
+    llmProviders: {},
+    llmModelsLoading: {},
+    llmExpanded: {},
+    llmOpenMenu: null,
+    llmBusy: false
   };
 
   var STATUS_LABELS = {
@@ -192,6 +201,7 @@
     S.state.notice = null;
     S.state.loading = !S.state.initialized;
     renderChrome();
+    loadLLMAgents(false); // Workspace agent registry for the division dropdowns
     return api("/api/cosmos/overview").then(function (overview) {
       C.mergeOverview(S.state, overview);
       if (!opts.keepAgent) {
@@ -422,6 +432,293 @@
     ].join("\n");
   }
 
+  /* -----------------------------------------------------------------------
+     Per-division Agent + Model dropdowns (Workspace pattern, one row per
+     division composer). A division with no stored choice inherits the shared
+     Studio selection; choosing here overrides it for this division only.
+     ----------------------------------------------------------------------- */
+  function loadLLMAgents(force) {
+    if (S.llmAgentsLoading && !force) return S.llmAgentsLoading;
+    S.llmAgentsLoading = api("/api/agents/availability").then(function (data) {
+      S.llmAgents = (data && Array.isArray(data.agents)) ? data.agents : [];
+      S.llmAgentsLoading = null;
+      refreshLLMRowLabels();
+      return S.llmAgents;
+    }).catch(function () {
+      S.llmAgents = [];
+      S.llmAgentsLoading = null;
+      refreshLLMRowLabels();
+      return [];
+    });
+    return S.llmAgentsLoading;
+  }
+
+  function loadLLMModels(agentId, force) {
+    if (!agentId) return Promise.resolve([]);
+    if (!force && S.llmModels[agentId]) return Promise.resolve(S.llmModels[agentId]);
+    if (S.llmModelsLoading[agentId]) return S.llmModelsLoading[agentId];
+    S.llmModelsLoading[agentId] = api("/api/agents/" + encodeURIComponent(agentId) + "/models" + (force ? "?refresh=1" : ""))
+      .then(function (data) {
+        S.llmModels[agentId] = (data && Array.isArray(data.models)) ? data.models : [];
+        S.llmProviders[agentId] = (data && Array.isArray(data.providers)) ? data.providers : [];
+        delete S.llmModelsLoading[agentId];
+        renderOpenModelMenu(agentId);
+        return S.llmModels[agentId];
+      })
+      .catch(function () {
+        S.llmModels[agentId] = [];
+        S.llmProviders[agentId] = [];
+        delete S.llmModelsLoading[agentId];
+        renderOpenModelMenu(agentId);
+        return [];
+      });
+    return S.llmModelsLoading[agentId];
+  }
+
+  function llmAgentById(agentId) {
+    return S.llmAgents.filter(function (agent) { return agent.id === agentId; })[0] || null;
+  }
+
+  function llmAgentLabel(agentId) {
+    var agent = llmAgentById(agentId);
+    return (agent && (agent.name || agent.id)) || agentId || "—";
+  }
+
+  function llmRowEl(division, selector) {
+    var host = $("cosmos-agent");
+    if (!host) return null;
+    var row = host.querySelector('[data-cosmos-llm-row="' + division + '"]');
+    return row ? row.querySelector(selector) : null;
+  }
+
+  function llmSelectionFor(division) {
+    return C.llmSelection(S.state, S.state.activeAgent, division);
+  }
+
+  function closeLLMMenus() {
+    S.llmOpenMenu = null;
+    var host = $("cosmos-agent");
+    if (!host) return;
+    host.querySelectorAll(".cosmos-llm-menu").forEach(function (menu) {
+      menu.classList.add("hidden");
+    });
+  }
+
+  function refreshLLMRowLabels() {
+    ["ads", "youtube"].forEach(function (division) {
+      var selection = llmSelectionFor(division);
+      var agentLabel = llmRowEl(division, '[data-cosmos-llm-label="agent"]');
+      if (agentLabel) agentLabel.textContent = llmAgentLabel(selection.agent_id);
+      var modelLabel = llmRowEl(division, '[data-cosmos-llm-label="model"]');
+      if (modelLabel) modelLabel.textContent = selection.model || "Agent default";
+      var inherit = llmRowEl(division, "[data-cosmos-llm-inherit]");
+      if (inherit) inherit.classList.toggle("hidden", !selection.inherited);
+      var dot = llmRowEl(division, "[data-cosmos-llm-dot]");
+      if (dot) dot.style.background = selection.agent_id ? "#22c55e" : "#475569";
+    });
+  }
+
+  function renderLLMAgentOptions(division) {
+    var host = llmRowEl(division, '[data-cosmos-llm-options="agent"]');
+    if (!host) return;
+    var selection = llmSelectionFor(division);
+    if (!S.llmAgents.length) {
+      host.innerHTML = '<div class="cosmos-llm-empty">No agents registered — refresh the Workspace agent list.</div>';
+      return;
+    }
+    host.innerHTML = S.llmAgents.map(function (agent) {
+      var isActive = agent.id === selection.agent_id;
+      var available = agent.available !== false;
+      var dot = available ? (isActive ? "#22c55e" : "#94a3b8") : "#475569";
+      var meta = [agent.provider, available ? "ready" : (agent.reason || "unavailable")].filter(Boolean).join(" · ");
+      return '<button type="button" class="ws-menu-item' + (isActive ? " ws-menu-item-active" : "") +
+        (available ? "" : " ws-menu-item-disabled") + '" data-cosmos-llm-agent="' + esc(agent.id) + '"' +
+        (available ? "" : " disabled") + ">" +
+        '<span class="ws-agent-dot" style="background:' + dot + '"></span>' +
+        '<span class="cosmos-llm-item-copy">' +
+          '<span class="cosmos-llm-item-name">' + esc(agent.name || agent.id) + "</span>" +
+          '<span class="cosmos-llm-item-meta">' + esc(meta) + "</span>" +
+        "</span>" +
+        "</button>";
+    }).join("");
+    icons();
+  }
+
+  function llmModelDisplay(model) {
+    if (!model) return "";
+    var name = model.name || model.id || "";
+    var prefix = (model.provider || "") + "/";
+    if (model.provider && name.indexOf(prefix) === 0) return name.slice(prefix.length);
+    return name;
+  }
+
+  /* Default expansion: the group holding the current model (or the first
+     group) is open; everything the user toggled stays as they left it. */
+  function llmGroupOpen(division, groupId, models, currentModel) {
+    var remembered = S.llmExpanded[division + ":" + groupId];
+    if (remembered !== undefined) return remembered;
+    var currentProvider = null;
+    (models || []).forEach(function (model) {
+      if (model.id === currentModel) currentProvider = model.provider || "__default__";
+    });
+    if (!currentProvider && models && models.length) currentProvider = models[0].provider || "__default__";
+    return groupId === currentProvider;
+  }
+
+  function renderLLMModelOptions(division, agentId) {
+    var host = llmRowEl(division, '[data-cosmos-llm-options="model"]');
+    if (!host) return;
+    var selection = llmSelectionFor(division);
+    if (!agentId) {
+      host.innerHTML = '<div class="cosmos-llm-empty">Pick an agent first.</div>';
+      return;
+    }
+    if (!S.llmModels[agentId] && S.llmModelsLoading[agentId]) {
+      host.innerHTML = '<div class="cosmos-llm-empty">Loading models…</div>';
+      return;
+    }
+    var models = S.llmModels[agentId] || [];
+    if (!models.length) {
+      host.innerHTML = '<div class="cosmos-llm-empty">No models reported for this agent — use Refresh.</div>';
+      return;
+    }
+    var search = llmRowEl(division, "[data-cosmos-llm-search]");
+    var query = ((search && search.value) || "").trim().toLowerCase();
+    if (query) {
+      models = models.filter(function (model) {
+        return ((model.name || model.id || "") + " " + (model.provider || "")).toLowerCase().indexOf(query) !== -1;
+      });
+    }
+    if (!models.length) {
+      host.innerHTML = '<div class="cosmos-llm-empty">No models match that search.</div>';
+      return;
+    }
+    /* Group by the provider each model reports, like the Workspace menu. */
+    var order = [];
+    models.forEach(function (model) {
+      var id = model.provider || "__default__";
+      if (order.indexOf(id) === -1) order.push(id);
+    });
+    var providers = S.llmProviders[agentId] || [];
+    var groups = order.map(function (id) {
+      var groupModels = models.filter(function (model) { return (model.provider || "__default__") === id; });
+      var provider = providers.filter(function (p) { return p.id === id; })[0];
+      return {
+        id: id,
+        label: id === "__default__" ? "Default" : ((provider && provider.label) || id),
+        models: groupModels,
+        available: groupModels.some(function (model) { return model.available !== false; })
+      };
+    });
+    host.innerHTML = groups.map(function (group) {
+      var open = query ? true : llmGroupOpen(division, group.id, S.llmModels[agentId] || [], selection.model);
+      var body = group.models.map(function (model) {
+        var active = model.id === selection.model;
+        var off = model.available === false;
+        return '<button type="button" class="ws-menu-item' + (active ? " ws-menu-item-active" : "") +
+          (off ? " ws-menu-item-disabled" : "") + '" data-cosmos-llm-model="' + esc(model.id) + '"' +
+          (off ? " disabled" : "") + ">" + esc(llmModelDisplay(model)) + "</button>";
+      }).join("");
+      return '<div class="model-provider-group" data-open="' + (open ? "true" : "false") + '">' +
+        '<button type="button" class="model-provider-group-head" data-cosmos-llm-provider="' + esc(group.id) + '"' +
+          ' aria-expanded="' + (open ? "true" : "false") + '">' +
+          '<span class="ws-agent-dot" style="background:' + (group.available ? "#22c55e" : "#475569") + '"></span>' +
+          '<span class="cosmos-llm-group-label">' + esc(group.label) + "</span>" +
+          '<span class="model-provider-group-count">' + esc(group.models.length + (group.models.length === 1 ? " model" : " models")) + "</span>" +
+          '<i data-lucide="chevron-down" class="model-provider-group-caret w-3 h-3"></i>' +
+        "</button>" +
+        '<div class="model-provider-group-body">' + body + "</div>" +
+      "</div>";
+    }).join("");
+    icons();
+  }
+
+  function renderOpenModelMenu(agentId) {
+    ["ads", "youtube"].forEach(function (division) {
+      var selection = llmSelectionFor(division);
+      if (selection.agent_id !== agentId) return;
+      var menu = llmRowEl(division, '[data-cosmos-llm-menu="model"]');
+      if (menu && !menu.classList.contains("hidden")) {
+        renderLLMModelOptions(division, agentId);
+      }
+    });
+  }
+
+  function toggleLLMMenu(division, kind) {
+    var menu = llmRowEl(division, '[data-cosmos-llm-menu="' + kind + '"]');
+    if (!menu) return;
+    var willOpen = menu.classList.contains("hidden");
+    closeLLMMenus();
+    if (!willOpen) return;
+    menu.classList.remove("hidden");
+    S.llmOpenMenu = S.state.activeAgent + ":" + division + ":" + kind;
+    var selection = llmSelectionFor(division);
+    if (kind === "agent") {
+      renderLLMAgentOptions(division);
+    } else if (S.llmModels[selection.agent_id]) {
+      renderLLMModelOptions(division, selection.agent_id);
+    } else {
+      // First open: show the loading placeholder; the fetch re-renders the
+      // open menu through renderOpenModelMenu when it finishes.
+      var options = llmRowEl(division, '[data-cosmos-llm-options="model"]');
+      if (options) options.innerHTML = '<div class="cosmos-llm-empty">Loading models…</div>';
+      loadLLMModels(selection.agent_id, false);
+    }
+  }
+
+  function configureDivisionLLM(division, body) {
+    var agentId = S.state.activeAgent;
+    S.llmBusy = true;
+    return api("/api/cosmos/llm/" + encodeURIComponent(agentId) + "/" + division, { method: "POST", body: body })
+      .then(function (payload) {
+        C.setLLMSelection(S.state, agentId, division, payload.selection || body);
+        toast("Agent + model saved for this division.");
+      })
+      .catch(function (error) {
+        toast(error.message);
+      })
+      .then(function () {
+        S.llmBusy = false;
+        S.llmOpenMenu = null;
+        render();
+      });
+  }
+
+  function llmRowBlock(division) {
+    var selection = llmSelectionFor(division);
+    var agentName = llmAgentLabel(selection.agent_id);
+    return [
+      '<div class="cosmos-llm-row" data-cosmos-llm-row="' + division + '" data-cosmos-llm-division="' + division + '">',
+      '  <div class="cosmos-llm-field">',
+      '    <span>Agent</span>',
+      '    <button type="button" class="cosmos-llm-btn" data-cosmos-llm-toggle="agent" title="Agent that runs this division">',
+      '      <span class="ws-agent-dot" data-cosmos-llm-dot style="background:' + (selection.agent_id ? "#22c55e" : "#475569") + '"></span>',
+      '      <span class="cosmos-llm-btn-label" data-cosmos-llm-label="agent">' + esc(agentName) + "</span>",
+      '      <i data-lucide="chevron-down" class="cosmos-llm-caret w-3 h-3"></i>',
+      "    </button>",
+      '    <div class="ws-menu cosmos-llm-menu hidden" data-cosmos-llm-menu="agent">',
+      '      <div class="cosmos-llm-menu-list" data-cosmos-llm-options="agent"></div>',
+      "    </div>",
+      "  </div>",
+      '  <div class="cosmos-llm-field">',
+      "    <span>Model</span>",
+      '    <button type="button" class="cosmos-llm-btn" data-cosmos-llm-toggle="model" title="Generation model for this division">',
+      '      <span class="cosmos-llm-btn-label" data-cosmos-llm-label="model">' + esc(selection.model || "Agent default") + "</span>",
+      '      <i data-lucide="chevron-down" class="cosmos-llm-caret w-3 h-3"></i>',
+      "    </button>",
+      '    <div class="ws-menu cosmos-llm-menu hidden" data-cosmos-llm-menu="model">',
+      '      <div class="cosmos-llm-menu-tools">',
+      '        <input type="text" class="cosmos-llm-search" data-cosmos-llm-search placeholder="Search models…" autocomplete="off" spellcheck="false">',
+      '        <button type="button" class="cosmos-llm-refresh" data-cosmos-llm-refresh title="Refresh models"><i data-lucide="refresh-cw" class="w-3 h-3"></i></button>',
+      "      </div>",
+      '      <div class="cosmos-llm-menu-list" data-cosmos-llm-options="model"></div>',
+      "    </div>",
+      "  </div>",
+      '  <span class="cosmos-llm-inherit' + (selection.inherited ? "" : " hidden") + '" data-cosmos-llm-inherit>Studio default</span>',
+      "</div>"
+    ].join("\n");
+  }
+
   function composerBlock(division, agent) {
     var meta = (agent.divisions || {})[division] || {};
     var capability = (agent.capabilities || {})[division] || {};
@@ -434,6 +731,7 @@
       "    <p>Instruction overrides configuration. Configuration overrides template defaults.</p></div>",
       '    <span class="cosmos-capability">' + esc(capability.id || "") + "</span>",
       "  </div>",
+      llmRowBlock(division),
       '  <label class="cosmos-field"><span>Task</span><textarea data-cosmos-field="task" rows="3" maxlength="8000" placeholder="' + attr(capability.task_placeholder || "What should this agent do?") + '"' + disabled + ">" + esc(local.task) + "</textarea></label>",
       '  <details class="cosmos-notes"><summary>Owner-supplied source notes (optional)</summary>',
       '    <textarea data-cosmos-field="notes" rows="3" maxlength="20000" placeholder="Paste only facts, links or measurements you can verify. These are treated as owner-supplied sources."' + disabled + ">" + esc(local.notes) + "</textarea>",
@@ -918,8 +1216,8 @@
       var llm = S.state.llm || {};
       var configured = !!llm.configured;
       runtime.className = "cosmos-runtime" + (configured ? " is-ready" : " is-warn");
-      runtime.innerHTML = '<span class="cosmos-dot"></span><b>' + esc(configured ? (llm.model || "Model ready") : "Model not configured") + "</b><em>" +
-        esc(configured ? (llm.provider || "shared Studio routing") : "Runs will report the error honestly") + "</em>";
+      runtime.innerHTML = '<span class="cosmos-dot"></span><b>' + esc(configured ? (llm.model || "Agent default") : "Model not configured") + "</b><em>" +
+        esc(configured ? (llm.agent_name || llm.agent_id || "Studio routing") : "Runs will report the error honestly") + "</em>";
     }
     var tabs = $("cosmos-agent-tabs");
     if (tabs) {
@@ -972,6 +1270,8 @@
   function render() {
     renderChrome();
     alertBlock();
+    // Menus are rebuilt closed; any open dropdown state is stale after this.
+    S.llmOpenMenu = null;
     var host = $("cosmos-agent");
     if (!host) return;
     if (S.state.activeAgent === C.GENESIS_ID) {
@@ -1466,6 +1766,15 @@
       });
 
       host.addEventListener("input", function (event) {
+        if (event.target.hasAttribute("data-cosmos-llm-search")) {
+          // Re-filter the open model menu in place so the input keeps focus.
+          var division = event.target.closest("[data-cosmos-llm-row]");
+          if (!division) return;
+          var div = division.getAttribute("data-cosmos-llm-row");
+          var selection = llmSelectionFor(div);
+          renderLLMModelOptions(div, selection.agent_id);
+          return;
+        }
         if (event.target.hasAttribute("data-cosmos-ads-search")) {
           S.backlogAdsQuery = event.target.value;
           backlogDebounce("ads", function () {
@@ -1483,6 +1792,46 @@
       host.addEventListener("click", function (event) {
         var button = event.target.closest("button");
         if (!button) return;
+        var llmToggle = button.getAttribute("data-cosmos-llm-toggle");
+        if (llmToggle) {
+          var llmRow = button.closest("[data-cosmos-llm-row]");
+          return toggleLLMMenu(llmRow ? llmRow.getAttribute("data-cosmos-llm-row") : null, llmToggle);
+        }
+        var llmAgent = button.getAttribute("data-cosmos-llm-agent");
+        if (llmAgent) {
+          var agentRow = button.closest("[data-cosmos-llm-row]");
+          var agentDiv = agentRow ? agentRow.getAttribute("data-cosmos-llm-row") : null;
+          var current = llmSelectionFor(agentDiv);
+          if (!agentDiv || llmAgent === current.agent_id) { closeLLMMenus(); return; }
+          return configureDivisionLLM(agentDiv, { agent_id: llmAgent, model: "" });
+        }
+        var llmModel = button.getAttribute("data-cosmos-llm-model");
+        if (llmModel) {
+          var modelRow = button.closest("[data-cosmos-llm-row]");
+          var modelDiv = modelRow ? modelRow.getAttribute("data-cosmos-llm-row") : null;
+          var modelSel = llmSelectionFor(modelDiv);
+          if (!modelDiv || llmModel === modelSel.model) { closeLLMMenus(); return; }
+          return configureDivisionLLM(modelDiv, { agent_id: modelSel.agent_id, model: llmModel });
+        }
+        var llmProvider = button.getAttribute("data-cosmos-llm-provider");
+        if (llmProvider) {
+          var providerRow = button.closest("[data-cosmos-llm-row]");
+          var providerDiv = providerRow ? providerRow.getAttribute("data-cosmos-llm-row") : null;
+          var key = providerDiv + ":" + llmProvider;
+          S.llmExpanded[key] = !(S.llmExpanded[key] !== undefined ? S.llmExpanded[key] : true);
+          var providerSel = llmSelectionFor(providerDiv);
+          renderLLMModelOptions(providerDiv, providerSel.agent_id);
+          return;
+        }
+        if (button.hasAttribute("data-cosmos-llm-refresh")) {
+          var refreshRow = button.closest("[data-cosmos-llm-row]");
+          var refreshDiv = refreshRow ? refreshRow.getAttribute("data-cosmos-llm-row") : null;
+          var refreshSel = llmSelectionFor(refreshDiv);
+          if (!refreshSel.agent_id) return;
+          var options = llmRowEl(refreshDiv, '[data-cosmos-llm-options="model"]');
+          if (options) options.innerHTML = '<div class="cosmos-llm-empty">Loading models…</div>';
+          return loadLLMModels(refreshSel.agent_id, true);
+        }
         var run = button.getAttribute("data-cosmos-run");
         if (run) return execute(run);
         var edit = button.getAttribute("data-cosmos-edit-template");
@@ -1532,7 +1881,17 @@
       if (submit) submit.addEventListener("click", runModalSubmit);
     }
     document.addEventListener("keydown", function (event) {
-      if (event.key === "Escape") closeModal();
+      if (event.key === "Escape") {
+        if (S.llmOpenMenu) closeLLMMenus();
+        closeModal();
+      }
+    });
+
+    // Click outside an open division dropdown closes it.
+    document.addEventListener("click", function (event) {
+      if (!S.llmOpenMenu) return;
+      if (event.target.closest(".cosmos-llm-field")) return;
+      closeLLMMenus();
     });
 
     window.addEventListener("hashchange", function () {

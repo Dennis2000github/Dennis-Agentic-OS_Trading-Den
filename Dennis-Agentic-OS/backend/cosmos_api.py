@@ -13,6 +13,7 @@ from . import cosmos_common as common
 from . import cosmos_backlog
 from . import cosmos_config
 from . import cosmos_engine
+from . import cosmos_llm
 from . import cosmos_registry
 from . import cosmos_store
 from . import genesis
@@ -78,7 +79,7 @@ def _llm_status():
     try:
         return studio_llm.status()
     except Exception as exc:
-        return {"provider": None, "model": None, "configured": False, "error": str(exc)}
+        return {"agent_id": None, "model": None, "configured": False, "error": str(exc)}
 
 
 def _channels():
@@ -275,6 +276,7 @@ def overview():
         },
         "channels": _channels(),
         "llm": _llm_status(),
+        "llm_selections": cosmos_llm.public_selections(),
         "counts": {
             "ads_backlog": ads_backlog.counts(),
             "youtube_backlog": _youtube_summary().get("counts") or {},
@@ -351,12 +353,31 @@ def _get(parts, query):
             )
         return 404, {"error": "Recommendation endpoint not found.", "code": "not_found"}
 
+    if parts[0] == "llm":
+        if len(parts) == 1:
+            return 200, {
+                "default": _llm_status(),
+                "selections": cosmos_llm.public_selections(),
+            }
+        if len(parts) == 3:
+            stored = cosmos_llm.get(parts[1], parts[2])
+            fallback = studio_llm.selection()
+            return 200, {
+                "selection": stored or {
+                    "agent_id": fallback["agent_id"],
+                    "model": fallback["model"],
+                },
+                "inherited": not bool(stored),
+                "default": _llm_status(),
+            }
+
     if parts[0] == "config":
         config = cosmos_config.config_public()
         return 200, {
             "config": config,
             "channels": _channels(),
             "llm": _llm_status(),
+            "llm_selections": cosmos_llm.public_selections(),
         }
 
     if parts[0] == "backlog" and len(parts) >= 2:
@@ -408,6 +429,12 @@ def _post(parts, body, query):
         if action == "validate-affiliate":
             return 200, cosmos_backlog.validate_affiliate(recommendation_id, body)
         return 404, {"error": "Unknown recommendation action.", "code": "not_found"}
+
+    if parts and parts[0] == "llm" and len(parts) == 3:
+        selection = cosmos_llm.configure(
+            parts[1], parts[2], body.get("agent_id"), body.get("model")
+        )
+        return 200, {"selection": selection}
 
     if parts and parts[0] == "config" and len(parts) == 2 and parts[1] == "active":
         domain = body.get("domain")

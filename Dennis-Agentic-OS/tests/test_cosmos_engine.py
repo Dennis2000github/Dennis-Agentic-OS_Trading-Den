@@ -125,9 +125,10 @@ class EngineTests(unittest.TestCase):
             mock.patch.object(common, "EXECUTIONS_FILE", os.path.join(self.dir, "executions.json")),
             mock.patch.object(common, "RECOMMENDATIONS_FILE", os.path.join(self.dir, "recommendations.json")),
             mock.patch.object(common, "ADS_BACKLOG_FILE", os.path.join(self.dir, "backlog.json")),
-            mock.patch.object(engine.studio_llm, "status", return_value={"model": "test-model", "provider": "test", "configured": True}),
-            mock.patch.object(engine.studio_llm, "model", return_value="test-model"),
-            mock.patch.object(engine.studio_llm, "profile", return_value="test"),
+            mock.patch.object(
+                engine.cosmos_llm, "resolve",
+                return_value={"agent_id": "test-agent", "model": "test-model"},
+            ),
             mock.patch.object(engine.cosmos_config, "effective", side_effect=self._effective),
         ]
         for patch in self.patches:
@@ -261,9 +262,8 @@ class EngineTests(unittest.TestCase):
                 "next_actions": ["Keep the hook."],
             }],
         }
-        with mock.patch.object(engine.studio_llm, "status", return_value={"model": "m", "provider": "p"}):
-            with self._complete(payload):
-                execution = engine.run("helios", "ads", "Analyse ads performance")
+        with self._complete(payload):
+            execution = engine.run("helios", "ads", "Analyse ads performance")
         item = execution["result"]["items"][0]
         self.assertEqual(len(item["measurements"]), 1)
         self.assertEqual(item["measurements"][0]["name"], "Views")

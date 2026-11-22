@@ -1,6 +1,65 @@
 # STATE
 
-_Last updated: 2026-11-19_
+_Last updated: 2026-11-22_
+
+## 2026-11-22 — Agent/Model dropdowns unified: Studio + COSMOS run the Workspace registry
+
+**Ask:** the Agent and Model dropdowns in Ads/YouTube Studio were hard-coded
+to an "OpenCode CLI / OpenAI-compatible" two-profile setup that no longer
+matches reality. They must follow the same dynamic setup as Workspace and
+every other prompt box; each COSMOS intelligence needs the same Agent +
+Model dropdown per division; the backend must execute with the selected
+agent/model and the legacy profiles must go completely.
+
+**Done:**
+- **`backend/studio_llm.py` rewritten (no profiles):** removed
+  `PROFILES = ("opencode", "openai_compatible")` and all `DENNIS_YT_LLM_*`
+  env overrides. The agent now comes from the shared Workspace registry
+  (`agent_registry`/`/api/agents/availability`) and the model from that
+  agent's own catalog (`/api/agents/<id>/models`). Selection persists in the
+  YouTube workspace settings as `{"llm": {"agent_id", "model"}}` (empty model
+  = the agent CLI's own default). `complete(messages, agent_id=…, model_id=…)`
+  accepts per-call overrides; CLI agents run one-shot through
+  `agent_registry.one_shot_argv` with connection env injection, chat agents
+  go through the in-process chat client with compatible-connection routing.
+  `status()` returns `agent_id/agent_name/model/configured/source/hint_setup`.
+- **Per-division COSMOS choices — new `backend/cosmos_llm.py`:** stores one
+  Agent+Model choice per intelligence per division in
+  `data/cosmos/llm.json` (`get/resolve/configure/public_selections`). A
+  division with no stored choice inherits the shared Studio selection.
+  `cosmos_engine.run()` resolves the division choice and passes it into
+  `studio_llm.complete()`; execution records record the agent id as provider.
+  New routes `GET/POST /api/cosmos/llm/<intelligence>/<division>`;
+  overview/config payloads expose `llm_selections`.
+- **YouTube Studio frontend:** the Settings "Text generation" card (old
+  provider select + model text input + Save) is now two Workspace-style
+  dropdown rows (Agent from availability, Model grouped by provider with
+  search + refresh). The prompt-row runtime selectors read the same state and
+  save via one `POST /llm/config`; the stale `yt-llm-save` binding is gone.
+- **COSMOS frontend:** every intelligence's composer now shows one Agent +
+  Model dropdown row per division (ads left, youtube right — 10 selectors
+  total). Menus reuse the Workspace `ws-menu-item`/provider-group pattern,
+  with model search + refresh; an "Studio default" chip marks divisions that
+  still inherit; choices POST to the per-division endpoint. The header
+  runtime pill reports the Studio agent/model honestly.
+- **Tests:** `tests/test_youtube_editorial.py` LLMProfileTests replaced with
+  `LLMAgentModelTests` (registry-driven configure/status, CLI one-shot stubs,
+  chat key honesty, per-call override isolation). New
+  `tests/test_cosmos_llm.py` (store inheritance/override rules, engine
+  routing per division, API round trip + validation).
+  `test_cosmos_engine.py`/`test_cosmos_workflows.py` mocks moved to
+  `cosmos_llm.resolve`.
+- **Docs:** `docs/COSMOS_IMPLEMENTATION_PLAN.md` sections 1.2/3.6 updated to
+  the registry-driven adapter + per-division overrides.
+
+**Verified:** `python3 -m pytest tests/test_cosmos_llm.py
+tests/test_cosmos_engine.py tests/test_cosmos_workflows.py
+tests/test_cosmos_api.py tests/test_youtube_editorial.py
+tests/test_studio_workspaces.py tests/test_studio_workspace_routes.py -q`
+green (91 passed); `node --check` clean for `js/studioYoutube.js`,
+`js/cosmosDashboard.js`, `js/cosmosState.js`. Pre-existing failures outside
+this change (test_upif ×23, test_plugins, test_skill_builder_ui, and the
+four suites importing the deleted `backend.freellmapi`) unchanged.
 
 ## 2026-11-19 — Shared access confirmed live; Plugins hub fixed; AI Connections removed
 

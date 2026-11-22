@@ -443,6 +443,104 @@
 }
 #cosmos-view .cosmos-notes[open] summary { margin-bottom: 6px; }
 #cosmos-view .cosmos-composer-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+/* ------------------------------------------------- per-division Agent+Model */
+#cosmos-view .cosmos-llm-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+#cosmos-view .cosmos-llm-field {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1 1 180px;
+  min-width: 0;
+}
+#cosmos-view .cosmos-llm-field > span {
+  font: 600 9px/1.4 "JetBrains Mono", monospace;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--cosmos-muted);
+}
+#cosmos-view .cosmos-llm-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 8px 9px;
+  border: 1px solid #22304b;
+  border-radius: 9px;
+  background: #070c17;
+  color: var(--cosmos-fg);
+  font-size: 11px;
+  line-height: 1.5;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .12s, box-shadow .12s;
+}
+#cosmos-view .cosmos-llm-btn:hover { border-color: rgba(56, 189, 248, .5); }
+#cosmos-view .cosmos-llm-btn .cosmos-llm-btn-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#cosmos-view .cosmos-llm-btn .cosmos-llm-caret { flex-shrink: 0; color: #64748b; }
+#cosmos-view .cosmos-llm-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 60;
+  max-height: 290px;
+  overflow-y: auto;
+}
+#cosmos-view .cosmos-llm-menu-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 6px;
+  border-bottom: 1px solid #1b2537;
+  margin-bottom: 4px;
+}
+#cosmos-view .cosmos-llm-search {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 1px solid #22304f;
+  border-radius: 7px;
+  background: #0b1226;
+  color: #e2e8f0;
+  padding: 5px 8px;
+  font-size: 11px;
+  outline: none;
+}
+#cosmos-view .cosmos-llm-search:focus { border-color: rgba(56, 189, 248, .6); }
+#cosmos-view .cosmos-llm-refresh {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  border: 1px solid #22304f;
+  border-radius: 7px;
+  background: #0b1226;
+  color: #94a3b8;
+  cursor: pointer;
+}
+#cosmos-view .cosmos-llm-refresh:hover { color: #7dd3fc; border-color: rgba(56, 189, 248, .5); }
+#cosmos-view .cosmos-llm-menu-list { min-width: 0; }
+#cosmos-view .cosmos-llm-item-copy { display: flex; flex-direction: column; min-width: 0; flex: 1 1 auto; text-align: left; }
+#cosmos-view .cosmos-llm-item-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#cosmos-view .cosmos-llm-item-meta { font-size: 9.5px; color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#cosmos-view .cosmos-llm-group-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#cosmos-view .cosmos-llm-empty { padding: 4px 8px 8px; font-size: 10px; line-height: 1.5; color: #64748b; }
+#cosmos-view .cosmos-llm-inherit {
+  font: 500 9px/1.6 "JetBrains Mono", monospace;
+  letter-spacing: .06em;
+  color: #64748b;
+  border: 1px dashed #22304b;
+  border-radius: 7px;
+  padding: 3px 7px;
+  white-space: nowrap;
+}
 #cosmos-view .cosmos-muted { margin: 0; font-size: 9.5px; line-height: 1.55; color: var(--cosmos-muted); }
 #cosmos-view .cosmos-error {
   margin: 0;

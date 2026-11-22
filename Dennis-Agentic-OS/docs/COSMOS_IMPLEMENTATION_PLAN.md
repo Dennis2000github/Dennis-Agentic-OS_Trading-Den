@@ -30,11 +30,19 @@
   `backend/model_catalog.py`, `backend/connections.py`. A single shared
   selector state lives in `localStorage["dennis.studio.agent"]` (Studio) and
   the Workspace agent menu. COSMOS must reuse this, not fork it.
-- Text generation adapter: `backend/studio_llm.py` — two profiles
-  (`opencode` CLI, default model `nvidia/z-ai/glm-5.3-flash`; or
-  `openai_compatible` via the DeepSeek harness). Configured through the
-  YouTube workspace settings, env overrides, then defaults. `complete()`
-  returns text; `status()` reports provider/model/configured honestly.
+- Text generation adapter: `backend/studio_llm.py` — no hard-coded profiles.
+  The selected *agent* comes from the Workspace registry
+  (`/api/agents/availability`) and the selected *model* from that agent's own
+  catalog (`/api/agents/<agent_id>/models`). Selection is stored in the
+  YouTube workspace settings as `{"llm": {"agent_id", "model"}}` (empty model
+  = the agent CLI's own default); an explicit `agent_id`/`model_id` argument
+  overrides it per call. `complete()` returns text; `status()` reports
+  agent/model/configured honestly.
+- Per-division overrides: `backend/cosmos_llm.py` stores one Agent+Model
+  choice per intelligence per division in `data/cosmos/llm.json`
+  (`POST /api/cosmos/llm/<intelligence>/<division>`). A division with no
+  stored choice inherits the shared Studio selection
+  (`cosmos_llm.resolve()`).
 
 ### 1.3 Studio shell
 
@@ -256,8 +264,9 @@ DELETE /api/studio/ads/create/briefs/{id}        (soft delete)
 3. Build provenance context (recent agent recommendations, active backlog
    titles, optional owner-supplied source notes).
 4. Compose system + user prompts from `cosmos_registry` (role instructions,
-   honesty rules, strict JSON contract) and call `studio_llm.complete()` —
-   the existing provider/model routing.
+   honesty rules, strict JSON contract) and call `studio_llm.complete()` with
+   the division's resolved Agent+Model choice (`cosmos_llm.resolve()`) —
+   division selection first, shared Studio selection second.
 5. Parse and validate JSON. ANDROMEDA discovery items are qualified against
    the active configuration; low-relevance/unrelated items are filtered and
    reported honestly. Fewer than 5 qualified items yields

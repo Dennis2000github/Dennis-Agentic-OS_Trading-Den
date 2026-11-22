@@ -86,9 +86,10 @@ class WorkflowTests(unittest.TestCase):
             mock.patch.object(common, "ADS_BACKLOG_FILE", os.path.join(self.dir, "backlog.json")),
             mock.patch.object(cosmos_config.studio_workspaces, "get_settings", return_value={}),
             mock.patch.object(cosmos_config, "_resolve_channel", return_value=CHANNEL),
-            mock.patch.object(engine.studio_llm, "status", return_value={"model": "test-model", "provider": "test"}),
-            mock.patch.object(engine.studio_llm, "model", return_value="test-model"),
-            mock.patch.object(engine.studio_llm, "profile", return_value="test"),
+            mock.patch.object(
+                engine.cosmos_llm, "resolve",
+                return_value={"agent_id": "test-agent", "model": "test-model"},
+            ),
             mock.patch.object(cosmos_backlog.youtube_channels, "get_channel", return_value={"id": "ytch_test"}),
             mock.patch.object(cosmos_backlog.youtube_channels, "active_channel", return_value={"id": "ytch_test"}),
         ]

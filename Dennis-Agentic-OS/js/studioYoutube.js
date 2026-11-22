@@ -57,15 +57,25 @@
     currentScript: null,
     currentVersions: [],
     llm: null,
-    /* Runtime row (Agent · Model below the prompt box): the active runner's
-       model catalog, which provider groups are expanded, load state. */
+    /* Agent + Model dropdowns (prompt row and Settings card share one state).
+       Agents come from /api/agents/availability; models from that agent's
+       /api/agents/<id>/models catalog, grouped by provider. */
+    llmAgents: [],
+    llmAgentsLoading: null,
     llmModels: null,
     llmModelsFor: null,
     llmProviders: [],
     llmModelsLoading: null,
     llmExpanded: {},
+    llmOpenMenu: null,
+    llmBusy: false,
     projectTab: "projects"
   };
+
+  var LLM_ROWS = [
+    { key: "prompt", prefix: "yt-llm" },
+    { key: "settings", prefix: "yt-settings-llm" }
+  ];
 
   function $(id) { return document.getElementById(id); }
 
@@ -238,9 +248,15 @@
   }
 
   function loadLLM() {
-    return yt("/llm/status").then(function (payload) {
-      S.llm = payload;
-      return payload;
+    return Promise.all([
+      yt("/llm/status").then(function (payload) {
+        S.llm = payload;
+        return payload;
+      }),
+      loadLLMAgents(false)
+    ]).then(function (results) {
+      renderLLMRuntime();
+      return results[0];
     });
   }
 
@@ -646,91 +662,92 @@
     icons();
   }
 
+  function el(row, suffix) { return $(row.prefix + "-" + suffix); }
+
   function renderLLMSettings() {
     var host = $("yt-llm-status");
-    if (host) {
-      var llm = S.llm || {};
-      var state = llm.configured
-        ? '<span class="yt-ok-note"><i data-lucide="check-circle-2" class="w-4 h-4"></i> Ready</span>'
-        : '<span class="yt-warn-note"><i data-lucide="alert-triangle" class="w-4 h-4"></i> ' + esc(llm.hint_setup || "Not configured") + "</span>";
-      host.innerHTML = "<p class=\"yt-panel-note\">" + esc(llm.provider_label || llm.provider || "—") +
-        " · model <b>" + esc(llm.model || "default") + "</b> · " + state + "</p>";
-      icons();
-    }
-    /* Provider options come from the backend profile list, never hardcoded. */
-    var select = $("yt-llm-provider");
-    if (select && S.llm && Array.isArray(S.llm.profiles)) {
-      var current = select.value;
-      select.innerHTML = S.llm.profiles.map(function (profile) {
-        return '<option value="' + esc(profile.id) + '">' + esc(profile.label || profile.id) + "</option>";
-      }).join("");
-      if (current && S.llm.profiles.some(function (p) { return p.id === current; })) select.value = current;
-      else select.value = S.llm.provider || "opencode";
-    }
+    if (!host) return;
+    var llm = S.llm || {};
+    var state = llm.configured
+      ? '<span class="yt-ok-note"><i data-lucide="check-circle-2" class="w-4 h-4"></i> Ready</span>'
+      : '<span class="yt-warn-note"><i data-lucide="alert-triangle" class="w-4 h-4"></i> ' + esc(llm.hint_setup || "Not configured") + "</span>";
+    host.innerHTML = "<p class=\"yt-panel-note\">" + esc(llm.agent_name || llm.agent_id || "—") +
+      " · model <b>" + esc(llm.model || "agent default") + "</b> · " + state + "</p>";
+    icons();
   }
 
   /* ------------------------------------------------------------------ */
-  /* Runtime row — Agent · Model just below the prompt box               */
+  /* Agent + Model dropdowns (prompt row + Settings, Workspace pattern)   */
   /* ------------------------------------------------------------------ */
-  function llmProfiles() {
-    return (S.llm && Array.isArray(S.llm.profiles)) ? S.llm.profiles : [];
+  function loadLLMAgents(force) {
+    if (S.llmAgentsLoading && !force) return S.llmAgentsLoading;
+    S.llmAgentsLoading = api("/api/agents/availability").then(function (data) {
+      S.llmAgents = (data && Array.isArray(data.agents)) ? data.agents : [];
+      S.llmAgentsLoading = null;
+      renderLLMRuntime();
+      return S.llmAgents;
+    }).catch(function () {
+      S.llmAgents = [];
+      S.llmAgentsLoading = null;
+      renderLLMRuntime();
+      return [];
+    });
+    return S.llmAgentsLoading;
   }
 
-  function activeLLMProfile() {
-    return llmProfiles().filter(function (profile) { return profile.id === (S.llm && S.llm.provider); })[0] || null;
-  }
-
-  /* Backend labels carry a parenthetical default; the button shows the
-     short form and menu rows show the full label. */
-  function llmShortLabel(label) {
-    return String(label || "").split(" (")[0] || "Agent";
+  function activeLLMAgent() {
+    var id = (S.llm && S.llm.agent_id) || "";
+    return S.llmAgents.filter(function (agent) { return agent.id === id; })[0] || null;
   }
 
   function closeLLMMenus() {
-    ["yt-llm-agent-menu", "yt-llm-model-menu"].forEach(function (id) {
-      var menu = $(id);
-      if (menu) menu.classList.add("is-hidden");
+    S.llmOpenMenu = null;
+    LLM_ROWS.forEach(function (row) {
+      ["agent-menu", "model-menu"].forEach(function (suffix) {
+        var menu = el(row, suffix);
+        if (menu) menu.classList.add("is-hidden");
+      });
     });
   }
 
-  function toggleLLMMenu(menuId) {
-    var menu = $(menuId);
+  function toggleLLMMenu(rowKey, kind) {
+    var row = LLM_ROWS.filter(function (item) { return item.key === rowKey; })[0];
+    if (!row) return;
+    var menu = el(row, kind + "-menu");
     if (!menu) return;
     var willOpen = menu.classList.contains("is-hidden");
     closeLLMMenus();
     if (!willOpen) return;
     menu.classList.remove("is-hidden");
-    if (menuId === "yt-llm-model-menu") loadLLMModels(false);
+    S.llmOpenMenu = rowKey + ":" + kind;
+    if (kind === "model") loadLLMModels(false);
   }
 
-  /* The Agent menu lists the real runner profiles from /llm/status. Picking
-     one switches the server-side runner; the model resets to that runner's
-     default (backend behavior), so the model cache is dropped. */
-  function renderLLMAgentMenu() {
-    var btn = $("yt-llm-agent-btn");
-    var label = $("yt-llm-agent-label");
-    var host = $("yt-llm-agent-options");
-    var profiles = llmProfiles();
-    var activeId = S.llm && S.llm.provider;
-    var active = profiles.filter(function (profile) { return profile.id === activeId; })[0];
-    if (label) label.textContent = "Agent: " + (active ? llmShortLabel(active.label) : "—");
-    if (btn) btn.disabled = !profiles.length || !!S.llmBusy;
+  /* The Agent menu is the shared registry from /api/agents/availability. */
+  function renderLLMAgentMenu(row) {
+    var btn = el(row, "agent-btn");
+    var label = el(row, "agent-label");
+    var host = el(row, "agent-options");
+    var activeId = (S.llm && S.llm.agent_id) || "";
+    var active = S.llmAgents.filter(function (agent) { return agent.id === activeId; })[0];
+    if (label) label.textContent = "Agent: " + (active ? (active.name || active.id) : (activeId || "—"));
+    if (btn) btn.disabled = !S.llmAgents.length || !!S.llmBusy;
     if (!host) return;
-    if (!profiles.length) {
-      host.innerHTML = '<div class="yt-runtime-empty">Runner profiles load from /llm/status — refresh if this stays empty.</div>';
+    if (!S.llmAgents.length) {
+      host.innerHTML = '<div class="yt-runtime-empty">No agents registered — refresh the Workspace agent list.</div>';
       return;
     }
-    host.innerHTML = profiles.map(function (profile) {
-      var isActive = profile.id === activeId;
-      /* `configured` describes the active profile; inactive runners show a
-         neutral dot instead of pretending to know their state. */
-      var dot = isActive ? (S.llm && S.llm.configured ? "#22c55e" : "#f59e0b") : "#475569";
-      var meta = "default: " + (profile.default_model || "profile default");
-      return '<button type="button" class="ws-menu-item' + (isActive ? " ws-menu-item-active" : "") + '"' +
-        ' data-llm-agent="' + esc(profile.id) + '">' +
+    host.innerHTML = S.llmAgents.map(function (agent) {
+      var isActive = agent.id === activeId;
+      var available = agent.available !== false;
+      var dot = available ? (isActive && S.llm && S.llm.configured ? "#22c55e" : "#94a3b8") : "#475569";
+      var meta = [agent.provider, available ? "ready" : (agent.reason || "unavailable")].filter(Boolean).join(" · ");
+      return '<button type="button" class="ws-menu-item' + (isActive ? " ws-menu-item-active" : "") +
+        (available ? "" : " ws-menu-item-disabled") + '" data-llm-agent="' + esc(agent.id) + '"' +
+        (available ? "" : " disabled") + '>' +
         '<span class="ws-agent-dot" style="background:' + dot + '"></span>' +
         '<span class="flex-1 min-w-0 text-left">' +
-          '<span class="block truncate">' + esc(profile.label || profile.id) + '</span>' +
+          '<span class="block truncate">' + esc(agent.name || agent.id) + '</span>' +
           '<span class="block text-[9.5px] text-slate-500 truncate">' + esc(meta) + '</span>' +
         '</span>' +
         '</button>';
@@ -738,48 +755,31 @@
     icons();
   }
 
-  /* The active runner's models. OpenCode's CLI exposes a real catalog via
-     /api/agents/opencode/models; the OpenAI-compatible profile has no
-     discoverable list, so it offers its documented default plus whatever
-     model is currently stored. */
+  /* The selected agent's own model catalog: CLI models plus compatible
+     connection models, exactly as the Workspace model menu receives them. */
   function loadLLMModels(force) {
-    var profile = activeLLMProfile();
-    var profileId = profile ? profile.id : null;
-    if (!profileId) return Promise.resolve(null);
-    if (profileId !== "opencode") {
-      var models = [];
-      if (profile.default_model) {
-        models.push({ id: profile.default_model, name: profile.default_model, provider: profileId, description: "documented default" });
-      }
-      if (S.llm && S.llm.model && S.llm.model !== profile.default_model) {
-        models.push({ id: S.llm.model, name: S.llm.model, provider: profileId, description: "currently stored" });
-      }
-      S.llmModels = models;
-      S.llmModelsFor = profileId;
-      renderLLMModelMenu();
-      return Promise.resolve(models);
-    }
-    if (!force && S.llmModelsFor === profileId && S.llmModels) {
-      renderLLMModelMenu();
+    var agentId = (S.llm && S.llm.agent_id) || "";
+    if (!agentId) return Promise.resolve(null);
+    if (!force && S.llmModelsFor === agentId && S.llmModels) {
+      renderLLMRuntime();
       return Promise.resolve(S.llmModels);
     }
-    if (S.llmModelsLoading && S.llmModelsFor === profileId) return S.llmModelsLoading;
-    renderLLMModelMenu(); // loading state
-    S.llmModelsFor = profileId;
-    S.llmModelsLoading = fetch("/api/agents/" + encodeURIComponent(profileId) + "/models" + (force ? "?refresh=1" : ""), { cache: "no-store" })
-      .then(function (response) { return response.json(); })
+    if (S.llmModelsLoading && S.llmModelsFor === agentId) return S.llmModelsLoading;
+    S.llmModelsFor = agentId;
+    renderLLMRuntime(); // loading state
+    S.llmModelsLoading = api("/api/agents/" + encodeURIComponent(agentId) + "/models" + (force ? "?refresh=1" : ""))
       .then(function (data) {
         S.llmModels = (data && Array.isArray(data.models)) ? data.models : [];
         S.llmProviders = (data && Array.isArray(data.providers)) ? data.providers : [];
         S.llmModelsLoading = null;
-        renderLLMModelMenu();
+        renderLLMRuntime();
         return S.llmModels;
       })
       .catch(function () {
         S.llmModels = [];
         S.llmProviders = [];
         S.llmModelsLoading = null;
-        renderLLMModelMenu();
+        renderLLMRuntime();
         return [];
       });
     return S.llmModelsLoading;
@@ -808,30 +808,40 @@
     return groupId === currentProvider;
   }
 
-  function renderLLMModelMenu() {
-    var btn = $("yt-llm-model-btn");
-    var label = $("yt-llm-model-label");
-    var host = $("yt-llm-model-options");
-    var profile = activeLLMProfile();
+  function renderLLMModelMenu(row) {
+    var btn = el(row, "model-btn");
+    var label = el(row, "model-label");
+    var host = el(row, "model-options");
+    var agentId = (S.llm && S.llm.agent_id) || "";
     var currentModel = (S.llm && S.llm.model) || "";
-    if (label) label.textContent = "Model: " + (currentModel || (profile && profile.default_model) || "—");
-    if (btn) btn.disabled = !profile || !!S.llmBusy;
+    if (label) label.textContent = "Model: " + (currentModel || "agent default");
+    if (btn) btn.disabled = !agentId || !!S.llmBusy;
     if (!host) return;
-    if (!profile) {
+    if (!agentId) {
       host.innerHTML = '<div class="yt-runtime-empty">Pick an agent first.</div>';
       return;
     }
-    if (S.llmModelsFor !== profile.id || (S.llmModelsLoading && !S.llmModels)) {
+    if (S.llmModelsFor !== agentId || (S.llmModelsLoading && !S.llmModels)) {
       host.innerHTML = '<div class="yt-runtime-empty">Loading models…</div>';
       return;
     }
     var models = S.llmModels || [];
     if (!models.length) {
-      host.innerHTML = '<div class="yt-runtime-empty">No models reported for this runner — refresh, or set a model in Settings.</div>';
+      host.innerHTML = '<div class="yt-runtime-empty">No models reported for this agent — use Refresh.</div>';
       return;
     }
-    /* Group by the provider each model reports (OpenCode reports
-       provider-qualified ids), like the Workspace and Ads menus. */
+    var search = el(row, "model-search");
+    var query = (search && search.value || "").trim().toLowerCase();
+    if (query) {
+      models = models.filter(function (model) {
+        return ((model.name || model.id || "") + " " + (model.provider || "")).toLowerCase().indexOf(query) !== -1;
+      });
+    }
+    if (!models.length) {
+      host.innerHTML = '<div class="yt-runtime-empty">No models match that search.</div>';
+      return;
+    }
+    /* Group by the provider each model reports, like the Workspace menu. */
     var order = [];
     models.forEach(function (model) {
       var id = model.provider || "__default__";
@@ -841,7 +851,6 @@
       if (id === "__default__") return "Default";
       var provider = (S.llmProviders || []).filter(function (p) { return p.id === id; })[0];
       if (provider && provider.label) return provider.label;
-      if (profile.id === id) return llmShortLabel(profile.label);
       return id;
     };
     var groups = order.map(function (id) {
@@ -854,7 +863,7 @@
       };
     });
     host.innerHTML = groups.map(function (group) {
-      var open = llmGroupOpen(group.id);
+      var open = query ? true : llmGroupOpen(group.id);
       var count = group.total + (group.total === 1 ? " model" : " models");
       var body = group.models.map(function (model) {
         var active = model.id === currentModel;
@@ -883,8 +892,11 @@
   }
 
   function renderLLMRuntime() {
-    renderLLMAgentMenu();
-    renderLLMModelMenu();
+    renderLLMSettings();
+    LLM_ROWS.forEach(function (row) {
+      renderLLMAgentMenu(row);
+      renderLLMModelMenu(row);
+    });
   }
 
   function configureLLM(body) {
@@ -894,13 +906,12 @@
       .then(function (payload) {
         S.llm = payload.llm || S.llm;
         if (!body.model) {
-          // A runner switch resets the stored model (backend behavior).
+          // An agent switch clears the stored model; its catalog must reload.
           S.llmModels = null;
           S.llmModelsFor = null;
           S.llmExpanded = {};
         }
-        renderLLMSettings();
-        toast("Text generation profile saved.");
+        toast("Text generation selection saved.");
       })
       .catch(function (error) {
         toast(error.message);
@@ -912,14 +923,14 @@
       });
   }
 
-  function chooseLLMAgent(profileId) {
-    if (!profileId || (S.llm && S.llm.provider === profileId)) return;
-    configureLLM({ provider: profileId });
+  function chooseLLMAgent(agentId) {
+    if (!agentId || (S.llm && S.llm.agent_id === agentId)) return;
+    configureLLM({ agent_id: agentId, model: "" });
   }
 
   function chooseLLMModel(modelId) {
     if (!modelId || (S.llm && S.llm.model === modelId)) { closeLLMMenus(); return; }
-    configureLLM({ provider: (S.llm && S.llm.provider) || "opencode", model: modelId });
+    configureLLM({ agent_id: (S.llm && S.llm.agent_id) || "", model: modelId });
   }
 
   function renderChannelList() {
@@ -1024,7 +1035,7 @@
 
   function renderSettings() {
     renderConnectionCard();
-    renderLLMSettings();
+    renderLLMRuntime();
     renderChannelList();
     renderChannelEditor();
     icons();
@@ -1340,7 +1351,7 @@
         "Generate Script with AI",
         '<form id="yt-generate-form" class="yt-form" autocomplete="off">' +
           '<p class="yt-hint" data-info-tip>Composes the channel master prompt + Scriptwriter extension + topic context, then calls <b>' +
-            esc(llm.provider_label || llm.provider) + "</b> with model <b>" + esc(llm.model) + "</b>.</p>" +
+            esc(llm.agent_name || llm.agent_id || "Agent") + "</b> with model <b>" + esc(llm.model || "agent default") + "</b>.</p>" +
           '<label class="yt-field"><span>Approved topic <em>required</em></span><select id="yt-gen-topic">' + options + "</select></label>" +
           '<label class="yt-field"><span>Target duration (minutes)</span><input id="yt-gen-duration" type="number" min="1" max="60" value="12"></label>' +
           '<label class="yt-field"><span>Extra instructions (optional)</span><textarea id="yt-gen-notes" rows="2" maxlength="2000" placeholder="Angle adjustments, examples to include…"></textarea></label>' +
@@ -1627,27 +1638,6 @@
   }
 
   /* ------------------------------------------------------------------ */
-  /* LLM config                                                          */
-  /* ------------------------------------------------------------------ */
-  function saveLLM() {
-    var select = $("yt-llm-provider");
-    var modelInput = $("yt-llm-model");
-    var body = { provider: (select && select.value) || "opencode" };
-    var model = modelInput && modelInput.value.trim();
-    if (model) body.model = model;
-    yt("/llm/config", { method: "POST", body: body })
-      .then(function (payload) {
-        S.llm = payload.llm || S.llm;
-        toast("Text generation profile saved.");
-        renderLLMSettings();
-        renderLLMRuntime();
-      })
-      .catch(function (error) {
-        toast(error.message);
-      });
-  }
-
-  /* ------------------------------------------------------------------ */
   /* Navigation                                                          */
   /* ------------------------------------------------------------------ */
   function clearError() {
@@ -1767,52 +1757,56 @@
     var composerSubmit = $("yt-create-submit");
     if (composerSubmit) composerSubmit.addEventListener("click", submitCreate);
 
-    /* Runtime row (below the prompt box): Agent picks the runner profile,
-       Model picks a model from that runner's real catalog. Both persist
-       server-side via /llm/config. */
-    var llmAgentBtn = $("yt-llm-agent-btn");
-    if (llmAgentBtn) llmAgentBtn.addEventListener("click", function (event) {
-      event.stopPropagation();
-      toggleLLMMenu("yt-llm-agent-menu");
-    });
-    var llmAgentHost = $("yt-llm-agent-options");
-    if (llmAgentHost) llmAgentHost.addEventListener("click", function (event) {
-      var item = event.target.closest("[data-llm-agent]");
-      if (!item) return;
-      chooseLLMAgent(item.getAttribute("data-llm-agent"));
-    });
-    var llmModelBtn = $("yt-llm-model-btn");
-    if (llmModelBtn) llmModelBtn.addEventListener("click", function (event) {
-      event.stopPropagation();
-      toggleLLMMenu("yt-llm-model-menu");
-    });
-    var llmModelHost = $("yt-llm-model-options");
-    if (llmModelHost) llmModelHost.addEventListener("click", function (event) {
-      var head = event.target.closest("[data-llm-provider-toggle]");
-      if (head) {
+    /* Agent + Model dropdowns: the prompt row and the Settings card share
+       one selection and both persist server-side via /llm/config. */
+    LLM_ROWS.forEach(function (row) {
+      var agentBtn = el(row, "agent-btn");
+      if (agentBtn) agentBtn.addEventListener("click", function (event) {
         event.stopPropagation();
-        var groupId = head.getAttribute("data-llm-provider-toggle");
-        S.llmExpanded[groupId] = !llmGroupOpen(groupId);
-        renderLLMModelMenu();
-        return;
-      }
-      var item = event.target.closest("[data-llm-model]");
-      if (!item) return;
-      chooseLLMModel(item.getAttribute("data-llm-model"));
-    });
-    var llmModelRefresh = $("yt-llm-model-refresh");
-    if (llmModelRefresh) llmModelRefresh.addEventListener("click", function (event) {
-      event.stopPropagation();
-      S.llmModels = null;
-      S.llmModelsFor = null;
-      loadLLMModels(true);
+        toggleLLMMenu(row.key, "agent");
+      });
+      var agentHost = el(row, "agent-options");
+      if (agentHost) agentHost.addEventListener("click", function (event) {
+        var item = event.target.closest("[data-llm-agent]");
+        if (item) chooseLLMAgent(item.getAttribute("data-llm-agent"));
+      });
+      var modelBtn = el(row, "model-btn");
+      if (modelBtn) modelBtn.addEventListener("click", function (event) {
+        event.stopPropagation();
+        toggleLLMMenu(row.key, "model");
+      });
+      var modelHost = el(row, "model-options");
+      if (modelHost) modelHost.addEventListener("click", function (event) {
+        var head = event.target.closest("[data-llm-provider-toggle]");
+        if (head) {
+          event.stopPropagation();
+          var groupId = head.getAttribute("data-llm-provider-toggle");
+          S.llmExpanded[groupId] = !llmGroupOpen(groupId);
+          renderLLMRuntime();
+          return;
+        }
+        var item = event.target.closest("[data-llm-model]");
+        if (item) chooseLLMModel(item.getAttribute("data-llm-model"));
+      });
+      var refresh = el(row, "model-refresh");
+      if (refresh) refresh.addEventListener("click", function (event) {
+        event.stopPropagation();
+        S.llmModels = null;
+        S.llmModelsFor = null;
+        loadLLMModels(true);
+      });
+      var search = el(row, "model-search");
+      if (search) search.addEventListener("input", function () { renderLLMRuntime(); });
     });
     document.addEventListener("click", function (event) {
-      var agentMenu = $("yt-llm-agent-menu");
-      var modelMenu = $("yt-llm-model-menu");
-      var inside = (agentMenu && !agentMenu.classList.contains("is-hidden") && agentMenu.contains(event.target)) ||
-        (modelMenu && !modelMenu.classList.contains("is-hidden") && modelMenu.contains(event.target)) ||
-        (event.target.closest && event.target.closest("#yt-llm-agent-btn, #yt-llm-model-btn"));
+      var inside = false;
+      LLM_ROWS.forEach(function (row) {
+        ["agent-menu", "model-menu"].forEach(function (suffix) {
+          var menu = el(row, suffix);
+          if (menu && !menu.classList.contains("is-hidden") && menu.contains(event.target)) inside = true;
+        });
+      });
+      if (event.target.closest && event.target.closest(".yt-runtime-btn, .yt-runtime-menu")) inside = true;
       if (inside) return;
       closeLLMMenus();
     });
@@ -1878,9 +1872,6 @@
 
     var channelCreate = $("yt-channel-create");
     if (channelCreate) channelCreate.addEventListener("click", openChannelModal);
-
-    var llmSave = $("yt-llm-save");
-    if (llmSave) llmSave.addEventListener("click", saveLLM);
 
     var memoryGalaxy = $("yt-open-memory-galaxy");
     if (memoryGalaxy) {
