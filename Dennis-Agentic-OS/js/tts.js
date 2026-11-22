@@ -374,6 +374,7 @@
 
     status: function () { return api('/api/tts/status'); },
     voices: function () { return api('/api/tts/voices'); },
+    catalog: function () { return api('/api/tts/catalog'); },
     getConfig: function () {
       return api('/api/tts/config').then(function (r) {
         state.cachedConfig = (r && r.config) ? r.config : r;
@@ -381,7 +382,10 @@
       });
     },
     saveConfig: function (patch) {
-      return api('/api/tts/config', { method: 'POST', body: JSON.stringify(patch) })
+      // Step 1: every voice/config write is explicit and audited. The caller
+      // must show a confirmation dialog before calling this method.
+      var body = Object.assign({}, patch || {}, { confirmed: true });
+      return api('/api/tts/config', { method: 'POST', body: JSON.stringify(body) })
         .then(function (r) { state.cachedConfig = (r && r.config) ? r.config : r; return state.cachedConfig; });
     },
     setSecret: function (name, value) {
@@ -392,14 +396,14 @@
       }
       return api('/api/tts/config', {
         method: 'POST',
-        body: JSON.stringify({ provider_secrets: { elevenlabs: { api_key: value } } })
+        body: JSON.stringify({ provider_secrets: { elevenlabs: { api_key: value } }, confirmed: true })
       }).then(function (r) { return { set: true, name: name }; });
     },
     startService: function () {
-      return api('/api/tts/service', { method: 'POST', body: JSON.stringify({ action: 'start' }) });
+      return api('/api/tts/service', { method: 'POST', body: JSON.stringify({ action: 'start', confirmed: true }) });
     },
     stopService: function () {
-      return api('/api/tts/service', { method: 'POST', body: JSON.stringify({ action: 'stop' }) });
+      return api('/api/tts/service', { method: 'POST', body: JSON.stringify({ action: 'stop', confirmed: true }) });
     },
 
     preview: function (voiceId, text) {

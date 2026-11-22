@@ -71,6 +71,7 @@ class TtsRouteTests(unittest.TestCase):
         self.assertEqual(cfg["presets"]["jarvis-british-male"]["lang"], "en-gb")
 
         status, body = self.request("POST", "/api/tts/config", {
+            "confirmed": True,
             "studios": {"ads": {"voice_preset": "jarvis-british-male"}}
         })
         self.assertEqual(status, 200)
@@ -80,6 +81,7 @@ class TtsRouteTests(unittest.TestCase):
     def test_config_full_preset_patch_preserves_fields(self):
         """A speed-only UI patch must not reset the preset identity fields."""
         status, body = self.request("POST", "/api/tts/config", {
+            "confirmed": True,
             "presets": {"jarvis-british-male": {
                 "name": "JARVIS — BRITISH MALE",
                 "provider": "kokoro",
@@ -100,12 +102,14 @@ class TtsRouteTests(unittest.TestCase):
 
     def test_config_rejects_unknown_preset(self):
         status, body = self.request("POST", "/api/tts/config", {
+            "confirmed": True,
             "studios": {"ads": {"voice_preset": "does-not-exist"}}
         })
         self.assertEqual(status, 400)
 
     def test_config_rejects_unknown_provider(self):
         status, body = self.request("POST", "/api/tts/config", {
+            "confirmed": True,
             "studios": {"ads": {"provider": "skynet"}}
         })
         self.assertEqual(status, 400)
@@ -113,6 +117,7 @@ class TtsRouteTests(unittest.TestCase):
     def test_config_rejects_bad_speed(self):
         """Their validation clamps speed into [0.5, 2.0] rather than rejecting."""
         status, body = self.request("POST", "/api/tts/config", {
+            "confirmed": True,
             "presets": {"jarvis-british-male": {
                 "name": "JARVIS", "provider": "kokoro", "voice_id": "bm_george",
                 "speed": 9.5,
@@ -127,6 +132,7 @@ class TtsRouteTests(unittest.TestCase):
 
     def test_apollo_flags_round_trip(self):
         status, body = self.request("POST", "/api/tts/config", {
+            "confirmed": True,
             "apollo": {"browser_fallback": False, "duck_mic": False}
         })
         self.assertEqual(status, 200)
@@ -134,7 +140,8 @@ class TtsRouteTests(unittest.TestCase):
         self.assertFalse(body["config"]["apollo"]["duck_mic"])
         # restore defaults
         self.request("POST", "/api/tts/config",
-                     {"apollo": {"browser_fallback": True, "duck_mic": True}})
+                     {"confirmed": True,
+                      "apollo": {"browser_fallback": True, "duck_mic": True}})
 
     # -- status & voices ----------------------------------------------------
     def test_status_shape(self):
@@ -206,6 +213,7 @@ class TtsRouteTests(unittest.TestCase):
     # -- secrets -------------------------------------------------------------
     def test_secret_patch_never_echoes_key(self):
         status, body = self.request("POST", "/api/tts/config", {
+            "confirmed": True,
             "provider_secrets": {"elevenlabs": {"api_key": "sk-test-secret"}}
         })
         self.assertEqual(status, 200)
@@ -228,6 +236,7 @@ class TtsRouteTests(unittest.TestCase):
 
         # Persist an Ads Studio preference, then confirm it only affects ads.
         status, body = self.request("POST", "/api/tts/config", {
+            "confirmed": True,
             "studios": {"ads": {"provider": "elevenlabs"}}
         })
         self.assertEqual(status, 200)
@@ -242,7 +251,8 @@ class TtsRouteTests(unittest.TestCase):
         with self.assertRaises(dennis_tts.TTSError):
             dennis_tts.effective_provider("ads", "no-such-preset")
         # restore
-        self.request("POST", "/api/tts/config", {"studios": {"ads": {"provider": "kokoro"}}})
+        self.request("POST", "/api/tts/config", {"confirmed": True,
+                     "studios": {"ads": {"provider": "kokoro"}}})
 
 
 if __name__ == "__main__":

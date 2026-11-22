@@ -1,0 +1,129 @@
+/* =========================================================================
+   DENNIS VOICE PICKER — shared Provider → Model → Voice selector.
+   Used by the JARVIS dashboard bottom bar and the Apollo/Ads/YouTube studios.
+   ========================================================================= */
+
+.vp-host { position: relative; display: inline-flex; align-items: center; }
+
+.vp-wrap { position: relative; display: inline-flex; }
+
+.vp-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 9px; border-radius: 9px;
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  background: rgba(8, 16, 34, 0.92);
+  color: #a5f3fc; font-size: 11px; font-weight: 600;
+  line-height: 1; white-space: nowrap; cursor: pointer;
+  transition: border-color .15s, background .15s, color .15s;
+  max-width: 100%;
+}
+.vp-btn:hover { border-color: rgba(34, 211, 238, 0.65); background: rgba(12, 26, 52, 0.98); color: #ecfeff; }
+.vp-btn:focus-visible { outline: 2px solid rgba(34, 211, 238, 0.55); outline-offset: 1px; }
+.vp-ico { width: 13px; height: 13px; flex: none; }
+.vp-chev { width: 11px; height: 11px; flex: none; opacity: .6; }
+.vp-btn-label { max-width: 190px; overflow: hidden; text-overflow: ellipsis; }
+
+.vp-panel {
+  /* Portaled to <body> by voicePicker.js so ancestor clip-path/overflow
+     (dashboard .hud-panel, studio shells) cannot cut the dropdown off. */
+  position: fixed; left: 0; top: 0; z-index: 1200;
+  width: 310px; max-width: min(92vw, 340px);
+  max-height: calc(100vh - 16px); overflow-y: auto;
+  padding: 12px; border-radius: 14px;
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  background: linear-gradient(180deg, #0a1428 0%, #070d1d 100%);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, .65), 0 0 0 1px rgba(8, 145, 178, .12) inset;
+  color: #cbd5e1; font-size: 11px;
+}
+.vp-panel.hidden { display: none; }
+
+.vp-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase;
+  color: #67e8f9; margin-bottom: 9px;
+}
+.vp-close {
+  border: none; background: transparent; color: #64748b; font-size: 16px;
+  line-height: 1; cursor: pointer; padding: 0 2px;
+}
+.vp-close:hover { color: #e2e8f0; }
+
+.vp-field { display: block; margin-bottom: 8px; }
+.vp-field > span {
+  display: block; font-size: 9px; text-transform: uppercase; letter-spacing: .07em;
+  color: #64748b; margin-bottom: 3px;
+}
+.vp-field select, .vp-field input {
+  width: 100%; box-sizing: border-box;
+  padding: 6px 7px; border-radius: 7px;
+  border: 1px solid #22304f; background: #0b1226;
+  color: #e2e8f0; font-size: 11px; outline: none;
+}
+.vp-field select:focus, .vp-field input:focus { border-color: rgba(34, 211, 238, .6); }
+.vp-field input::placeholder { color: #475569; }
+
+.vp-note { font-size: 9.5px; line-height: 1.45; color: #7c8ba1; margin: -2px 0 8px; min-height: 12px; }
+.vp-cost {
+  display: inline-block; padding: 1px 5px; border-radius: 999px;
+  font-size: 8px; font-weight: 800; letter-spacing: .04em; vertical-align: 1px;
+}
+.vp-badge-free { background: rgba(16, 185, 129, .16); color: #34d399; border: 1px solid rgba(16, 185, 129, .35); }
+.vp-badge-freetier { background: rgba(34, 211, 238, .14); color: #67e8f9; border: 1px solid rgba(34, 211, 238, .35); }
+.vp-badge-paid { background: rgba(245, 158, 11, .14); color: #fbbf24; border: 1px solid rgba(245, 158, 11, .35); }
+.vp-badge-deprecated { background: rgba(244, 63, 94, .14); color: #fb7185; border: 1px solid rgba(244, 63, 94, .35); }
+
+.vp-status { font-size: 9.5px; line-height: 1.45; color: #94a3b8; margin: 2px 0 9px; }
+.vp-status:empty { display: none; }
+
+.vp-actions { display: flex; gap: 7px; }
+.vp-save {
+  flex: 1; padding: 7px 10px; border-radius: 8px; cursor: pointer;
+  border: 1px solid rgba(34, 211, 238, .45);
+  background: linear-gradient(180deg, rgba(8, 145, 178, .35), rgba(8, 47, 73, .55));
+  color: #cffafe; font-size: 11px; font-weight: 700;
+}
+.vp-save:hover { border-color: rgba(34, 211, 238, .8); }
+.vp-save:disabled { opacity: .55; cursor: default; }
+.vp-cancel {
+  padding: 7px 10px; border-radius: 8px; cursor: pointer;
+  border: 1px solid #22304f; background: transparent; color: #94a3b8;
+  font-size: 11px;
+}
+.vp-cancel:hover { color: #e2e8f0; border-color: #334155; }
+
+.vp-registry { margin-top: 10px; padding-top: 9px; border-top: 1px solid rgba(34, 211, 238, .14); }
+.vp-registry-title {
+  font-size: 9px; text-transform: uppercase; letter-spacing: .07em;
+  color: #64748b; margin-bottom: 6px;
+}
+.vp-service-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 7px; }
+.vp-service-text { font-size: 9.5px; color: #94a3b8; }
+.vp-service-toggle, .vp-el-save {
+  padding: 4px 8px; border-radius: 6px; cursor: pointer;
+  border: 1px solid rgba(34, 211, 238, .3); background: rgba(8, 47, 73, .5);
+  color: #a5f3fc; font-size: 9.5px; font-weight: 600;
+}
+.vp-service-toggle:hover, .vp-el-save:hover { border-color: rgba(34, 211, 238, .65); }
+.vp-service-toggle:disabled, .vp-el-save:disabled { opacity: .55; cursor: default; }
+.vp-key-row { display: flex; gap: 6px; }
+.vp-key-row input {
+  flex: 1; min-width: 0; padding: 5px 7px; border-radius: 6px;
+  border: 1px solid #22304f; background: #0b1226; color: #e2e8f0;
+  font-size: 10px; outline: none;
+}
+.vp-key-row input:focus { border-color: rgba(34, 211, 238, .6); }
+
+.vp-toast {
+  position: fixed; right: 18px; bottom: 18px; z-index: 200;
+  padding: 9px 14px; border-radius: 10px;
+  border: 1px solid rgba(16, 185, 129, .45);
+  background: rgba(6, 26, 20, .96); color: #a7f3d0;
+  font-size: 11.5px; font-weight: 600;
+  box-shadow: 0 14px 40px rgba(0, 0, 0, .5);
+  transition: opacity .35s, transform .35s;
+}
+.vp-toast-bad { border-color: rgba(244, 63, 94, .5); background: rgba(32, 8, 14, .96); color: #fecdd3; }
+.vp-toast-out { opacity: 0; transform: translateY(6px); }
+
+/* Studio header placements */
+.studio-voice-slot, .yt-voice-slot { display: inline-flex; align-items: center; }

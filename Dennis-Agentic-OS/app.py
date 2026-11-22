@@ -1346,6 +1346,8 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
         # ==================================================================
         if path == '/api/tts/status':
             return self.send_json(dennis_tts.status())
+        if path == '/api/tts/catalog':
+            return self.send_json(dennis_tts.catalog())
 
         # ==================================================================
         # Jarvis OS upgrade layer — connections, adapters, routing, audit
@@ -2878,36 +2880,69 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
         # Centralized TTS Router (Kokoro default; ElevenLabs optional)
         # ==================================================================
         if path == '/api/tts/config':
+            if not (body or {}).get('confirmed'):
+                return self.send_json({"error": "confirmation required"}, 400)
             try:
-                return self.send_json(
-                    {"success": True, "config": dennis_tts.save_config(body)})
+                cfg = dennis_tts.save_config(body)
+                dennis_jarvis_os.audit('local-owner', 'tts config saved', 'ok')
+                return self.send_json({"success": True, "config": cfg})
             except dennis_tts.TTSError as exc:
+                dennis_jarvis_os.audit('local-owner', 'tts config rejected',
+                                       'error: ' + str(exc))
                 return self.send_json({"error": str(exc)}, 400)
         if path == '/api/tts/secret':
+            if not (body or {}).get('confirmed'):
+                return self.send_json({"error": "confirmation required"}, 400)
             name = (body or {}).get("name")
             value = (body or {}).get("value")
             if not name or not value:
                 return self.send_json({"error": "name and value are required"}, 400)
             try:
                 dennis_tts.set_provider_secret(str(name), str(value))
+                dennis_jarvis_os.audit('local-owner',
+                                       f'tts.{name} secret configured', 'ok')
                 return self.send_json({"success": True, "configured": str(name)})
             except dennis_tts.TTSError as exc:
+                dennis_jarvis_os.audit('local-owner',
+                                       f'tts.{name} secret rejected',
+                                       'error: ' + str(exc))
                 return self.send_json({"error": str(exc)}, 400)
         if path == '/api/tts/service/start':
+            if not (body or {}).get('confirmed'):
+                return self.send_json({"error": "confirmation required"}, 400)
             try:
-                return self.send_json(dennis_tts.service_control("start"))
+                result = dennis_tts.service_control("start")
+                dennis_jarvis_os.audit('local-owner', 'tts service start',
+                                       'ok' if result.get('ok') else 'failed')
+                return self.send_json(result)
             except dennis_tts.TTSError as exc:
+                dennis_jarvis_os.audit('local-owner', 'tts service start',
+                                       'error: ' + str(exc))
                 return self.send_json({"error": str(exc)}, 503)
         if path == '/api/tts/service/stop':
+            if not (body or {}).get('confirmed'):
+                return self.send_json({"error": "confirmation required"}, 400)
             try:
-                return self.send_json(dennis_tts.service_control("stop"))
+                result = dennis_tts.service_control("stop")
+                dennis_jarvis_os.audit('local-owner', 'tts service stop',
+                                       'ok' if result.get('ok') else 'failed')
+                return self.send_json(result)
             except dennis_tts.TTSError as exc:
+                dennis_jarvis_os.audit('local-owner', 'tts service stop',
+                                       'error: ' + str(exc))
                 return self.send_json({"error": str(exc)}, 503)
         if path == '/api/tts/service':
             action = (body or {}).get("action") or "status"
+            if action in ("start", "stop", "restart") and not (body or {}).get('confirmed'):
+                return self.send_json({"error": "confirmation required"}, 400)
             try:
-                return self.send_json(dennis_tts.service_control(action))
+                result = dennis_tts.service_control(action)
+                dennis_jarvis_os.audit('local-owner', f'tts service {action}',
+                                       'ok' if result.get('ok') else 'failed')
+                return self.send_json(result)
             except dennis_tts.TTSError as exc:
+                dennis_jarvis_os.audit('local-owner', f'tts service {action}',
+                                       'error: ' + str(exc))
                 return self.send_json({"error": str(exc)}, 400)
         if path == '/api/tts/speech':
             return self._tts_speech(body)

@@ -82,16 +82,113 @@ PROVIDERS = {
 }
 
 # ---------------------------------------------------------------------------
+# Model catalog (curated, verified — never guessed)
+#
+# `cost` ordering is what the UI uses for "free-first": free -> free-tier ->
+# paid -> deprecated. Kokoro voices are discovered live from the local service;
+# cloud voice IDs are entered by the owner (no authenticated list calls).
+# ---------------------------------------------------------------------------
+
+MODEL_SOURCES = {
+    "kokoro": "GET http://127.0.0.1:8880/v1/audio/voices (live local service)",
+    "fish": "https://docs.fish.audio/developer-guide/models-pricing/models-overview.md",
+    "elevenlabs": "https://elevenlabs.io/docs/overview/models.md",
+}
+
+MODEL_CATALOG = {
+    "kokoro": [
+        {"id": "kokoro-v1.0", "label": "kokoro-v1.0", "cost": "free",
+         "note": "Local inference on this machine. 54 voices discovered live. No API key, no network cost."},
+    ],
+    "fish": [
+        {"id": "s2.1-pro-free", "label": "S2.1 Pro Free", "cost": "free",
+         "note": "$0 under fair-use limits. Same model quality as s2.1-pro; no TTFA/DPA guarantees."},
+        {"id": "s2.1-pro", "label": "S2.1 Pro", "cost": "paid",
+         "note": "Recommended production model with TTFA/DPA guarantees."},
+        {"id": "s2-pro", "label": "S2 Pro", "cost": "paid",
+         "note": "Previous generation, multi-speaker and expression control."},
+        {"id": "s1", "label": "S1 (deprecated)", "cost": "deprecated",
+         "note": "Deprecated; retired 2026-12-31, after which requests are served by s2.1-pro."},
+    ],
+    "elevenlabs": [
+        {"id": "eleven_flash_v2", "label": "Flash v2", "cost": "free-tier",
+         "note": "English only, ultra-low latency (~135ms). Available on the Free plan."},
+        {"id": "eleven_flash_v2_5", "label": "Flash v2.5", "cost": "free-tier",
+         "note": "32 languages, ~100ms latency, 50% lower price per character. Available on the Free plan."},
+        {"id": "eleven_multilingual_v2", "label": "Multilingual v2", "cost": "free-tier",
+         "note": "29 languages, most stable on long-form. Available on the Free plan."},
+        {"id": "eleven_v3", "label": "Eleven v3", "cost": "paid",
+         "note": "Expressive, 70+ languages, 5,000 character limit."},
+        {"id": "eleven_v4", "label": "Eleven v4", "cost": "paid",
+         "note": "Highest quality, 90+ languages, 10,000 character limit."},
+        {"id": "eleven_v4_turbo", "label": "Eleven v4 Turbo", "cost": "paid",
+         "note": "Real-time, ~100ms median latency, 90+ languages."},
+    ],
+}
+
+COST_ORDER = {"free": 0, "free-tier": 1, "paid": 2, "deprecated": 3}
+
+
+def catalog():
+    """Read-only free-first catalog. Kokoro voices come from the local service."""
+    voices = []
+    for entry in kokoro_voices():
+        if isinstance(entry, dict):
+            vid = str(entry.get("id") or entry.get("voice_id") or entry.get("name") or "")
+            label = str(entry.get("name") or entry.get("label") or vid)
+            lang = str(entry.get("language") or entry.get("lang") or "")
+        else:
+            vid = str(entry)
+            label = vid
+            lang = ""
+        if vid:
+            voices.append({"id": vid, "label": label, "lang": lang})
+    if not voices:
+        # Honest fallback: no invented voice list when the service is down.
+        voices = [{"id": "", "label": "Kokoro offline — no voices available", "lang": ""}]
+
+    providers = []
+    for pid, slot in PROVIDERS.items():
+        if slot.get("fallback_only"):
+            continue
+        models = sorted(MODEL_CATALOG.get(pid, []),
+                        key=lambda m: (COST_ORDER.get(m.get("cost"), 9), m.get("id")))
+        providers.append({
+            "id": pid,
+            "label": slot.get("label", pid),
+            "local": bool(slot.get("local")),
+            "requires_key": bool(slot.get("requires_key")),
+            "rank": min((COST_ORDER.get(m.get("cost"), 9) for m in models), default=9),
+            "models": models,
+            "voices": voices if pid == "kokoro" else [],
+            "voice_mode": "list" if pid == "kokoro" else "custom",
+            "source": MODEL_SOURCES.get(pid, ""),
+        })
+    providers.sort(key=lambda p: (p["rank"], 0 if p["local"] else 1, p["id"]))
+    return {
+        "available": True,
+        "cost_order": ["free", "free-tier", "paid", "deprecated"],
+        "providers": providers,
+        "note": "Cloud voice IDs are entered by the owner; no authenticated list calls are made.",
+    }
+
+
+# ---------------------------------------------------------------------------
 # Default configuration — JARVIS preset is persistent and provider-independent
 # ---------------------------------------------------------------------------
 
 DEFAULT_CONFIG = {
     "version": 1,
     "global_default_provider": "kokoro",
+    "global_default_model_id": None,
+    "global_default_voice_id": None,
     "studios": {
-        "apollo": {"provider": "kokoro", "voice_preset": "jarvis-british-male"},
-        "ads": {"provider": "kokoro", "voice_preset": "narrator-en-us"},
-        "youtube": {"provider": "kokoro", "voice_preset": "narrator-en-us"},
+        "apollo": {"provider": "kokoro", "voice_preset": "jarvis-british-male",
+                   "model_id": None, "voice_id": None},
+        "ads": {"provider": "kokoro", "voice_preset": "narrator-en-us",
+                "model_id": None, "voice_id": None},
+        "youtube": {"provider": "kokoro", "voice_preset": "narrator-en-us",
+                    "model_id": None, "voice_id": None},
     },
     "presets": {
         "jarvis-british-male": {
@@ -103,6 +200,7 @@ DEFAULT_CONFIG = {
             "speed": 1.03,
             "output": "pcm",
             "sample_rate": 24000,
+            "model_id": None,
         },
         "narrator-en-us": {
             "name": "Narrator — American Male",
@@ -113,6 +211,7 @@ DEFAULT_CONFIG = {
             "speed": 1.0,
             "output": "wav",
             "sample_rate": 24000,
+            "model_id": None,
         },
     },
     "apollo": {
@@ -133,6 +232,14 @@ def _now():
 # ---------------------------------------------------------------------------
 # Config persistence (atomic JSON, git-ignored data dir)
 # ---------------------------------------------------------------------------
+
+def _validate_model_id(provider, model_id):
+    """Return model_id when it is in the catalog for provider, else None."""
+    if model_id is None:
+        return None
+    allowed = {m["id"] for m in MODEL_CATALOG.get(provider, [])}
+    return model_id if model_id in allowed else None
+
 
 def load_config():
     stored = dennis_config.read_json(CONFIG_FILE)
@@ -156,11 +263,18 @@ def load_config():
         pref.setdefault("fallback_browser", cfg["apollo"]["browser_fallback"])
     for slug, preset in cfg["presets"].items():
         preset.setdefault("id", slug)
+    # Model ids are only ever returned when they exist in the verified catalog.
+    cfg["global_default_model_id"] = _validate_model_id(
+        cfg.get("global_default_provider"), cfg.get("global_default_model_id"))
+    for studio, pref in cfg["studios"].items():
+        pref["model_id"] = _validate_model_id(
+            pref.get("provider"), pref.get("model_id"))
     # The provider registry is exposed on the config object too: the Apollo
     # voice panel and the Settings card both render selects from it.
     cfg.setdefault("providers", {})
     for pid, slot in PROVIDERS.items():
         view = dict(slot)
+        view["default"] = (pid == cfg["global_default_provider"])
         if pid == "kokoro":
             view["enabled"] = True
         elif pid == "elevenlabs":
@@ -182,6 +296,12 @@ def save_config(patch):
         if provider not in PROVIDERS:
             raise TTSError(f"unknown provider: {provider}")
         cfg["global_default_provider"] = provider
+    if "global_default_model_id" in patch:
+        cfg["global_default_model_id"] = _validate_model_id(
+            cfg["global_default_provider"], patch["global_default_model_id"])
+    if "global_default_voice_id" in patch:
+        voice = patch["global_default_voice_id"]
+        cfg["global_default_voice_id"] = (str(voice)[:64] or None) if voice else None
 
     if isinstance(patch.get("studios"), dict):
         for studio, pref in patch["studios"].items():
@@ -208,6 +328,12 @@ def save_config(patch):
                 target["speed"] = max(0.5, min(2.0, float(pref["speed"])))
             if "fallback_browser" in pref:
                 target["fallback_browser"] = bool(pref["fallback_browser"])
+            if "model_id" in pref:
+                target["model_id"] = _validate_model_id(
+                    target.get("provider", "kokoro"), pref["model_id"])
+            if "voice_id" in pref:
+                voice = pref["voice_id"]
+                target["voice_id"] = (str(voice)[:64] or None) if voice else None
 
     if isinstance(patch.get("presets"), dict):
         for slug, preset in patch["presets"].items():
@@ -256,6 +382,7 @@ def _clean_preset(slug, preset):
         "speed": max(0.5, min(2.0, float(pick("speed", 1.0)))),
         "output": "pcm" if pick("output", "wav") == "pcm" else "wav",
         "sample_rate": int(pick("sample_rate", 24000)),
+        "model_id": _validate_model_id(provider, pick("model_id", None)),
     }
 
 
@@ -600,29 +727,48 @@ def elevenlabs_speech(text, voice_id, model_id="eleven_multilingual_v2"):
 # ---------------------------------------------------------------------------
 
 def generate(text, studio="apollo", preset_slug=None, voice_id=None,
-             speed=None, lang=None, response_format=None):
+             speed=None, lang=None, response_format=None, model_id=None):
     """Generate speech for a studio through the resolved provider.
 
     Returns ``(audio_bytes, content_type, sample_rate, meta)``.
+    ``model_id`` resolution order: explicit argument -> per-studio config ->
+    preset -> global default. Values are validated against the verified
+    catalog before being sent to a provider.
     """
-    provider, preset, _cfg = effective_provider(studio, preset_slug)
+    provider, preset, cfg = effective_provider(studio, preset_slug)
+    studio_pref = cfg["studios"].get(studio or "") or {}
+    resolved_model = _validate_model_id(
+        provider,
+        model_id or studio_pref.get("model_id") or (preset or {}).get("model_id")
+        or cfg.get("global_default_model_id"))
+    # A preset's voice only applies when that preset targets the same provider;
+    # switching a studio to Fish must never send a Kokoro voice id upstream.
+    preset_voice = ((preset or {}).get("voice_id")
+                    if (preset or {}).get("provider") == provider else None)
+    resolved_voice = (voice_id or studio_pref.get("voice_id")
+                      or preset_voice
+                      or cfg.get("global_default_voice_id"))
     if provider == "elevenlabs":
-        audio, ctype, rate = elevenlabs_speech(
-            text, voice_id or (preset or {}).get("voice_id") or "pNInz6obpgDQGcFmaJgB")
+        voice = resolved_voice or "pNInz6obpgDQGcFmaJgB"
+        chosen_model = resolved_model or "eleven_multilingual_v2"
+        audio, ctype, rate = elevenlabs_speech(text, voice, model_id=chosen_model)
         return audio, ctype, rate, {"provider": "elevenlabs",
                                     "preset": preset_slug,
-                                    "voice_id": voice_id or (preset or {}).get("voice_id")}
+                                    "voice_id": voice,
+                                    "model_id": chosen_model}
     if provider == "fish":
+        voice = resolved_voice
+        chosen_model = resolved_model or os.environ.get("FISH_AUDIO_MODEL", "s2.1-pro")
         audio, ctype, rate = fish_audio_speech(
-            text, voice_id or (preset or {}).get("voice_id"))
+            text, voice, model_id=chosen_model)
         return audio, ctype, rate, {"provider": "fish",
                                     "preset": preset_slug,
-                                    "voice_id": voice_id or (preset or {}).get("voice_id"),
+                                    "voice_id": voice,
+                                    "model_id": chosen_model,
                                     "endpoint_verified_on_this_machine": True}
     # kokoro (default)
-    voice = voice_id or (preset or {}).get("voice_id") or "bm_george"
-    cfg = load_config()
-    studio_speed = (cfg["studios"].get(studio or "") or {}).get("speed")
+    voice = resolved_voice or "bm_george"
+    studio_speed = studio_pref.get("speed")
     spd = float(speed if speed is not None
                 else (preset or {}).get("speed", studio_speed or 1.0))
     language = lang or (preset or {}).get("lang")
@@ -633,6 +779,7 @@ def generate(text, studio="apollo", preset_slug=None, voice_id=None,
         "provider": "kokoro",
         "preset": preset_slug,
         "voice_id": voice,
+        "model_id": resolved_model or "kokoro-v1.0",
         "speed": spd,
         "lang": language,
         "sample_rate": rate,
@@ -740,26 +887,34 @@ def status():
                  or health.get("status") == "ready"))
         health.setdefault("voice_count",
                           health.get("voice_count") or health.get("voices") or 0)
-    # Provider usability: kokoro = local service (always offerable), elevenlabs
-    # = a key is configured, browser = frontend fallback engine.
+    # Provider usability must reflect live state, never a hardcoded True:
+    # kokoro = local service reachable; cloud = key configured.
     providers_view = {}
     for pid, slot in PROVIDERS.items():
         entry = dict(slot)
+        entry["default"] = (pid == cfg["global_default_provider"])
         if pid == "kokoro":
-            entry["enabled"] = True
+            entry["enabled"] = reachable
+            entry["available"] = reachable
         elif pid == "elevenlabs":
             entry["enabled"] = bool(_elevenlabs_key())
+            entry["available"] = entry["enabled"]
         elif pid == "fish":
             entry["enabled"] = bool(_fish_key())
+            entry["available"] = entry["enabled"]
         else:
             entry["enabled"] = True
+            entry["available"] = True
         providers_view[pid] = entry
     return {
         "providers": providers_view,
         "global_default_provider": cfg["global_default_provider"],
+        "global_default_model_id": cfg.get("global_default_model_id"),
+        "global_default_voice_id": cfg.get("global_default_voice_id"),
         "studios": cfg["studios"],
         "presets": sorted(cfg["presets"].keys()),
         "apollo": cfg["apollo"],
+        "models": MODEL_CATALOG,
         "kokoro": {
             "url": KOKORO_BASE_URL,
             "reachable": reachable,

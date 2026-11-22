@@ -1036,14 +1036,21 @@ class HermesGalaxy {
       }).catch((err) => this.showToastSafe('Save failed: ' + err.message));
     };
 
-    if (providerSel) providerSel.addEventListener('change', persist);
-    if (presetSel) presetSel.addEventListener('change', persist);
-    if (fallbackChk) fallbackChk.addEventListener('change', persist);
+    // Step 1: voice writes are confirmed. The shared picker owns the primary
+    // UI; this legacy panel (if ever restored) must still ask first.
+    const persistConfirmed = () => {
+      if (window.confirm && !window.confirm('Save Apollo voice preferences? This is recorded in the audit log.')) return;
+      persist();
+    };
+
+    if (providerSel) providerSel.addEventListener('change', persistConfirmed);
+    if (presetSel) presetSel.addEventListener('change', persistConfirmed);
+    if (fallbackChk) fallbackChk.addEventListener('change', persistConfirmed);
     if (speedRange && speedValue) {
       speedRange.addEventListener('input', () => {
         speedValue.textContent = parseFloat(speedRange.value).toFixed(2) + 'x';
       });
-      speedRange.addEventListener('change', persist);
+      speedRange.addEventListener('change', persistConfirmed);
     }
 
     if (previewBtn && presetSel) {

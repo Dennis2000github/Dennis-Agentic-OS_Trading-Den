@@ -185,12 +185,30 @@
     }
   }
 
-  // Voice label: preset display name from the TTS config (honest value).
-  // Falls back to a prettified preset id when the saved config has no name.
+  // Voice label: effective provider + voice from the TTS config (honest
+  // value — never a hardcoded preset name). The bottom-bar picker owns its
+  // own label; this feeds the telemetry readout only.
   function voiceLabel(presetId, preset) {
     if (preset && preset.name) return preset.name;
     if (!presetId) return "JARVIS";
     return presetId.replace(/[-_]+/g, " ").replace(/\b\w/g, function (c) { return c.toUpperCase(); });
+  }
+
+  function effectiveVoiceLabel(cfg) {
+    cfg = cfg || {};
+    var apollo = (cfg.studios || {}).apollo || {};
+    var provider = apollo.provider || cfg.global_default_provider || "kokoro";
+    var model = apollo.model_id || cfg.global_default_model_id || "";
+    var preset = (cfg.presets || {})[apollo.voice_preset || apollo.preset] || {};
+    var voice = apollo.voice_id || preset.voice_id || "";
+    var providerName = ({ kokoro: "Kokoro", fish: "Fish Audio", elevenlabs: "ElevenLabs" })[provider] || provider;
+    return {
+      text: providerName + (voice ? " \u00b7 " + voice : ""),
+      title: "Apollo voice \u2014 " + providerName +
+        (model ? " \u00b7 " + model : "") +
+        (voice ? " \u00b7 " + voice : "") +
+        (preset.name ? " (preset: " + preset.name + ")" : "")
+    };
   }
 
   function loadTelemetry() {
@@ -208,19 +226,11 @@
       var k = (d && d.kokoro) || {};
       kokoroOk = !!(k.reachable);
       updateSignal();
-      // Voice label: preset display name from the TTS config (honest value).
-      var presetId = (d && d.studios && d.studios.apollo && d.studios.apollo.voice_preset) || "";
       api("/api/tts/config").then(function (c) {
         var cfg = (c && c.config) || c || {};
-        var preset = (cfg.presets || {})[presetId] || {};
-        var label = voiceLabel(presetId, preset);
+        var label = effectiveVoiceLabel(cfg);
         var voice = $("jarvis-tele-voice");
-        if (voice) { voice.textContent = label; voice.title = presetId || label; }
-        var barVoice = $("jarvis-bar-voice");
-        if (barVoice) {
-          var span = barVoice.querySelector("span");
-          if (span) span.textContent = label;
-        }
+        if (voice) { voice.textContent = label.text; voice.title = label.title; }
       });
     });
 
@@ -794,6 +804,15 @@
     if (!$("jarvis-view")) return;
     state.initialized = true;
     initCore();
+    // Shared Provider → Model → Voice picker on the bottom-right voice control.
+    // Apollo (JARVIS voice) is the default scope; Global default is also here.
+    if (window.DennisVoicePicker && $("jarvis-bar-voice")) {
+      window.DennisVoicePicker.mount("jarvis-bar-voice", {
+        scopes: ["apollo", "global"],
+        registry: true,
+        placement: "up"
+      });
+    }
     bindCommandBar();
     startClock();
     updateWakeControls();

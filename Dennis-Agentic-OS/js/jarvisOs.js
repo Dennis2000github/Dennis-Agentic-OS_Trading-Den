@@ -81,7 +81,13 @@
   function confirmAction(title, message, detail) {
     return new Promise(function (resolve) {
       var wrap = document.createElement('div');
-      wrap.className = 'fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 p-4';
+      // Inline z-index/background: the pre-compiled Tailwind build has no
+      // z-[9999] / bg-black/70 utilities, and without an explicit z-index the
+      // Jarvis core canvas (under a z-index:10 ancestor) paints over the
+      // overlay and swallows Confirm/Cancel clicks.
+      wrap.className = 'fixed inset-0 flex items-center justify-center p-4';
+      wrap.style.zIndex = '9999';
+      wrap.style.background = 'rgba(0,0,0,0.7)';
       wrap.innerHTML =
         '<div class="w-full max-w-md rounded-2xl border border-amber-500/40 bg-slate-900 shadow-2xl p-5">' +
           '<div class="flex items-center gap-2 mb-2">' +
@@ -117,30 +123,81 @@
       listEl.innerHTML = '<p class="text-slate-500">Provider status: unknown — no status payload returned.</p>';
       return;
     }
-    var reachable = status && status.kokoro && status.kokoro.reachable;
-    statusEl && (statusEl.textContent = (reachable ? 'Kokoro online' : 'Kokoro offline'));
-    statusEl && (statusEl.className = 'text-[10px] font-mono px-2 py-0.5 rounded-full border ' +
-      (reachable ? 'bg-emerald-950/60 border-emerald-800/60 text-emerald-300' : 'bg-slate-800/80 border-slate-700 text-slate-400'));
+
+    // The pill reflects the EFFECTIVE provider, never Kokoro alone.
+    var effective = (status && status.global_default_provider) || 'kokoro';
+    var kokoro = (status && status.kokoro) || {};
+    var fish = (status && status.fish) || {};
+    var eleven = (status && status.elevenlabs) || {};
+    var pillText = 'unknown';
+    var pillClass = 'bg-slate-800/80 border-slate-700 text-slate-400';
+    if (effective === 'kokoro') {
+      pillText = kokoro.reachable ? 'Kokoro online' : 'Kokoro offline';
+      pillClass = kokoro.reachable
+        ? 'bg-emerald-950/60 border-emerald-800/60 text-emerald-300'
+        : 'bg-rose-950/50 border-rose-900/60 text-rose-300';
+    } else if (effective === 'fish') {
+      pillText = fish.configured ? 'Fish Audio ready' : 'Fish Audio — needs key';
+      pillClass = fish.configured
+        ? 'bg-emerald-950/60 border-emerald-800/60 text-emerald-300'
+        : 'bg-amber-950/40 border-amber-900/60 text-amber-300';
+    } else if (effective === 'elevenlabs') {
+      pillText = eleven.configured ? 'ElevenLabs ready' : 'ElevenLabs — needs key';
+      pillClass = eleven.configured
+        ? 'bg-emerald-950/60 border-emerald-800/60 text-emerald-300'
+        : 'bg-amber-950/40 border-amber-900/60 text-amber-300';
+    } else {
+      pillText = effective;
+    }
+    if (statusEl) {
+      statusEl.textContent = pillText;
+      statusEl.className = 'text-[10px] font-mono px-2 py-0.5 rounded-full border ' + pillClass;
+      statusEl.title = 'Effective global default provider: ' + effective;
+    }
 
     var html = '';
     keys.forEach(function (pid) {
       var p = providers[pid] || {};
-      var enabled = !!p.enabled;
-      var badge = enabled
-        ? '<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-950/60 border border-emerald-800/60 text-emerald-300">available</span>'
-        : '<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-400">needs key / offline</span>';
+      // Prefer the live `available` flag; fall back to `enabled` for old payloads.
+      var available = (typeof p.available === 'boolean') ? p.available : !!p.enabled;
+      var badge;
+      if (p.fallback_only) {
+        badge = '<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-400">fallback</span>';
+      } else if (available) {
+        badge = '<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-950/60 border border-emerald-800/60 text-emerald-300">available</span>';
+      } else {
+        badge = '<span class="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-800 border border-slate-700 text-slate-400">' +
+          (p.local ? 'offline' : 'needs key') + '</span>';
+      }
+      var defaultTag = p.default
+        ? ' <span class="text-[9px] px-1.5 py-0.5 rounded-full bg-cyan-950/60 border border-cyan-900/60 text-cyan-300">default</span>'
+        : '';
       var note = '';
       if (pid === 'fish') {
-        note = '<div class="mt-1 text-[10px] text-slate-500">Verified against official docs: POST /v1/tts, key via FISH_API_KEY from local .env (0600). Never sent to the browser.</div>';
+        note = '<div class="mt-1 text-[10px] text-slate-500">Verified docs: POST /v1/tts · model header · key stays backend-side (0600).</div>';
       } else if (pid === 'kokoro') {
-        note = '<div class="mt-1 text-[10px] text-slate-500">Local service at ' + esc((status.kokoro && status.kokoro.url) || '127.0.0.1:8880') +
-          ' — ' + (reachable ? 'reachable' : 'unreachable') + '</div>';
+        note = '<div class="mt-1 text-[10px] text-slate-500">Local service at ' + esc(kokoro.url || '127.0.0.1:8880') +
+          ' — ' + (kokoro.reachable ? 'reachable · ' + (kokoro.voice_count || 0) + ' voices' : 'unreachable') + '</div>';
+      } else if (pid === 'elevenlabs') {
+        var q = eleven.quota || {};
+        note = '<div class="mt-1 text-[10px] text-slate-500">' + (eleven.configured
+          ? ('Key configured' + (q.character_limit ? ' · ' + q.character_count + ' / ' + q.character_limit + ' chars (' + (q.tier || 'free') + ')' : ''))
+          : 'No key configured') + '</div>';
       }
       html += '<div class="rounded-lg border border-slate-800 bg-slate-950/40 p-2 flex items-center justify-between gap-2">' +
-        '<div class="min-w-0"><div class="font-semibold text-slate-200">' + esc(p.label || pid) + '</div>' +
+        '<div class="min-w-0"><div class="font-semibold text-slate-200">' + esc(p.label || pid) + defaultTag + '</div>' +
         '<div class="text-[10px] text-slate-500">' + (p.local ? 'local' : 'cloud') + ' · ' + (p.requires_key ? 'requires key' : 'no key') + '</div>' + note + '</div>' +
         badge + '</div>';
     });
+    // Registry capability retained: show the verified free-first catalog count.
+    var models = (status && status.models) || {};
+    var modelCount = 0;
+    Object.keys(models).forEach(function (pid) { modelCount += (models[pid] || []).length; });
+    if (modelCount) {
+      html += '<div class="rounded-lg border border-slate-800 bg-slate-950/40 p-2 text-[10px] text-slate-500">' +
+        'Voice registry: ' + modelCount + ' verified models across ' +
+        Object.keys(models).length + ' providers. Change provider → model → voice in the JARVIS bottom bar or any studio header.</div>';
+    }
     if (status && status.browserVoiceFallback) {
       html = '<div class="rounded-lg border border-amber-700/50 bg-amber-950/30 p-2 text-[11px] text-amber-300">Browser voice API unavailable — use Push to talk or type a command. TTS playback still works.</div>' + html;
     }
