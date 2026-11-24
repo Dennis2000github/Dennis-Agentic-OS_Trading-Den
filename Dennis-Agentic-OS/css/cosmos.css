@@ -180,6 +180,8 @@
 }
 #cosmos-view .cosmos-agent-tab-mark,
 #cosmos-view .cosmos-agent-mark {
+  width: 30px;
+  height: 30px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -189,7 +191,6 @@
   background: var(--cosmos-info);
   flex: 0 0 auto;
 }
-#cosmos-view .cosmos-agent-tab-mark { width: 30px; height: 30px; }
 /* COSMOS profile emblems (one per agent + GENESIS). The 3D tilt is a
    perspective transform on hover; the artwork itself comes from the owner's
    six-panel emblems image (img/cosmos/<id>.png). */
@@ -226,13 +227,11 @@
   color: #061018;
   background: var(--cosmos-info);
 }
-#cosmos-view .cosmos-agent-tab:hover .cosmos-avatar,
-#cosmos-view .cosmos-agent-head .cosmos-avatar:hover {
+#cosmos-view .cosmos-agent-tab:hover .cosmos-avatar {
   transform: perspective(220px) rotateY(16deg) rotateX(-8deg) scale(1.16);
   box-shadow: 0 8px 22px rgba(2, 132, 199, .35), 0 0 14px rgba(56, 189, 248, .3);
 }
 #cosmos-view .cosmos-agent-tab:hover .cosmos-avatar img { transform: scale(1.18); }
-#cosmos-view .cosmos-agent-head .cosmos-avatar { width: 52px; height: 52px; border-radius: 14px; }
 #cosmos-view .cosmos-tab-genesis .cosmos-avatar {
   border-color: rgba(167, 139, 250, .55);
   box-shadow: 0 2px 10px rgba(0, 0, 0, .55), 0 0 12px rgba(167, 139, 250, .2);
@@ -260,47 +259,12 @@
   font: 700 9.5px/1 "JetBrains Mono", monospace;
 }
 
-/* ---------------------------------------------------------------- agent head */
-#cosmos-view .cosmos-agent-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 18px;
-  flex-wrap: wrap;
-  padding: 14px 16px;
-  border: 1px solid var(--cosmos-border);
-  border-radius: 16px;
-  background: linear-gradient(135deg, rgba(13, 20, 36, .92), rgba(8, 12, 22, .92));
-}
-#cosmos-view .cosmos-agent-identity { display: flex; gap: 13px; min-width: 0; }
-#cosmos-view .cosmos-agent-mark {
-  width: 46px; height: 46px;
-  border-radius: 14px;
-  font-size: 18px;
-  box-shadow: 0 8px 22px rgba(56, 189, 248, .18);
-}
-#cosmos-view .cosmos-agent-mark.is-blue { background: #60a5fa; box-shadow: 0 8px 22px rgba(96, 165, 250, .18); }
-#cosmos-view .cosmos-agent-mark.is-violet { background: #a78bfa; box-shadow: 0 8px 22px rgba(167, 139, 250, .18); }
-#cosmos-view .cosmos-agent-mark.is-amber { background: #fbbf24; box-shadow: 0 8px 22px rgba(251, 191, 36, .18); }
-#cosmos-view .cosmos-agent-mark.is-emerald { background: #34d399; box-shadow: 0 8px 22px rgba(52, 211, 153, .18); }
-#cosmos-view .cosmos-agent-name { font-size: 15px; font-weight: 800; letter-spacing: .02em; }
-#cosmos-view .cosmos-agent-name span {
-  margin-left: 8px;
-  font: 500 10px/1.4 "JetBrains Mono", monospace;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-  color: var(--cosmos-info);
-}
-#cosmos-view .cosmos-agent-desc { margin: 5px 0 0; max-width: 760px; font-size: 11.5px; line-height: 1.6; color: var(--cosmos-muted); }
-#cosmos-view .cosmos-agent-tagline { margin: 5px 0 0; font-size: 11px; color: #b6c4da; font-style: italic; }
-#cosmos-view .cosmos-agent-stats { display: flex; gap: 16px; padding-top: 4px; }
-#cosmos-view .cosmos-agent-stats span {
-  display: flex; flex-direction: column; gap: 2px;
-  font: 500 9px/1.2 "JetBrains Mono", monospace;
-  text-transform: uppercase; letter-spacing: .08em;
-  color: var(--cosmos-muted);
-}
-#cosmos-view .cosmos-agent-stats b { font-size: 16px; line-height: 1; color: var(--cosmos-fg); }
+/* Letter-mark accent fallbacks (tab rail; the big header panel is gone). */
+#cosmos-view .cosmos-agent-mark.is-blue { background: #60a5fa; }
+#cosmos-view .cosmos-agent-mark.is-violet { background: #a78bfa; }
+#cosmos-view .cosmos-agent-mark.is-amber { background: #fbbf24; }
+#cosmos-view .cosmos-agent-mark.is-emerald { background: #34d399; }
+#cosmos-view .cosmos-agent-mark.is-cyan { background: #22d3ee; }
 
 /* ---------------------------------------------------------------- divisions */
 #cosmos-view .cosmos-divisions {
@@ -344,23 +308,6 @@
   color: var(--cosmos-muted);
 }
 #cosmos-view .cosmos-division-stats b { color: var(--cosmos-fg); font-size: 11px; }
-
-#cosmos-view .cosmos-responsibilities {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-#cosmos-view .cosmos-responsibilities li {
-  padding: 3px 7px;
-  border-radius: 6px;
-  border: 1px solid rgba(39, 51, 76, .9);
-  background: rgba(13, 21, 38, .7);
-  font-size: 9.5px;
-  color: #a9b7cd;
-}
 
 /* ---------------------------------------------------------------- config */
 #cosmos-view .cosmos-config {
@@ -860,7 +807,6 @@
   #cosmos-view .cosmos-agent-tabs { gap: 6px; }
   #cosmos-view .cosmos-agent-tab { flex: 0 0 auto; }
   #cosmos-view .cosmos-kv-grid { grid-template-columns: minmax(0, 1fr); }
-  #cosmos-view .cosmos-agent-stats { gap: 12px; }
   #cosmos-modal .cosmos-field-row { flex-direction: column; }
 }
 
@@ -1279,3 +1225,347 @@
   .genesis-scene-media, .genesis-scene-actions { grid-column: 2; }
   .genesis-columns { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* ================================================================
+   COSMOS 2026-11 redesign: slim chrome, division "?" info buttons,
+   thumbnail cards with hover tooltip + Info modal, Autonomous /
+   Override toggle, collapsed execution history, preset chips,
+   platform registration chips.
+   ================================================================ */
+
+/* ---------------------------------------------------------- slim header */
+#cosmos-view .cosmos-header.is-slim {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 6px 2px;
+  border: none;
+  border-radius: 0;
+  background: none;
+  overflow: visible;
+}
+#cosmos-view .cosmos-header.is-slim .cosmos-agent-tabs { flex: 1 1 auto; }
+#cosmos-view .cosmos-header.is-slim .cosmos-header-right { display: flex; align-items: center; gap: 8px; }
+
+/* -------------------------------- division "?" info button: agent summary +
+   responsibilities in one bubble. Opens only while hovering/focusing the "?"
+   itself, so it can never cover or block the Agent/Model dropdown row. */
+#cosmos-view .cosmos-division-heading { display: flex; align-items: center; gap: 7px; min-width: 0; }
+#cosmos-view .cosmos-division-info { position: relative; display: inline-flex; flex: 0 0 auto; }
+#cosmos-view .cosmos-info-btn {
+  width: 16px;
+  height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid rgba(56, 189, 248, .4);
+  border-radius: 50%;
+  background: rgba(13, 21, 38, .85);
+  color: #7dd3fc;
+  font: 700 10px/1 "JetBrains Mono", monospace;
+  cursor: help;
+  transition: background .12s, border-color .12s, color .12s;
+}
+#cosmos-view .cosmos-info-btn:hover,
+#cosmos-view .cosmos-info-btn:focus-visible {
+  background: rgba(56, 189, 248, .18);
+  border-color: rgba(56, 189, 248, .7);
+  color: #bae6fd;
+  outline: none;
+}
+#cosmos-view .cosmos-division-info-bubble {
+  position: absolute;
+  z-index: 70;
+  top: calc(100% + 8px);
+  left: 0;
+  width: min(330px, 76vw);
+  padding: 10px 12px 11px;
+  border: 1px solid rgba(56, 189, 248, .3);
+  border-radius: 10px;
+  background: rgba(7, 12, 24, .98);
+  box-shadow: 0 14px 34px rgba(2, 6, 16, .65);
+  text-align: left;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-4px);
+  transition: opacity .16s ease, transform .16s ease, visibility 0s linear .16s;
+  pointer-events: none;
+}
+#cosmos-view .cosmos-division-info:hover .cosmos-division-info-bubble,
+#cosmos-view .cosmos-division-info:focus-within .cosmos-division-info-bubble {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  transition: opacity .16s ease, transform .16s ease;
+  pointer-events: auto;
+}
+#cosmos-view .cosmos-division-info-name {
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .02em;
+  color: var(--cosmos-fg);
+}
+#cosmos-view .cosmos-division-info-name span {
+  margin-left: 6px;
+  font: 500 9px/1.4 "JetBrains Mono", monospace;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--cosmos-info);
+}
+#cosmos-view .cosmos-division-info-bubble p { margin: 5px 0 0; font-size: 10px; line-height: 1.55; color: var(--cosmos-muted); }
+#cosmos-view .cosmos-division-info-bubble .cosmos-division-info-tagline { color: #b6c4da; font-style: italic; }
+#cosmos-view .cosmos-division-info-label {
+  display: block;
+  margin: 9px 0 3px;
+  font: 600 8.5px/1.4 "JetBrains Mono", monospace;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #7dd3fc;
+}
+#cosmos-view .cosmos-responsibilities { margin: 0; padding-left: 15px; font-size: 10px; line-height: 1.65; color: #b9c7dc; }
+
+/* --------------------------------------------------- autonomy mode toggle */
+#cosmos-view .cosmos-mode-toggle {
+  display: inline-flex;
+  padding: 2px;
+  gap: 2px;
+  border: 1px solid var(--cosmos-border);
+  border-radius: 9px;
+  background: rgba(6, 10, 19, .9);
+  width: fit-content;
+}
+#cosmos-view .cosmos-mode {
+  padding: 5px 13px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--cosmos-muted);
+  font: 600 10px/1.4 "JetBrains Mono", monospace;
+  letter-spacing: .04em;
+  cursor: pointer;
+  transition: background .12s, color .12s;
+}
+#cosmos-view .cosmos-mode:hover { color: var(--cosmos-fg); }
+#cosmos-view .cosmos-mode.is-active {
+  background: rgba(56, 189, 248, .16);
+  color: #7dd3fc;
+  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, .35);
+}
+#cosmos-view .cosmos-autonomy-status { margin: 0; font: 400 9.5px/1.5 "JetBrains Mono", monospace; color: var(--cosmos-muted); }
+#cosmos-view .cosmos-autonomy { display: flex; flex-direction: column; gap: 8px; }
+#cosmos-view .cosmos-override {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 11px;
+  border: 1px dashed #2a3750;
+  border-radius: 11px;
+  background: rgba(9, 14, 26, .7);
+}
+
+/* --------------------------------------------------- thumbnail cards */
+#cosmos-view .cosmos-card.is-thumb {
+  position: relative;
+  gap: 8px;
+}
+#cosmos-view .cosmos-card-row {
+  display: flex;
+  gap: 10px;
+  min-width: 0;
+  align-items: flex-start;
+}
+#cosmos-view .cosmos-card-thumb {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  flex: 0 0 64px;
+  border-radius: 9px;
+  overflow: hidden;
+  border: 1px solid #22304b;
+  background: #070c17;
+}
+#cosmos-view .cosmos-card-thumb img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  z-index: 2;
+}
+#cosmos-view .cosmos-thumb-fallback {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font: 700 20px/1 "JetBrains Mono", monospace;
+  color: #7dd3fc;
+  background:
+    radial-gradient(80px 60px at 30% 20%, rgba(56, 189, 248, .18), transparent 70%),
+    linear-gradient(160deg, #0b1428, #070d1a);
+}
+#cosmos-view .cosmos-thumb-fallback.is-youtube {
+  color: #fda4af;
+  background:
+    radial-gradient(80px 60px at 30% 20%, rgba(251, 113, 133, .16), transparent 70%),
+    linear-gradient(160deg, #170d1a, #0d0710);
+}
+#cosmos-view .cosmos-card-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+#cosmos-view .cosmos-card-line {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+#cosmos-view .cosmos-card-line h4 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#cosmos-view .cosmos-card-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font: 500 9.5px/1.4 "JetBrains Mono", monospace;
+  color: #7dd3fc;
+  text-decoration: none;
+  border: 1px dashed rgba(56, 189, 248, .3);
+  border-radius: 7px;
+  padding: 3px 8px;
+}
+#cosmos-view .cosmos-card-link:hover { border-color: rgba(56, 189, 248, .7); background: rgba(56, 189, 248, .08); }
+#cosmos-view .cosmos-card-link.is-none { color: #64748b; border-color: #22304b; cursor: default; }
+/* Hover tooltip: quick info overlay, default hidden. */
+#cosmos-view .cosmos-card-hover {
+  position: absolute;
+  z-index: 40;
+  left: 10px;
+  right: 10px;
+  bottom: calc(100% - 6px);
+  padding: 8px 10px;
+  border: 1px solid rgba(56, 189, 248, .28);
+  border-radius: 10px;
+  background: rgba(7, 12, 24, .98);
+  box-shadow: 0 14px 34px rgba(2, 6, 16, .7);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(4px);
+  transition: opacity .15s ease, transform .15s ease;
+}
+#cosmos-view .cosmos-card.is-thumb:hover .cosmos-card-hover {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+#cosmos-view .cosmos-card-hover b { display: block; font-size: 10px; line-height: 1.45; margin-bottom: 3px; }
+#cosmos-view .cosmos-card-hover p { margin: 0; font-size: 9.5px; line-height: 1.55; color: #aebdd2; }
+
+/* ------------------------------------------------- collapsed run history */
+#cosmos-view .cosmos-history-details {
+  border: 1px solid var(--cosmos-border);
+  border-radius: 12px;
+  background: rgba(6, 10, 19, .72);
+}
+#cosmos-view .cosmos-history-details > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  list-style: none;
+  font: 600 10px/1.4 "JetBrains Mono", monospace;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--cosmos-muted);
+}
+#cosmos-view .cosmos-history-details > summary::-webkit-details-marker { display: none; }
+#cosmos-view .cosmos-history-details > summary .cosmos-count { margin-left: auto; }
+#cosmos-view .cosmos-history-caret { transition: transform .15s ease; }
+#cosmos-view .cosmos-history-details[open] .cosmos-history-caret { transform: rotate(90deg); }
+#cosmos-view .cosmos-history-details[open] > summary { border-bottom: 1px solid var(--cosmos-border); }
+#cosmos-view .cosmos-history-body { display: flex; flex-direction: column; gap: 8px; padding: 12px; }
+
+/* -------------------------------------------------------- preset chips */
+#cosmos-view .cosmos-preset-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+#cosmos-view .cosmos-preset {
+  padding: 5px 10px;
+  border: 1px solid #22304b;
+  border-radius: 999px;
+  background: #070c17;
+  color: #b9c7dc;
+  font-size: 10px;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: border-color .12s, color .12s, background .12s;
+}
+#cosmos-view .cosmos-preset:hover { border-color: rgba(56, 189, 248, .5); color: #e2e8f0; }
+#cosmos-view .cosmos-preset.is-active {
+  border-color: rgba(56, 189, 248, .65);
+  background: rgba(56, 189, 248, .14);
+  color: #7dd3fc;
+}
+
+/* ----------------------------------------------- registration chips */
+#cosmos-view .cosmos-config-registration { display: flex; flex-wrap: wrap; gap: 8px; }
+#cosmos-view .cosmos-platform-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 240px;
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid #22304b;
+  border-radius: 10px;
+  background: rgba(7, 12, 22, .8);
+}
+#cosmos-view .cosmos-platform-chip .cosmos-platform-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 50%;
+  background: #475569;
+}
+#cosmos-view .cosmos-platform-chip.is-on .cosmos-platform-dot { background: #22c55e; box-shadow: 0 0 6px rgba(34, 197, 94, .8); }
+#cosmos-view .cosmos-platform-copy { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+#cosmos-view .cosmos-platform-copy b { font-size: 10.5px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#cosmos-view .cosmos-platform-copy em { font-style: normal; font: 400 9px/1.4 "JetBrains Mono", monospace; color: var(--cosmos-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#cosmos-view .cosmos-platform-chip .cosmos-btn { padding: 4px 9px; font-size: 9px; }
+
+/* ------------------------------------------------------------ info modal */
+#cosmos-view .cosmos-info-head { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; margin-bottom: 8px; }
+#cosmos-view .cosmos-info-name { margin: 0 0 4px; font-size: 13px; font-weight: 700; line-height: 1.4; }
+#cosmos-view .cosmos-info-desc { margin: 0 0 10px; font-size: 11px; line-height: 1.6; color: #b9c7dc; }
+#cosmos-view .cosmos-info-section { margin-top: 10px; }
+#cosmos-view .cosmos-info-section > b {
+  display: block;
+  font: 600 9px/1.4 "JetBrains Mono", monospace;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--cosmos-muted);
+  margin-bottom: 5px;
+}
+#cosmos-view .cosmos-criteria .cosmos-kv span { color: #7dd3fc; }

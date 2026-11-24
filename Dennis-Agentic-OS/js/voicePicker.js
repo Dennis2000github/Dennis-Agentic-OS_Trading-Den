@@ -124,13 +124,23 @@
     };
   }
 
+  function voiceLabel(provider, voiceId) {
+    if (!voiceId) return '';
+    var voices = (provider && provider.voices) || [];
+    for (var i = 0; i < voices.length; i++) {
+      if (voices[i].id === voiceId) return voices[i].label || voiceId;
+    }
+    return voiceId; // saved custom/manual entry — show the honest id
+  }
+
   function labelFor(catalog, config, scope) {
     var state = effectiveScopeState(config, scope);
     var provider = providerById(catalog, state.provider);
     var model = modelById(provider, state.model);
     var providerName = provider ? provider.label.split(' (')[0] : state.provider;
     var modelName = model ? model.label : (state.model || 'default model');
-    var voice = state.voice ? (' · ' + state.voice) : '';
+    var voiceLabelName = voiceLabel(provider, state.voice);
+    var voice = voiceLabelName ? (' · ' + voiceLabelName) : '';
     return providerName + ' · ' + modelName + voice;
   }
 
@@ -441,9 +451,10 @@
       var providerName = provider.label.split(' (')[0];
       var modelInfo = modelById(provider, model);
       var targetLabel = SCOPE_LABEL[scopeNow] || scopeNow;
+      var voiceName = voiceLabel(provider, voice) || voice;
       var message = 'Set ' + targetLabel + ' to ' + providerName +
         ' · ' + (modelInfo ? modelInfo.label : model) +
-        (voice ? ' · ' + voice : '') + '?';
+        (voiceName ? ' · ' + voiceName : '') + '?';
       if (provider.cost_risk || (modelInfo && modelInfo.cost === 'paid')) {
         message += '\n\nThis model can incur provider charges.';
       }

@@ -2801,3 +2801,54 @@ Branch `feature/cosmos-genesis` (not merged to main; owner approval pending).
   redirects verified, live intake→render→QA→approval loop on the running
   server. Docs: `docs/GENESIS_IMPLEMENTATION.md` (+ screenshots under
   `docs/screenshots/`).
+
+## 2026-11-23 (COSMOS ANDROMEDA) — Autonomous intelligence + thumbnail boards
+- **Autonomy per division**: every intelligence/division runs in
+  `autonomous` (default) or `override`. Autonomous divisions are driven by
+  `backend/cosmos_scheduler.py` (daemon thread, 30s poll): each division's own
+  capability runs every 6 hours (`data/cosmos/modes.json` stamps
+  last/next/trigger/error), plus an immediate top-up the moment a card is
+  drafted (`request_topup`); per-division claim guards prevent double runs.
+  Override divisions expand the task prompt box and run only from the
+  Discover button. Started from `app.py` next to the GENESIS scheduler.
+- **Five-card board**: `cosmos_store.enforce_proposed_cap` archives the
+  oldest proposals beyond five after every recommendation run, so drafting
+  ships the card to GENESIS (draft→backlog queue unchanged) and the board
+  refills automatically. Boards render proposed cards only, newest first.
+- **Thumbnail recommendation cards**: image thumbnail (actual marketplace
+  image_url when supplied, letter fallback when not), score, verify link
+  (recorded affiliate URL first, else listing URL) opening in a new tab, and
+  compact actions: Draft / Info / Refine / Affiliate (ads) / Reject. Detailed
+  text lives behind hover tooltip + Info modal (name, description, candidate
+  criteria: why selected, potential sales, virality potential, current market
+  demand, local occasion). Division responsibilities ("Discover relevant
+  products and merchants" etc.) are hover-only overlays; the COSMOS
+  Intelligence Layer banner is removed (slim tab rail + refresh remain).
+- **Active configuration**: top panel per division. Ads template dropdown
+  plus Shopee platform registration (affiliate handle, program URL, region,
+  notes → `config.ads_platforms`, used as discovery sourcing context).
+  YouTube: channel dropdown, channel registration
+  (`POST config/youtube/channel`) and Google OAuth connect reusing the
+  shared publishing consent flow.
+- **Agent + Model row** moved to the very top of each division (same
+  Workspace dropdown machinery, unchanged storage).
+- **Backlogs removed from the dashboard**: Ads Product Backlog and YouTube
+  Topic Backlog panels/handlers deleted from the UI (stores + GENESIS intake
+  untouched — Draft still queues into them). Execution history is a
+  collapsed `<details>` with a rotating caret arrow.
+- **Feedback learning loop**: Reject/Refine require a preset template
+  (reject: relevance/price/demand/audience/duplicates/viral risk; refine:
+  seasonal angle/cheaper/better angle/audience/hook/niche) or a custom note;
+  selections are stored (`data/cosmos/feedback.json`,
+  `backend/cosmos_feedback.py`) and injected into future discovery prompts as
+  OWNER FEEDBACK so the agent stops repeating rejected patterns.
+- **Registry contracts**: ads items now carry `why_selected`,
+  `sales_potential`, `virality_potential`, `market_demand`, `local_occasion`
+  (Christmas/birthday/festival/payday cycles, not pure trending fashion) and
+  explicit actual image/product URL requirements (null when not received);
+  youtube items carry the same criteria set.
+- **Tests**: new `tests/test_cosmos_autonomy.py` (15 OK: modes, due/claim
+  guards, feedback context, five-card cap, HTTP endpoints); full COSMOS
+  suites 132 OK; `cosmosState.test.js` 15 OK. Live server verified: scheduler
+  booted all ten divisions (honest failed executions on LLM timeout),
+  autonomy/platform/channel endpoints round-trip.

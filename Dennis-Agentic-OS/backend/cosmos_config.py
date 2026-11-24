@@ -343,6 +343,7 @@ def config_public():
         "active_ads_template_id": data.get("active_ads_template_id"),
         "active_youtube_template_id": data.get("active_youtube_template_id"),
         "active_youtube_channel_id": data.get("active_youtube_channel_id"),
+        "ads_platforms": copy.deepcopy(_load_platforms(data)),
         "updated_at": data.get("updated_at"),
         "updated_iso": data.get("updated_iso"),
     }
@@ -434,6 +435,61 @@ def set_active_channel(channel_id):
         data["updated_iso"] = common.iso()
         common.write_json(common.CONFIG_FILE, data)
     return {"active_youtube_channel_id": channel["id"]}
+
+
+# ---------------------------------------------------------------------------
+# Ads platform registration
+# ---------------------------------------------------------------------------
+# The Ads division sources product candidates from registered commerce
+# platforms. Registration records the owner's affiliate-program context so
+# discovery and card verification use real, owner-confirmed handles and
+# program links. No marketplace API credentials are stored here.
+ADS_PLATFORM_IDS = ("shopee", "lazada", "tiktok_shop")
+ADS_PLATFORM_FIELDS = ("handle", "program_url", "region", "notes")
+
+
+def _load_platforms(data):
+    platforms = data.get("ads_platforms")
+    return platforms if isinstance(platforms, dict) else {}
+
+
+def get_ads_platforms():
+    with common.acquire():
+        data = _load_config()
+    return copy.deepcopy(_load_platforms(data))
+
+
+def set_ads_platform(platform_id, payload):
+    """Register (or update) one commerce platform for the Ads division."""
+    platform_id = str(platform_id or "").strip().lower()
+    if platform_id not in ADS_PLATFORM_IDS:
+        raise common.CosmosError(
+            "unknown_platform", "platform must be one of: %s." % ", ".join(ADS_PLATFORM_IDS), 400)
+    payload = payload if isinstance(payload, dict) else {}
+    record = {
+        "platform": platform_id,
+        "connected": bool(payload.get("connected", True)),
+        "handle": common.clean_text(payload.get("handle"), "Affiliate handle", 200) or None,
+        "program_url": common.clean_text(payload.get("program_url"), "Program URL", 500) or None,
+        "region": common.clean_text(payload.get("region"), "Region", 40) or None,
+        "notes": common.clean_text(payload.get("notes"), "Notes", 2000) or None,
+        "updated_at": common.now(),
+        "updated_iso": common.iso(),
+    }
+    with common.acquire():
+        data = _load_config()
+        platforms = _load_platforms(data)
+        previous = platforms.get(platform_id)
+        if isinstance(previous, dict) and previous.get("registered_iso"):
+            record["registered_iso"] = previous["registered_iso"]
+        else:
+            record["registered_iso"] = common.iso()
+        platforms[platform_id] = record
+        data["ads_platforms"] = platforms
+        data["updated_at"] = common.now()
+        data["updated_iso"] = common.iso()
+        common.write_json(common.CONFIG_FILE, data)
+    return copy.deepcopy(record)
 
 
 # ---------------------------------------------------------------------------

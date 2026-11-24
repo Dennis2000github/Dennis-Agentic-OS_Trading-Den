@@ -119,7 +119,7 @@ def open_cosmos(r):
     r.wait_for(
         "(function () {"
         "  var host = document.getElementById('cosmos-agent');"
-        "  return host && (host.querySelector('.cosmos-agent-head')"
+        "  return host && (host.querySelector('.cosmos-division')"
         "    || host.querySelector('.cosmos-error') || host.querySelector('.cosmos-empty'));"
         "})()", timeout=30)
     time.sleep(0.8)
@@ -133,8 +133,8 @@ def phase_cosmos(r):
     r.check("COSMOS rail lists the five agents plus GENESIS",
             isinstance(agents, list) and len(agents) == 6 and agents[-1] == "genesis",
             repr(agents))
-    r.check("COSMOS host rendered an agent dashboard",
-            r.ev("!!document.querySelector('#cosmos-agent .cosmos-agent-head')"))
+    r.check("COSMOS host rendered both division panels",
+            r.ev("document.querySelectorAll('#cosmos-agent .cosmos-division').length === 2"))
 
 
 def phase_youtube_backlog(r):
@@ -241,7 +241,7 @@ def main():
             phase_cosmos(runner)
             if args.shots:
                 runner.shot(os.path.join(args.shots, "cosmos-agent-dashboard.png"),
-                            selector='.cosmos-agent-head')
+                            selector='.cosmos-divisions')
             phase_youtube_backlog(runner)
             if args.shots:
                 runner.shot(os.path.join(args.shots, "cosmos-youtube-backlog.png"),

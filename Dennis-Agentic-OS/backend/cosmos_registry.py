@@ -35,10 +35,15 @@ _ADS_DISCOVERY_ITEM = {
     "price": None,
     "currency": "PHP",
     "price_verified": False,
-    "product_url": None,
-    "image_url": None,
+    "product_url": "Actual Shopee/marketplace listing URL for the owner to verify, or null if not received",
+    "image_url": "Actual product image URL from the marketplace listing, or null if not received — never a guessed URL",
     "target_audience": "Who this product is for",
     "reason": "Why it fits the active Ads template",
+    "why_selected": "Why this exact product was selected for the owner right now, in 1-2 sentences",
+    "sales_potential": "Potential sales assessment with rough numbers (e.g. 'High — est. 300-500 units/month during peak'), or 'unknown'",
+    "virality_potential": "low | medium | high — with a one-clause reason",
+    "market_demand": "Current market demand assessment: demand level, what drives it, and the basis (trend data, search interest, owner notes), or 'unknown'",
+    "local_occasion": "Current or upcoming local occasion this fits (e.g. Christmas attire for the Christmas season, birthdays, fiestas, school opening, payday sales), or 'evergreen'",
     "sources": [{"label": "source label", "url": None, "type": "none"}],
     "relevance_score": 0,
     "affiliate_status": "unvalidated",
@@ -53,6 +58,11 @@ _YOUTUBE_DISCOVERY_ITEM = {
     "target_audience": "Who the video is for",
     "video_style": "Style from the active YouTube template",
     "reason": "Why it fits the channel configuration",
+    "why_selected": "Why this exact topic was selected for the owner right now, in 1-2 sentences",
+    "sales_potential": "Revenue/monetization potential of covering this topic (RPM potential, affiliate tie-ins), or 'unknown'",
+    "virality_potential": "low | medium | high — with a one-clause reason",
+    "market_demand": "Current audience demand for this topic: demand level, what drives it, and the basis (search interest, audience questions, owner notes), or 'unknown'",
+    "local_occasion": "Current or upcoming local occasion or timing hook this topic fits (e.g. Christmas season, birthdays, festivals, holidays, tax season), or 'evergreen'",
     "sources": [{"label": "source label", "url": None, "type": "none"}],
     "relevance_score": 0,
     "opportunity": "Opportunity assessment",
@@ -117,9 +127,18 @@ _ADS_DISCOVERY_INSTRUCTIONS = (
     "price range, product interests, merchant/marketplace preferences and product "
     "restrictions. Evaluate each candidate against the template before proposing it. "
     "Produce at least five qualified product recommendations when the configuration "
-    "supports them. Never propose unrelated trending products. Prices are unverified "
-    "unless the owner supplied them; affiliate status is always \"unvalidated\" unless "
-    "the owner supplied a verified link."
+    "supports them. Never propose unrelated trending products. "
+    "For every candidate, fill the candidate criteria honestly: why_selected, "
+    "sales_potential, virality_potential, market_demand and local_occasion. Address "
+    "current market demand explicitly — do not rely on pure trending fashion; weigh "
+    "evergreen demand, current events and the local occasion calendar of the target "
+    "market (e.g. Christmas attire ahead of the Christmas season, birthday attire, "
+    "party and festival outfits, school-opening needs, payday sale cycles). "
+    "When you reference a real marketplace listing, include its actual product_url and "
+    "the actual image_url from that listing so the owner can verify and use the "
+    "thumbnail; if you did not receive a URL, use null — never guess or fabricate one. "
+    "Prices are unverified unless the owner supplied them; affiliate status is always "
+    "\"unvalidated\" unless the owner supplied a verified link."
 )
 
 _YOUTUBE_DISCOVERY_INSTRUCTIONS = (
@@ -129,8 +148,13 @@ _YOUTUBE_DISCOVERY_INSTRUCTIONS = (
     "region, restrictions and publishing defaults. Avoid topics already published or "
     "already present in the Topic Backlog. Produce at least five qualified topic "
     "recommendations when the configuration supports them. Never propose unrelated "
-    "trending topics. Competition may only be described when reliable data is supplied; "
-    "otherwise use null."
+    "trending topics. "
+    "For every candidate, fill the candidate criteria honestly: why_selected, "
+    "sales_potential, virality_potential, market_demand and local_occasion. Address "
+    "current market demand explicitly — weigh sustained audience demand, current events "
+    "and the local occasion calendar of the target audience (e.g. Christmas season, "
+    "birthdays, festivals, holidays, tax season) instead of pure trend-chasing. "
+    "Competition may only be described when reliable data is supplied; otherwise use null."
 )
 
 _ADS_STRATEGY_INSTRUCTIONS = (

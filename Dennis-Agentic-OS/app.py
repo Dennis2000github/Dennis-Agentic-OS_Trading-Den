@@ -101,6 +101,7 @@ from backend import youtube_api as dennis_youtube_api
 from backend import cosmos_api as dennis_cosmos_api
 from backend import genesis_render as dennis_genesis_render
 from backend import genesis_publish as dennis_genesis_publish
+from backend import cosmos_scheduler as dennis_cosmos_scheduler
 from backend import studio_create as dennis_studio_create
 from backend.sandbox import ExecContext
 
@@ -679,8 +680,17 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
             return self.send_json({"error": str(exc)}, 400)
 
         if body.get("stream") and provider == "kokoro":
-            voice_id = (body.get("voice_id") or body.get("voice")
-                        or (preset or {}).get("voice_id") or "bm_george")
+            # Same voice resolution as the buffered path (resolve_voice):
+            # the picker's saved studio/global voice beats the preset, and a
+            # stale cross-provider voice is skipped against the live list —
+            # no hardcoded fallback may resurrect the JARVIS voice after the
+            # owner picks a different one. `preset` stays only for styling.
+            voice_id, _ = dennis_tts.resolve_voice(
+                "kokoro",
+                studio=body.get("studio") or "apollo",
+                preset_slug=body.get("preset"),
+                preset=preset,
+                explicit_voice_id=body.get("voice_id") or body.get("voice"))
             speed = body.get("speed")
             if speed is None:
                 speed = (preset or {}).get("speed", 1.03)
@@ -5999,6 +6009,10 @@ def run(port=PORT):
     # owner-approved scheduled uploads.
     dennis_genesis_render.set_runner(STUDIO_RUNNER)
     dennis_genesis_publish.start_scheduler()
+    # COSMOS autonomy: every intelligence/division set to Autonomous runs its
+    # own capability every six hours and tops up after a draft. Override
+    # divisions are never touched by the scheduler.
+    dennis_cosmos_scheduler.start_scheduler()
     # UPIF: register provider adapters + discover generation models. Read-only
     # bootstrap; no credentials required, no generation executed.
     from backend import upif_bootstrap as dennis_upif_bootstrap

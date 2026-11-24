@@ -340,7 +340,10 @@ class HermesGalaxy {
     this.spawnShockwave('#00f0ff');
 
     tts.speak(text, {
-      preset: prefs.voice_preset || 'jarvis-british-male',
+      // No explicit preset here: an explicit preset pins the provider on the
+      // backend, which would override the voice picker's saved provider for
+      // Apollo. The studio preference resolves its own preset for styling
+      // (speed/lang) server-side; only the speed hint is sent.
       speed: presetSpeed,
       studio: 'apollo',
       allowFallback: this.ttsConfig ? this.ttsConfig.browser_fallback !== false : true
@@ -800,11 +803,13 @@ class HermesGalaxy {
           return;
         }
         // Speak through the centralized TTS router so the briefing uses the
-        // same JARVIS voice as every other Apollo response.
+        // same Apollo voice as every other Apollo response. No explicit
+        // preset: it would pin the provider server-side and override the
+        // voice picker's saved provider.
         if (window.DennisTTS && typeof window.DennisTTS.speak === 'function') {
           this.state = 'speaking';
           this.updateUiStatus('Delivering your briefing, sir', 'cyan');
-          window.DennisTTS.speak(d.digest.text, { preset: 'jarvis-british-male', studio: 'apollo' });
+          window.DennisTTS.speak(d.digest.text, { studio: 'apollo' });
         } else {
           this.respond(d.digest.text);
         }

@@ -219,5 +219,123 @@ class TTSRouterTest(unittest.TestCase):
             self.assertEqual(f.read(), b"RIFFxxxx")
 
 
+class ResolveVoiceTest(unittest.TestCase):
+    """Voice precedence: the picker's saved selections beat the legacy preset.
+
+    Regression guard for the "switched voice but Jarvis still speaks" bug —
+    the streaming route used to resolve preset voice -> hardcoded bm_george
+    and never consulted the saved studio/global selection, and the UI speak
+    paths pinned the provider via an explicit preset.
+    """
+
+    CFG = {
+        "global_default_provider": "kokoro",
+        "global_default_voice_id": "af_nova",
+        "studios": {
+            "apollo": {"provider": "kokoro", "voice_preset": "jarvis-british-male",
+                       "voice_id": "af_bella"},
+            "ads": {"provider": "kokoro", "voice_preset": "narrator-en-us",
+                    "voice_id": None},
+            "youtube": {"provider": "kokoro", "voice_preset": "narrator-en-us",
+                        "voice_id": None},
+        },
+        "presets": {
+            "jarvis-british-male": {"name": "JARVIS — BRITISH MALE",
+                                    "provider": "kokoro", "voice_id": "bm_george"},
+            "narrator-en-us": {"name": "Narrator — American Male",
+                               "provider": "kokoro", "voice_id": "am_michael"},
+        },
+    }
+
+    def setUp(self):
+        # Deterministic voice lists — no live service in unit tests.
+        self._real_provider_voices = dennis_tts.provider_voices
+        self._orig_kokoro = dennis_tts.kokoro_voices
+        self._orig_el_key = dennis_tts._elevenlabs_key
+        self._orig_fi_key = dennis_tts._fish_key
+        dennis_tts.kokoro_voices = lambda: [
+            {"id": "bm_george"}, {"id": "af_bella"}, {"id": "af_nova"},
+            {"id": "am_michael"}, {"id": "am_adam"},
+        ]
+        dennis_tts.provider_voices = lambda pid: []
+
+    def tearDown(self):
+        dennis_tts.kokoro_voices = self._orig_kokoro
+        dennis_tts.provider_voices = self._real_provider_voices
+        dennis_tts._elevenlabs_key = self._orig_el_key
+        dennis_tts._fish_key = self._orig_fi_key
+
+    def test_studio_selection_beats_preset(self):
+        voice, _ = dennis_tts.resolve_voice(
+            "kokoro", studio="apollo", preset_slug="jarvis-british-male",
+            cfg=self.CFG)
+        self.assertEqual(voice, "af_bella")
+
+    def test_global_selection_beats_preset(self):
+        voice, _ = dennis_tts.resolve_voice(
+            "kokoro", studio="ads", preset_slug="narrator-en-us", cfg=self.CFG)
+        self.assertEqual(voice, "af_nova")
+
+    def test_explicit_request_beats_everything(self):
+        voice, _ = dennis_tts.resolve_voice(
+            "kokoro", studio="apollo", preset_slug="jarvis-british-male",
+            explicit_voice_id="am_adam", cfg=self.CFG)
+        self.assertEqual(voice, "am_adam")
+
+    def test_preset_used_when_no_picker_selection(self):
+        cfg = json.loads(json.dumps(self.CFG))
+        cfg["studios"]["apollo"]["voice_id"] = None
+        cfg["global_default_voice_id"] = None
+        voice, _ = dennis_tts.resolve_voice(
+            "kokoro", studio="apollo", preset_slug="jarvis-british-male", cfg=cfg)
+        self.assertEqual(voice, "bm_george")
+
+    def test_preset_voice_never_leaks_across_providers(self):
+        cfg = json.loads(json.dumps(self.CFG))
+        cfg["studios"]["apollo"].update({"provider": "fish", "voice_id": None})
+        cfg["global_default_voice_id"] = None
+        voice, _ = dennis_tts.resolve_voice(
+            "fish", studio="apollo", preset_slug="jarvis-british-male", cfg=cfg)
+        # Kokoro preset voice must not be sent to Fish.
+        self.assertIsNone(voice)
+
+    def test_stale_kokoro_voice_skipped_for_cloud_provider(self):
+        """Regression: af_bella (Kokoro id) saved under ElevenLabs must not
+        be sent there (ElevenLabs returned HTTP 404). The resolver skips it
+        against the live list and falls back to the provider default."""
+        cfg = json.loads(json.dumps(self.CFG))
+        cfg["studios"]["apollo"].update({"provider": "elevenlabs", "voice_id": "af_bella"})
+        cfg["global_default_voice_id"] = None
+        dennis_tts.provider_voices = lambda pid: (
+            [{"id": "pNInz6obpgDQGcFmaJgB", "label": "Adam"}] if pid == "elevenlabs" else [])
+        voice, _ = dennis_tts.resolve_voice("elevenlabs", studio="apollo", cfg=cfg)
+        self.assertEqual(voice, "pNInz6obpgDQGcFmaJgB")
+
+    def test_cloud_voice_skipped_when_switching_back_to_kokoro(self):
+        """A cloud voice id saved under kokoro must not reach the local
+        service; the chain falls through to the preset voice."""
+        cfg = json.loads(json.dumps(self.CFG))
+        cfg["studios"]["apollo"].update({"voice_id": "pNInz6obpgDQGcFmaJgB"})
+        cfg["global_default_voice_id"] = None
+        voice, _ = dennis_tts.resolve_voice(
+            "kokoro", studio="apollo", preset_slug="jarvis-british-male", cfg=cfg)
+        self.assertEqual(voice, "bm_george")
+
+    def test_kokoro_default_without_any_selection(self):
+        cfg = {"global_default_provider": "kokoro", "global_default_voice_id": None,
+               "studios": {"apollo": {"voice_id": None}}, "presets": {}}
+        voice, _ = dennis_tts.resolve_voice("kokoro", studio="apollo", cfg=cfg)
+        self.assertEqual(voice, "bm_george")
+
+    def test_provider_voices_empty_without_key(self):
+        # No ElevenLabs/Fish key in the isolated test env: the list is
+        # honestly empty (manual-entry fallback), never invented voices.
+        dennis_tts.provider_voices = self._real_provider_voices
+        dennis_tts._elevenlabs_key = lambda: ""
+        dennis_tts._fish_key = lambda: ""
+        self.assertEqual(dennis_tts.provider_voices("elevenlabs"), [])
+        self.assertEqual(dennis_tts.provider_voices("fish"), [])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

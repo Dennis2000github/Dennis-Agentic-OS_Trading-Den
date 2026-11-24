@@ -107,7 +107,7 @@ whole-file synthesis **and** the streaming voice-mode path both produced
 | Endpoint | Purpose |
 |---|---|
 | `GET /api/tts/status` | providers (live `available`/`default` flags), global default provider/model/voice, per-studio prefs, kokoro health, fish/elevenlabs status, `models` catalog |
-| `GET /api/tts/catalog` | read-only, free-first picker catalog: providers → verified models (`cost: free / free-tier / paid / deprecated`) → voices; Kokoro voices are discovered **live** from the local service (54), cloud voice IDs are owner-entered (no authenticated list calls) |
+| `GET /api/tts/catalog` | read-only, free-first picker catalog: providers → verified models (`cost: free / free-tier / paid / deprecated`) → **voice dropdowns for every provider**. Kokoro voices are discovered live from the local service (54); Fish + ElevenLabs voice lists are fetched live with the stored key (read-only GETs, 5-min cache). Without a key the picker falls back to honest manual voice-ID entry — no IDs are ever invented |
 | `GET /api/tts/config` / `POST` | read / patch config (global + per-studio `provider`/`model_id`/`voice_id`, presets, apollo flags, `provider_secrets`). **POST requires `confirmed:true`** → 400 `confirmation required` otherwise; every save/secret/service action is audit-logged |
 | `GET /api/tts/voices` | voice catalog from the Kokoro service |
 | `POST /api/tts/speech` | generate: `{text, studio, preset, voice_id, speed, lang, response_format, stream, save, name}` → audio bytes, chunked PCM (`stream:true`), or saved-audio descriptor (`save:true`). Model resolution: explicit → studio → preset → global default, validated against the verified catalog |
@@ -127,6 +127,34 @@ whole-file synthesis **and** the streaming voice-mode path both produced
 The catalog sorts local-first, then free → free-tier → paid → deprecated. A preset's
 voice only applies when that preset targets the same provider, so switching a studio to
 Fish/ElevenLabs never sends a Kokoro voice ID upstream.
+
+### Voice lists (live, per provider — every picker voice field is a dropdown)
+
+- **Kokoro** — 54 voices from the local service (`GET /v1/audio/voices`).
+- **ElevenLabs** — live `GET https://api.elevenlabs.io/v1/voices?page_size=100` with the
+  stored key (`xi-api-key` header); labels like "Sarah — Mature, Reassuring, Confident".
+- **Fish Audio** — live `GET https://api.fish.audio/model?page_size=100` with the stored
+  key (Bearer); the community voice library sorted by usage.
+
+Cloud lists are read-only GETs cached for 5 minutes; if a key is missing or the call
+fails the picker switches to a manual voice-ID input instead of showing fake options.
+
+### Voice resolution precedence (no hardcoded voice)
+
+`resolve_voice()` (backend/tts.py) is shared by the buffered and the streaming
+`/api/tts/speech` paths — the dashboard's streamed Apollo speech resolves exactly like
+a studio voiceover:
+
+1. explicit `voice_id` in the request
+2. the picker's saved **per-studio** voice
+3. the picker's saved **global default** voice
+4. the legacy preset's voice (only when that preset targets the same provider)
+5. provider default (`bm_george` for Kokoro, ElevenLabs' documented "Adam" default)
+
+Every candidate is validated against the live provider voice list, so a stale
+cross-provider selection (e.g. Kokoro's `af_bella` saved under ElevenLabs) is skipped
+instead of erroring. The Apollo/Ads/YouTube speak paths never send an explicit preset —
+an explicit preset would pin the provider server-side and override the picker.
 
 Presets live in `data/tts/config.json`. `jarvis-british-male` = `bm_george`
 (fallback `bm_lewis`), lang `en-gb`, speed 1.03, output pcm. Presets are

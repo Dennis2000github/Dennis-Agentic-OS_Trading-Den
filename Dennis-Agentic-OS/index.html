@@ -55,8 +55,8 @@
   <link rel="stylesheet" href="css/studio-ads.css?v=20261120-runtime-zones">
   <!-- UI UX Pro Max design system skin (design-system/dennis-agentic-os/MASTER.md) -->
   <link rel="stylesheet" href="css/theme-uiuxpro.css?v=20261112-uupm1">
-  <link rel="stylesheet" href="css/cosmos.css?v=20261120-avatars1">
-  <link rel="stylesheet" href="css/voice-picker.css?v=20261122-voice-picker">
+  <link rel="stylesheet" href="css/cosmos.css?v=20261124-info1">
+  <link rel="stylesheet" href="css/voice-picker.css?v=20261123-voice-live">
 </head>
 <body class="bg-[#060913] text-slate-100 h-screen overflow-hidden flex flex-col font-sans select-none">
 
@@ -3039,24 +3039,14 @@
       <!-- ========================================================================= -->
       <section id="cosmos-view" class="hidden flex-1 min-h-0 overflow-y-auto pb-6">
         <div class="cosmos-page">
-          <header class="cosmos-header">
-            <div>
-              <span class="cosmos-eyebrow"><i data-lucide="orbit" class="w-3.5 h-3.5"></i> COSMOS Intelligence Layer</span>
-              <h1>Five agents. Two permanent divisions.</h1>
-              <p id="cosmos-subtitle">Five independent agents. Two permanent divisions each: Ads Intelligence on the left, YouTube Intelligence on the right.</p>
-            </div>
+          <header class="cosmos-header is-slim">
+            <div id="cosmos-agent-tabs" class="cosmos-agent-tabs" role="tablist" aria-label="COSMOS agents"></div>
             <div class="cosmos-header-right">
-              <div id="cosmos-runtime" class="cosmos-runtime is-warn">
-                <span class="cosmos-dot"></span>
-                <b>Checking model…</b>
-                <em>Shared Studio routing</em>
-              </div>
-              <button id="cosmos-refresh" type="button" class="cosmos-btn"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Refresh</button>
+              <button id="cosmos-refresh" type="button" class="cosmos-btn" title="Refresh"><i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i></button>
             </div>
           </header>
 
           <div id="cosmos-alert" class="cosmos-alert hidden" role="status" aria-live="polite"></div>
-          <div id="cosmos-agent-tabs" class="cosmos-agent-tabs" role="tablist" aria-label="COSMOS agents"></div>
           <div id="cosmos-agent"></div>
         </div>
       </section>
@@ -4381,14 +4371,14 @@
   <script defer src="vendor/codemirror/addon/edit/matchbrackets.js"></script>
   <script defer src="vendor/codemirror/addon/selection/active-line.js"></script>
   <script defer src="js/cosmos.js"></script>
-  <script defer src="js/tts.js?v=20261110-tts-router"></script>
-  <script defer src="js/voicePicker.js?v=20261122-voice-picker"></script>
-  <script defer src="js/galaxy.js?v=20261110-apollo-kokoro"></script>
+  <script defer src="js/tts.js?v=20261123-voice-live"></script>
+  <script defer src="js/voicePicker.js?v=20261123-voice-live"></script>
+  <script defer src="js/galaxy.js?v=20261123-voice-live"></script>
   <script defer src="js/panelState.js"></script>
   <script defer src="js/agentDashboards.js"></script>
   <!-- DeepSeek Harness uses its official native Web UI; no OS-recreated chat bundle. -->
   <script defer src="js/app.js?v=20261114-connections"></script>
-  <script defer src="js/jarvisDashboard.js?v=20261112-jarvis-home"></script>
+  <script defer src="js/jarvisDashboard.js?v=20261123-voice-live"></script>
   <script defer src="js/memoryGalaxy.js?v=20261112-galaxy1"></script>
   <script defer src="js/workspace.js?v=20261115-unified1"></script>
   <script defer src="js/vault.js?v=20261018-vault"></script>
@@ -4405,7 +4395,7 @@
   <script defer src="js/studioWorkspaces.js?v=20261112-yt-phase2"></script>
   <script defer src="js/cosmosState.js?v=20261119-genesis1"></script>
   <script defer src="js/cosmosGenesis.js?v=20261120-cosmos2"></script>
-  <script defer src="js/cosmosDashboard.js?v=20261120-avatars1"></script>
+  <script defer src="js/cosmosDashboard.js?v=20261124-info1"></script>
   <script defer src="js/studioCreate.js?v=20261115-cosmos1"></script>
   <script defer src="js/skill-builder.js?v=20261120-model-groups"></script>
   <script defer src="vendor/marked.min.js"></script>

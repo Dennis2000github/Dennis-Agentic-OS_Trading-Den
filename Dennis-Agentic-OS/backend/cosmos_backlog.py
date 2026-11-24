@@ -20,6 +20,7 @@ import json
 from . import ads_backlog
 from . import cosmos_common as common
 from . import cosmos_engine
+from . import cosmos_feedback
 from . import cosmos_store
 from . import youtube_channels
 from . import youtube_topics
@@ -122,16 +123,33 @@ def draft(recommendation_id):
     }
 
 
-def reject(recommendation_id, note=None):
+def reject(recommendation_id, note=None, preset=None):
     updated = cosmos_store.mark_rejected(recommendation_id, note)
+    recommendation = updated
+    try:
+        cosmos_feedback.record(
+            recommendation.get("agent_id"), recommendation.get("division"),
+            recommendation_id, "reject", preset_id=preset, note=note)
+    except common.CosmosError:
+        pass  # feedback never blocks the owner's decision
     return {"recommendation": updated, "rejected": True}
 
 
-def refine(recommendation_id, instruction=None):
+def refine(recommendation_id, instruction=None, preset=None):
     recommendation = cosmos_store.get_recommendation(recommendation_id)
     if recommendation.get("status") == "rejected":
         raise common.CosmosError("recommendation_rejected", "Rejected recommendations cannot be refined.", 409)
     instruction = common.clean_text(instruction, "Refinement instruction", 2000)
+    preset_label = None
+    try:
+        entry = cosmos_feedback.record(
+            recommendation.get("agent_id"), recommendation.get("division"),
+            recommendation_id, "refine", preset_id=preset, note=instruction)
+        preset_label = entry.get("preset_label")
+    except common.CosmosError:
+        pass  # feedback never blocks the refinement
+    if preset_label:
+        instruction = (instruction + "\n" if instruction else "") + "Owner selected refinement preset: " + preset_label + "."
     focus = {
         "recommendation": {
             "id": recommendation.get("id"),

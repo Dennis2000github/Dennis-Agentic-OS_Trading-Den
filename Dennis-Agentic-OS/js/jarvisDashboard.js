@@ -651,7 +651,9 @@
       speakBtn.addEventListener("click", function (e) {
         e.stopPropagation();
         if (window.DennisTTS && typeof window.DennisTTS.speak === "function") {
-          window.DennisTTS.speak(full, { preset: "jarvis-british-male", studio: "apollo" });
+          // No explicit preset: it would pin the provider server-side and
+          // override the voice picker's saved provider for Apollo.
+          window.DennisTTS.speak(full, { studio: "apollo" });
         } else if (apollo() && typeof apollo().speak === "function") {
           apollo().speak(full, null);
         }

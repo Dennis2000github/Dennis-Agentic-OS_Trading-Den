@@ -13,8 +13,11 @@ from . import cosmos_common as common
 from . import cosmos_backlog
 from . import cosmos_config
 from . import cosmos_engine
+from . import cosmos_feedback
 from . import cosmos_llm
+from . import cosmos_modes
 from . import cosmos_registry
+from . import cosmos_scheduler
 from . import cosmos_store
 from . import genesis
 from . import genesis_api
@@ -378,6 +381,13 @@ def _get(parts, query):
             "channels": _channels(),
             "llm": _llm_status(),
             "llm_selections": cosmos_llm.public_selections(),
+            "autonomy": cosmos_modes.public_selections(),
+        }
+
+    if parts[0] == "feedback" and len(parts) == 2 and parts[1] == "presets":
+        return 200, {
+            "reject": cosmos_feedback.presets("reject"),
+            "refine": cosmos_feedback.presets("refine"),
         }
 
     if parts[0] == "backlog" and len(parts) >= 2:
@@ -421,11 +431,20 @@ def _post(parts, body, query):
         recommendation_id = parts[1]
         action = parts[2]
         if action == "draft":
-            return 200, cosmos_backlog.draft(recommendation_id)
+            result = cosmos_backlog.draft(recommendation_id)
+            recommendation = result.get("recommendation") or {}
+            # Keep the autonomous five-card board full: the moment a card is
+            # drafted away, an autonomous division refills itself.
+            try:
+                cosmos_scheduler.request_topup(
+                    recommendation.get("agent_id"), recommendation.get("division"), reason="draft")
+            except Exception:
+                pass
+            return 200, result
         if action == "reject":
-            return 200, cosmos_backlog.reject(recommendation_id, body.get("note"))
+            return 200, cosmos_backlog.reject(recommendation_id, body.get("note"), preset=body.get("preset"))
         if action == "refine":
-            return 200, cosmos_backlog.refine(recommendation_id, body.get("instruction"))
+            return 200, cosmos_backlog.refine(recommendation_id, body.get("instruction"), preset=body.get("preset"))
         if action == "validate-affiliate":
             return 200, cosmos_backlog.validate_affiliate(recommendation_id, body)
         return 404, {"error": "Unknown recommendation action.", "code": "not_found"}
@@ -443,6 +462,24 @@ def _post(parts, body, query):
         if not domain:
             raise common.CosmosError("domain_required", "domain is required (ads or youtube).", 400)
         return 200, cosmos_config.set_active_template(domain, body.get("template_id"))
+
+    if parts and parts[0] == "config" and len(parts) == 2 and parts[1] == "autonomy":
+        agent_id = body.get("agent_id")
+        division = body.get("division")
+        if not agent_id:
+            raise common.CosmosError("agent_required", "agent_id is required.", 400)
+        if not division:
+            raise common.CosmosError("division_required", "division is required (ads or youtube).", 400)
+        return 200, cosmos_modes.set_mode(agent_id, division, body.get("mode"))
+
+    if parts and parts[0] == "config" and len(parts) == 3 and parts[1] == "ads" and parts[2] == "platform":
+        return 200, {"platform": cosmos_config.set_ads_platform(body.get("platform"), body)}
+
+    if parts and parts[0] == "config" and len(parts) == 3 and parts[1] == "youtube" and parts[2] == "channel":
+        channel = youtube_channels.create_channel(body)
+        if body.get("set_active", True):
+            cosmos_config.set_active_channel(channel["id"])
+        return 200, {"channel": channel}
 
     if parts and parts[0] == "backlog" and len(parts) >= 2 and parts[1] == "ads":
         if len(parts) == 2:

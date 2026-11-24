@@ -20,7 +20,7 @@ import copy
 from . import cosmos_common as common
 
 EXECUTION_STATUSES = ("running", "succeeded", "failed")
-RECOMMENDATION_STATUSES = ("proposed", "drafted", "rejected", "refined")
+RECOMMENDATION_STATUSES = ("proposed", "drafted", "rejected", "refined", "archived")
 
 
 # ---------------------------------------------------------------------------
@@ -357,6 +357,45 @@ def mark_refined(recommendation_id, new_recommendation_id):
         }
 
     return _update(recommendation_id, mutate)
+
+
+def enforce_proposed_cap(agent_id, division, cap=5):
+    """Keep a division's proposal board at ``cap`` cards.
+
+    Autonomous discovery is expected to maintain a full five-card board. When
+    a run pushes the number of live proposals past the cap, the oldest extra
+    proposals are archived out of the board (kept in history with an explicit
+    note, never deleted).
+    """
+    if cap < 1:
+        return []
+    with common.acquire():
+        items = _load_recommendations()
+        live = [item for item in items
+                if item.get("agent_id") == agent_id
+                and item.get("division") == division
+                and item.get("status") == "proposed"
+                and not item.get("archived")]
+        live.sort(key=lambda item: item.get("created_at") or 0, reverse=True)
+        overflow = {item["id"] for item in live[cap:]}
+        if not overflow:
+            return []
+        archived = []
+        for item in items:
+            if item.get("id") in overflow:
+                item["status"] = "archived"
+                item["archived"] = True
+                item["user_decision"] = {
+                    "decision": "archived",
+                    "at": common.now(),
+                    "iso": common.iso(),
+                    "note": "Board cap: replaced by newer proposals (five-card board).",
+                }
+                item["updated_at"] = common.now()
+                item["updated_iso"] = common.iso()
+                archived.append(item["id"])
+        _save_recommendations(items)
+        return archived
 
 
 def set_affiliate_validation(recommendation_id, payload):

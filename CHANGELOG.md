@@ -4,6 +4,111 @@ All dates Asia/Manila. Scope: **`Dennis-Agentic-OS/` only** (the sibling OpenJar
 was never modified; the OS's dependency on it was removed on 2026-11-21).
 Nothing was installed. Existing bridge, voice setup and dashboards were patched, not rebuilt.
 
+## 2026-11-24 — COSMOS: header panel folded into division "?" info buttons
+
+Owner follow-ups on the 2026-11-23 redesign, after confirmation of both targets:
+
+- **The big agent header panel is gone** (emblem, name, role "Discovery Intelligence",
+  description, tagline and the proposed/drafted/rejected counts). The summary text now lives in
+  the new "?" info bubble beside each division title, together with that division's
+  responsibilities; the counts were dropped as redundant (owner decision).
+- **The divisions' hover-only responsibilities overlay is removed.** It was absolutely positioned
+  over the Agent/Model dropdown row (`.cosmos-division-hover`, top 52px, z-index 30) and became
+  `pointer-events: auto` while visible, so the Agent and Model dropdowns could not be clicked.
+  The replacement "?" bubble only opens while hovering/focusing the "?" button itself, so the
+  dropdowns are always clickable; the bubble sits at z-index 70 (above the open menus) purely for
+  readability while it is deliberately shown.
+- CSS: `.cosmos-agent-head`/identity/stats and the hover overlay rules removed; letter-mark
+  fallback sizing/accent colors kept for the agent tab rail; `.cosmos-division-hover` replaced by
+  `.cosmos-info-btn` + `.cosmos-division-info-bubble`.
+- Tests: `tests/e2e_cosmos_genesis.py` now waits on `.cosmos-division` (two division panels) and
+  screenshots `.cosmos-divisions` instead of the removed `.cosmos-agent-head`. Cache-busting
+  bumped to `20261124-info1` for `css/cosmos.css` + `js/cosmosDashboard.js`.
+
+## 2026-11-23 — COSMOS ANDROMEDA: autonomous intelligence + clean thumbnail boards
+
+Owner-requested ANDROMEDA redesign, applied to the whole COSMOS layer (structural design shared by
+all five intelligences):
+
+- **Autonomous discovery every 6 hours** — every intelligence/division now has an
+  **Autonomous** (default) / **Override** toggle. Autonomous divisions run their own capability on a
+  backend scheduler thread every six hours and **immediately top up after each Draft**, keeping a
+  five-card board at all times (`backend/cosmos_scheduler.py`, `backend/cosmos_modes.py`,
+  `data/cosmos/modes.json`; per-division claim guards prevent double runs). Override expands the
+  task prompt box in-division and runs only from the Discover button — the old always-visible
+  composer is gone.
+- **Cleaner dashboard** — the "COSMOS Intelligence Layer" banner is removed (slim agent-tab rail +
+  refresh remain); division responsibility text ("Discover relevant products and merchants", etc.)
+  is hover-only; **Ads Product Backlog and YouTube Topic Backlog panels are removed from the
+  dashboard** (stores + GENESIS intake untouched — Draft still queues into them); **Execution
+  history is collapsed by default** behind a dropdown arrow.
+- **Thumbnail recommendation cards** — actual product image when the marketplace listing supplies
+  one (letter fallback otherwise), relevance score, a **clickable verify link** below the card
+  (recorded affiliate URL first, else the listing URL, opens in a new tab), and compact actions:
+  **Draft** (ships the card to GENESIS; the card leaves ANDROMEDA and the board refills),
+  **Info** (product name, description and candidate criteria: why selected, potential sales,
+  virality potential, current market demand, local occasion — Christmas attire, birthdays, parties,
+  festivals, payday cycles), Refine, Affiliate (ads), Reject. Detailed card text now lives in the
+  hover tooltip + Info modal only.
+- **Active Configuration panel** — top of each division. Ads template dropdown plus **Shopee
+  platform registration** (affiliate handle, program URL, region, notes — feeds discovery as
+  sourcing context). YouTube: channel dropdown, **channel registration** and **Google OAuth
+  connect** (reuses the shared publishing consent flow).
+- **Reject / Refine preset feedback** — both now require a preset template (reject: not relevant /
+  price out of range / weak demand / wrong audience / already covered / low viral potential;
+  refine: seasonal angle / cheaper alternative / better angle / different audience / stronger hook /
+  tighter niche) or a custom note. Selections are recorded per division
+  (`backend/cosmos_feedback.py`) and **injected into future discovery prompts**, so ANDROMEDA gets
+  smarter from every rejection.
+- **Agent + Model dropdown row moved to the very top** of each division (same Workspace machinery
+  and storage as before).
+- **Tests**: new `tests/test_cosmos_autonomy.py` (15 OK — modes, scheduler claim guards, feedback
+  context, five-card cap, HTTP endpoints); COSMOS suites 132 OK; `cosmosState.test.js` 15 OK; live
+  server boot verified the scheduler ran all ten divisions with honest failure recording.
+
+## 2026-11-23 — Voice picker: live dropdown lists for every provider; voice switching actually takes effect
+
+Owner-reported bugs fixed: (1) provider/model voice fields were not dropdown lists for
+cloud providers, and (2) after switching voice/provider in the picker the dashboard kept
+speaking the JARVIS voice.
+
+- **Why the voice didn't switch (two hardcoding paths, both fixed):**
+  1. The dashboard's streamed speech route resolved the voice as
+     `request → preset → hardcoded "bm_george"`, never consulting the picker's saved
+     studio/global voice. The streaming route now uses the same `resolve_voice()` chain
+     as every other path.
+  2. `galaxy.js`/`jarvisDashboard.js` always sent the legacy `jarvis-british-male`
+     preset with every Apollo speech; an explicit preset **pins the provider
+     server-side**, so switching Apollo to ElevenLabs/Fish in the picker had no effect
+     on dashboard speech. The speak paths no longer send an explicit preset — the
+     studio preference resolves its own preset for styling (speed/lang) only.
+- **Live voice dropdowns for every provider:** `GET /api/tts/catalog` now includes real
+  voice lists for all three providers — Kokoro (54, local service), ElevenLabs (live
+  `GET /v1/voices` with the stored key, e.g. "Sarah — Mature, Reassuring, Confident"),
+  Fish Audio (live `GET /model?page_size=100`, community library by usage). Read-only
+  GETs, 5-minute in-process cache, keys never leave the backend. Without a key the
+  picker falls back to honest manual voice-ID entry — no invented IDs. Sources verified
+  in the official docs (docs.fish.audio list-models OpenAPI; ElevenLabs API reference).
+- **Cross-provider voice guard:** `resolve_voice()` validates every candidate voice
+  against the live provider list; a stale selection (e.g. Kokoro's `af_bella` saved
+  under ElevenLabs — which produced `ElevenLabs synthesis failed: HTTP 404`) is skipped
+  and the chain falls through to the preset voice or the provider default. Kokoro
+  candidate voices are validated the same way when switching back.
+- Picker labels and the confirm dialog now show friendly voice names from the live
+  lists ("Sarah — Mature…" instead of raw `EXAVITQu4vr4`).
+- Cache-busting `?v=20261123-voice-live` bumped for `tts.js`, `voicePicker.js`,
+  `galaxy.js`, `jarvisDashboard.js`, `voice-picker.css` so browsers pick up the fixes.
+- Verification: `tests.test_tts` + `tests.test_tts_routes` **41/41** (new
+  `ResolveVoiceTest`: studio/global beat preset, explicit wins, preset voice never
+  crosses providers, stale cross-provider voice skipped, no-key → honest empty lists),
+  JS suites pass, `npm run doctor` **13 pass/0 fail**, browser smoke **24/24** (voice
+  dropdowns render live lists for kokoro/fish/elevenlabs), live end-to-end: Apollo
+  Kokoro+`af_bella` stream 200 (PCM), Apollo ElevenLabs+Sarah 200 (mp3), global voice
+  change beats preset on Ads stream 200, stale Kokoro voice under ElevenLabs no longer
+  404s. Config left as the owner set it (Apollo = ElevenLabs · Flash v2.5; the saved
+  voice now points at the working ElevenLabs "Sarah" since `af_bella` only exists in
+  Kokoro — pick any voice from the now-live dropdown to change it).
+
 ## 2026-11-22 — Voice Provider → Model → Voice picker (free-first, local-first)
 
 - New shared picker `js/voicePicker.js` + `css/voice-picker.css` mounted on the JARVIS

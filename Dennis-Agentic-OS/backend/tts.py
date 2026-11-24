@@ -128,9 +128,113 @@ MODEL_CATALOG = {
 
 COST_ORDER = {"free": 0, "free-tier": 1, "paid": 2, "deprecated": 3}
 
+# Voice lists for cloud providers are fetched LIVE with the owner's stored
+# key (read-only GETs, short timeout, small in-process cache). No voice IDs
+# are ever invented: when a key is missing or the list call fails, the picker
+# falls back to honest manual voice-ID entry.
+VOICE_LIST_SOURCES = {
+    "fish": "GET https://api.fish.audio/model?page_size=100 (Bearer key) — "
+            "docs.fish.audio/api-reference/endpoint/model/list-models.md",
+    "elevenlabs": "GET https://api.elevenlabs.io/v1/voices?page_size=100 "
+                  "(xi-api-key header)",
+}
+
+_VOICE_LIST_TTL = 300.0
+_VOICE_LIST_LOCK = threading.Lock()
+_VOICE_LIST_CACHE = {"at": 0.0, "data": {}}
+
+
+def _fetch_https_json(host, path, headers, timeout=8):
+    """Small read-only HTTPS GET helper. Returns parsed JSON or None."""
+    conn = http.client.HTTPSConnection(host, timeout=timeout)
+    try:
+        conn.request("GET", path, headers=headers)
+        res = conn.getresponse()
+        raw = res.read()
+        if res.status != 200:
+            return None
+        return json.loads(raw.decode("utf-8", "replace"))
+    except (OSError, ValueError):
+        return None
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+def _elevenlabs_voice_list():
+    key = _elevenlabs_key()
+    if not key:
+        return []
+    payload = _fetch_https_json(
+        "api.elevenlabs.io", "/v1/voices?page_size=100",
+        {"xi-api-key": key, "Accept": "application/json"})
+    out = []
+    for v in (payload or {}).get("voices") or []:
+        vid = str(v.get("voice_id") or "")
+        if not vid:
+            continue
+        labels = v.get("labels") or {}
+        out.append({
+            "id": vid,
+            "label": str(v.get("name") or vid)[:80],
+            "lang": str(labels.get("language") or labels.get("accent") or "")[:24],
+        })
+    return out
+
+
+def _fish_voice_list():
+    key = _fish_key()
+    if not key:
+        return []
+    payload = _fetch_https_json(
+        "api.fish.audio", "/model?page_size=100&sort_by=task_count",
+        {"Authorization": "Bearer " + key, "Accept": "application/json"})
+    out = []
+    for m in (payload or {}).get("items") or []:
+        mid = str(m.get("_id") or "")
+        if not mid:
+            continue
+        langs = m.get("languages") or []
+        out.append({
+            "id": mid,
+            "label": str(m.get("title") or mid)[:80],
+            "lang": ", ".join(str(l) for l in langs[:2])[:24],
+        })
+    return out
+
+
+def provider_voices(pid):
+    """Live voice list for a cloud provider; [] when no key or fetch fails.
+
+    Cached for _VOICE_LIST_TTL seconds so opening the picker never hammers
+    the provider. Read-only GETs only — nothing here mutates provider state.
+    """
+    with _VOICE_LIST_LOCK:
+        now = time.time()
+        cached = _VOICE_LIST_CACHE["data"].get(pid)
+        if cached is not None and now - _VOICE_LIST_CACHE["at"] <= _VOICE_LIST_TTL:
+            return cached
+    fetchers = {"elevenlabs": _elevenlabs_voice_list, "fish": _fish_voice_list}
+    fetcher = fetchers.get(pid)
+    if fetcher is None:
+        return []
+    result = fetcher() or []
+    with _VOICE_LIST_LOCK:
+        _VOICE_LIST_CACHE["at"] = time.time()
+        _VOICE_LIST_CACHE["data"][pid] = result
+    return result
+
 
 def catalog():
-    """Read-only free-first catalog. Kokoro voices come from the local service."""
+    """Read-only free-first catalog.
+
+    Kokoro voices come from the local service; cloud provider voices come
+    live from the provider via the stored key (see ``provider_voices``).
+    Every provider therefore renders as a dropdown; the honest manual-entry
+    fallback only appears when a list is genuinely unavailable.
+    """
     voices = []
     for entry in kokoro_voices():
         if isinstance(entry, dict):
@@ -153,6 +257,12 @@ def catalog():
             continue
         models = sorted(MODEL_CATALOG.get(pid, []),
                         key=lambda m: (COST_ORDER.get(m.get("cost"), 9), m.get("id")))
+        if pid == "kokoro":
+            voices_for_pid = voices
+        else:
+            voices_for_pid = provider_voices(pid)
+        # Dropdown whenever a real list exists; manual entry otherwise.
+        voice_mode = "list" if voices_for_pid else "custom"
         providers.append({
             "id": pid,
             "label": slot.get("label", pid),
@@ -160,8 +270,9 @@ def catalog():
             "requires_key": bool(slot.get("requires_key")),
             "rank": min((COST_ORDER.get(m.get("cost"), 9) for m in models), default=9),
             "models": models,
-            "voices": voices if pid == "kokoro" else [],
-            "voice_mode": "list" if pid == "kokoro" else "custom",
+            "voices": voices_for_pid,
+            "voice_mode": voice_mode,
+            "voice_source": VOICE_LIST_SOURCES.get(pid, ""),
             "source": MODEL_SOURCES.get(pid, ""),
         })
     providers.sort(key=lambda p: (p["rank"], 0 if p["local"] else 1, p["id"]))
@@ -169,7 +280,9 @@ def catalog():
         "available": True,
         "cost_order": ["free", "free-tier", "paid", "deprecated"],
         "providers": providers,
-        "note": "Cloud voice IDs are entered by the owner; no authenticated list calls are made.",
+        "note": "Voice lists are fetched live: Kokoro from the local service, "
+                "cloud providers via read-only GETs with the stored key. "
+                "Without a key the picker falls back to manual voice-ID entry.",
     }
 
 
@@ -411,6 +524,71 @@ def effective_provider(studio, preset_slug=None):
     preset_slug = studio_pref.get("voice_preset")
     preset = cfg["presets"].get(preset_slug) if preset_slug else None
     return provider, preset, cfg
+
+
+def _voice_is_valid_for(provider, voice):
+    """True when ``voice`` is usable on ``provider``.
+
+    Validated against the live list when one is available (Kokoro's local
+    list, cloud lists via the stored key). When no list can be fetched the
+    voice is accepted as-is — that is the documented manual-entry path.
+    This guard exists so a voice saved under one provider (e.g. Kokoro's
+    ``af_bella``) can never be sent to another provider (ElevenLabs 404s).
+    """
+    if not voice:
+        return False
+    if provider == "kokoro":
+        known = set()
+        for entry in kokoro_voices():
+            if isinstance(entry, dict):
+                known.add(str(entry.get("id") or entry.get("voice_id") or ""))
+            else:
+                known.add(str(entry))
+        known.discard("")
+        return (not known) or voice in known
+    listing = provider_voices(provider)
+    if not listing:
+        return True  # manual-entry fallback (no key configured / fetch failed)
+    return any(v.get("id") == voice for v in listing)
+
+
+def resolve_voice(provider, studio=None, preset_slug=None, preset=None,
+                  explicit_voice_id=None, cfg=None):
+    """Resolve the voice for a request — shared by buffered and streaming paths.
+
+    Precedence: explicit request argument -> the picker's saved per-studio
+    voice -> the picker's saved global default voice -> the legacy preset's
+    voice (only when that preset targets this provider) -> provider default.
+
+    Every candidate is checked against the live provider voice list
+    (``_voice_is_valid_for``) so stale cross-provider selections are skipped
+    instead of erroring. The picker's saved selections always beat the
+    preset; the preset only remains a styling fallback (speed/lang/output).
+    Returns ``(voice, preset)`` where ``preset`` is the caller's preset when
+    one was supplied.
+    """
+    if cfg is None:
+        cfg = load_config()
+    if preset is None and preset_slug:
+        preset = (cfg.get("presets") or {}).get(preset_slug) or None
+    studio_pref = (cfg.get("studios") or {}).get(studio or "") or {}
+    preset_voice = ((preset or {}).get("voice_id")
+                    if (preset or {}).get("provider") == provider else None)
+    candidates = [
+        explicit_voice_id,
+        studio_pref.get("voice_id"),
+        cfg.get("global_default_voice_id"),
+        preset_voice,
+    ]
+    for candidate in candidates:
+        if candidate and _voice_is_valid_for(provider, str(candidate)[:64]):
+            return str(candidate)[:64], preset
+    # Provider defaults (documented fallbacks, never a silent Jarvis).
+    if provider == "elevenlabs":
+        return "pNInz6obpgDQGcFmaJgB", preset  # ElevenLabs docs default ("Adam")
+    if provider == "kokoro":
+        return "bm_george", preset
+    return None, preset  # fish: server-side default voice when none selected
 
 
 # ---------------------------------------------------------------------------
@@ -741,13 +919,14 @@ def generate(text, studio="apollo", preset_slug=None, voice_id=None,
         provider,
         model_id or studio_pref.get("model_id") or (preset or {}).get("model_id")
         or cfg.get("global_default_model_id"))
-    # A preset's voice only applies when that preset targets the same provider;
-    # switching a studio to Fish must never send a Kokoro voice id upstream.
-    preset_voice = ((preset or {}).get("voice_id")
-                    if (preset or {}).get("provider") == provider else None)
-    resolved_voice = (voice_id or studio_pref.get("voice_id")
-                      or preset_voice
-                      or cfg.get("global_default_voice_id"))
+    # Voice precedence lives in resolve_voice(): the picker's saved studio /
+    # global selection always beats the legacy preset's voice, a preset voice
+    # never leaks across providers, and stale cross-provider selections are
+    # skipped against the live voice list. The preset itself is kept for
+    # styling (speed/lang/output) — never as a voice override.
+    resolved_voice, _ = resolve_voice(
+        provider, studio=studio, preset_slug=preset_slug, preset=preset,
+        explicit_voice_id=voice_id, cfg=cfg)
     if provider == "elevenlabs":
         voice = resolved_voice or "pNInz6obpgDQGcFmaJgB"
         chosen_model = resolved_model or "eleven_multilingual_v2"

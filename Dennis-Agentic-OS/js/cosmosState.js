@@ -81,7 +81,9 @@
         channels: [],
         activeAdsTemplateId: null,
         activeYoutubeTemplateId: null,
-        activeChannelId: null
+        activeChannelId: null,
+        adsPlatforms: {},
+        autonomy: {}
       },
       llm: { configured: false, agent_id: null, model: null },
       llmAgents: [],
@@ -186,6 +188,10 @@
     state.config.activeYoutubeTemplateId = config.active_youtube_template_id || state.config.activeYoutubeTemplateId;
     state.config.activeYoutubeChannelId = config.active_youtube_channel_id || state.config.activeYoutubeChannelId;
     state.config.channels = Array.isArray(data.channels) ? data.channels.slice() : [];
+    state.config.adsPlatforms = (config.ads_platforms && typeof config.ads_platforms === "object")
+      ? config.ads_platforms : (state.config.adsPlatforms || {});
+    state.config.autonomy = (data.autonomy && typeof data.autonomy === "object")
+      ? data.autonomy : (state.config.autonomy || {});
     state.llm = data.llm || state.llm;
     state.llmSelections = (data.llm_selections && typeof data.llm_selections === "object")
       ? data.llm_selections : {};
@@ -259,6 +265,51 @@
     return (Array.isArray(items) ? items : []).filter(function (item) {
       return !!item && normalizeDivision(item.division, "ads") === wanted;
     });
+  }
+
+  /* The live board: only live proposal cards, newest first. Drafted cards are
+     gone (they shipped to GENESIS), rejected/refined/archived cards leave the
+     board and stay in history. */
+  function boardCards(state, agentId, division) {
+    var local = divisionState(state, agentId, division);
+    return filterDivision(local.recommendations, division)
+      .filter(function (item) { return item.status === "proposed" && !item.archived; })
+      .sort(function (a, b) { return (b.created_at || 0) - (a.created_at || 0); });
+  }
+
+  /* Autonomy mode per intelligence/division. Missing entries default to
+     "autonomous" — the scheduler owns the six-hour cadence until the owner
+     switches the division to Override. */
+  function autonomyMode(state, agentId, division) {
+    var id = normalizeAgent(agentId);
+    var part = normalizeDivision(division);
+    var store = (state && state.config && state.config.autonomy) || {};
+    var entry = store[id] || {};
+    var value = entry[part];
+    return value && (value.mode === "override" || value.mode === "autonomous")
+      ? value.mode : "autonomous";
+  }
+
+  function autonomyInfo(state, agentId, division) {
+    var id = normalizeAgent(agentId);
+    var part = normalizeDivision(division);
+    var store = (state && state.config && state.config.autonomy) || {};
+    var entry = store[id] || {};
+    return (entry[part] && typeof entry[part] === "object") ? entry[part] : {};
+  }
+
+  function setAutonomy(state, agentId, division, info) {
+    var id = normalizeAgent(agentId);
+    var part = normalizeDivision(division);
+    var store = state.config.autonomy || (state.config.autonomy = {});
+    var entry = store[id] || (store[id] = {});
+    entry[part] = info && typeof info === "object" ? info : {};
+    return entry[part];
+  }
+
+  function adsPlatform(state, platformId) {
+    var platforms = (state && state.config && state.config.adsPlatforms) || {};
+    return platforms[platformId] || null;
   }
 
   function countsByDivision(recommendations) {
@@ -398,6 +449,11 @@
     agentName: agentName,
     recommendationActions: recommendationActions,
     filterDivision: filterDivision,
+    boardCards: boardCards,
+    autonomyMode: autonomyMode,
+    autonomyInfo: autonomyInfo,
+    setAutonomy: setAutonomy,
+    adsPlatform: adsPlatform,
     countsByDivision: countsByDivision,
     mergeAgentDetail: mergeAgentDetail,
     pendingByDivision: pendingByDivision,

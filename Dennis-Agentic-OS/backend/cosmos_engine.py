@@ -21,6 +21,7 @@ import time
 from . import ads_backlog
 from . import cosmos_common as common
 from . import cosmos_config
+from . import cosmos_feedback
 from . import cosmos_llm
 from . import cosmos_registry
 from . import cosmos_store
@@ -425,6 +426,16 @@ def _user_prompt(agent_id, division, capability_def, snapshot, task, source_note
         "- Do not include URLs you did not receive.",
         "- For performance work, every measurement needs basis=measured|estimate and a real source; otherwise omit it.",
     ]
+    feedback = (context or {}).get("owner_feedback") or []
+    if feedback:
+        sections += [
+            "",
+            "OWNER FEEDBACK (learn from this)",
+            "The owner rejected or refined recent cards for the reasons below. Avoid repeating",
+            "these mistakes: do not propose items similar to rejected ones, and favour the",
+            "angles the owner asked for in refinements.",
+            json.dumps(feedback, indent=2, ensure_ascii=False),
+        ]
     if focus:
         sections += [
             "",
@@ -464,6 +475,7 @@ def run(agent_id, division, task, source_notes="", template_id=None, channel_id=
         ],
         "recent_executions": cosmos_store.recent_execution_context(agent_id, division, limit=3),
         "backlog_counts": (snapshot.get("backlog") or {}).get("counts") or {},
+        "owner_feedback": cosmos_feedback.recent_context(agent_id, division),
     }
     system = cosmos_registry.system_prompt(agent_id, division)
     user = _user_prompt(agent_id, division, capability_def, snapshot, task, source_notes,
