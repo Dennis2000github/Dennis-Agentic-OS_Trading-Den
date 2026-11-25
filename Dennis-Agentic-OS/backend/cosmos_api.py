@@ -28,6 +28,7 @@ from . import youtube_channels
 from . import youtube_common as youtube_common
 from . import youtube_scripts
 from . import youtube_topics
+from .integrations import youtube as integrations_youtube
 
 PREFIX = "/api/cosmos"
 
@@ -278,6 +279,9 @@ def overview():
             "youtube_templates": config.get("youtube_templates") or [],
         },
         "channels": _channels(),
+        # Live connected channel identity for every COSMOS agent header. This
+        # is projection data only — no COSMOS module owns the connection.
+        "youtube_channel": integrations_youtube.connected_channel(),
         "llm": _llm_status(),
         "llm_selections": cosmos_llm.public_selections(),
         "counts": {
@@ -303,6 +307,17 @@ def _agent_detail(agent_id):
 def _get(parts, query):
     if not parts or parts[0] == "overview":
         return 200, overview()
+
+    if parts[0] == "integrations" and len(parts) == 1:
+        # Shared COSMOS-level capabilities. Every intelligence asks the one
+        # integration router; no module owns a provider or its credentials.
+        return 200, {
+            "integrations": cosmos_registry.shared_integrations(
+                _query(query, "agent_id") or _query(query, "agent"),
+                _query(query, "division"),
+            ),
+            "router": "/api/integrations",
+        }
 
     if parts[0] == "agents":
         if len(parts) == 1:

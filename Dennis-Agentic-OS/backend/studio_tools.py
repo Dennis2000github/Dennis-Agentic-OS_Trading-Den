@@ -23,6 +23,17 @@ MAX_APPROVALS = 200
 
 MUTATING = frozenset(("studio_create_job", "studio_cancel_job"))
 
+# Executors registered by other domains (shared integrations) whose approved
+# actions run through this same owner-approval queue. Kept out of TOOLS so
+# Studio's own schema stays authoritative for its tools; the queue dispatches
+# to these only when an approval for such a tool is explicitly approved.
+TOOL_EXECUTORS = {}
+
+
+def register_tool_executor(name, executor):
+    """Register an executor for an externally-owned approval-gated tool."""
+    TOOL_EXECUTORS[name] = executor
+
 
 class ToolError(Exception):
     def __init__(self, code, message, status=400):
@@ -305,7 +316,15 @@ class StudioTools:
                 approval_id, status="rejected", decided_at=time.time()
             )
         try:
-            result = self._execute(approval["tool"], approval["arguments"])
+            executor = TOOL_EXECUTORS.get(approval["tool"])
+            if executor is not None:
+                # Externally-owned tools (shared integrations) receive the
+                # approval id so they can link their audit rows to it.
+                payload = dict(approval["arguments"] or {})
+                payload["__approval_id__"] = approval_id
+                result = executor(payload)
+            else:
+                result = self._execute(approval["tool"], approval["arguments"])
         except Exception as exc:
             error = exc.as_error() if hasattr(exc, "as_error") else {
                 "code": "unexpected_error",
@@ -412,4 +431,7 @@ class StudioTools:
                 product=args.get("product"),
                 prompt=args.get("prompt") or ""
             )
+        executor = TOOL_EXECUTORS.get(name)
+        if executor is not None:
+            return executor(args)
         raise ToolError("unknown_tool", "Unknown Studio tool: %s" % name, 404)

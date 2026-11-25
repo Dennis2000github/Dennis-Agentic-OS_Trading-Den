@@ -40,6 +40,7 @@ from urllib.parse import urlparse, parse_qs, quote, unquote
 # ---------------------------------------------------------------------------
 from backend import auth as dennis_auth
 from backend import config as dennis_config
+from backend import static_guard as dennis_static_guard
 from backend import projects as dennis_projects
 from backend import session_store as dennis_sessions
 from backend import agent_registry as dennis_agents
@@ -103,6 +104,8 @@ from backend import genesis_render as dennis_genesis_render
 from backend import genesis_publish as dennis_genesis_publish
 from backend import cosmos_scheduler as dennis_cosmos_scheduler
 from backend import studio_create as dennis_studio_create
+from backend.integrations import api as dennis_integrations_api
+from backend.integrations import permissions as dennis_integrations_permissions
 from backend.sandbox import ExecContext
 
 # Hermes: the orchestrator agent. Owns the Kanban board and delegates work to
@@ -119,6 +122,15 @@ STUDIO_TOOLS = dennis_studio_tools.StudioTools(
     dennis_studio_providers.REGISTRY, STUDIO_RUNNER
 )
 STUDIO_MAX_BODY = 40 * 1024 * 1024
+
+# One shared owner-approval queue for every domain: Studio tools, skill
+# executions and integration actions all create and decide approvals through
+# the same store (data/studio/approvals.json) and the same endpoint
+# (/api/studio/approvals/{id}). Pending items expire on restart, arguments
+# are redacted at rest, and approved integration tools dispatch to the
+# executors registered in backend/integrations/permissions.py.
+dennis_skill_exec.set_approval_store(STUDIO_TOOLS.approvals)
+dennis_integrations_permissions.set_approval_store(STUDIO_TOOLS.approvals)
 
 PORT = 8080
 # DenMa (Trading Den) endpoints proxied through this server so the embedded
@@ -1326,6 +1338,12 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
         path = parsed.path
+        # The static fallback serves the app root. Never let it expose runtime
+        # stores (/data/...), credentials, source code or dot-directories.
+        if dennis_static_guard.is_private(path):
+            self.send_response(404)
+            self.end_headers()
+            return
         if self._reject_cross_site(path):
             return
 
@@ -1458,6 +1476,11 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
         # YouTube Studio editorial APIs (channels, research, topics, scripts).
         if path.startswith('/api/studio/youtube/'):
             status, payload = dennis_youtube_api.handle('GET', path, parse_qs(parsed.query), None)
+            return self.send_json(payload, status)
+
+        # Shared integration registry: providers, capabilities, health, audit.
+        if path == '/api/integrations' or path.startswith('/api/integrations/'):
+            status, payload = dennis_integrations_api.handle('GET', path, parse_qs(parsed.query), None)
             return self.send_json(payload, status)
 
         if path.startswith('/api/studio/workspaces/'):
@@ -3234,6 +3257,17 @@ class DennisOSHandler(http.server.SimpleHTTPRequestHandler):
 
         if path.startswith('/api/studio/youtube/'):
             status, payload = dennis_youtube_api.handle('POST', path, parse_qs(parsed.query), body)
+            return self.send_json(payload, status)
+
+        # ==================================================================
+        # INTEGRATIONS (owner writes): live re-validation, enable/disable.
+        # Provider actions run only through the shared approval queue.
+        # ==================================================================
+        if path.startswith('/api/integrations/'):
+            owner = self._require_owner(parsed)
+            if not owner:
+                return
+            status, payload = dennis_integrations_api.handle('POST', path, parse_qs(parsed.query), body)
             return self.send_json(payload, status)
 
         if path == '/api/studio/workspaces/active':

@@ -95,6 +95,29 @@ ok("merges overview without losing agent-local composer state", () => {
   assert.strictEqual(Cosmos.agentName(state, "polaris"), "POLARIS");
 });
 
+ok("projects live YouTube channel identity for every agent", () => {
+  const state = Cosmos.emptyState();
+  assert.strictEqual(Cosmos.youtubeChannelStatusLabel(state), "Checking");
+  Cosmos.mergeOverview(state, {
+    agents: [{ id: "andromeda", name: "ANDROMEDA" }],
+    youtube_channel: {
+      status: "connected",
+      id: "UCLive",
+      name: "Dennis Channel",
+      handle: "@dennis",
+      avatar_url: "https://yt3.example/live.jpg",
+      error: null
+    }
+  });
+  const agent = { id: "polaris", divisions: { youtube: { title: "YouTube Intelligence" } } };
+  assert.strictEqual(Cosmos.divisionDisplayTitle(state, "youtube", agent), "Dennis Channel");
+  assert.strictEqual(Cosmos.divisionDisplayTitle(state, "ads", agent), "Ads Intelligence");
+  Cosmos.mergeYoutubeChannel(state, { status: "not_connected", error: "session not linked" });
+  assert.strictEqual(Cosmos.divisionDisplayTitle(state, "youtube", agent), "YouTube Intelligence");
+  assert.strictEqual(Cosmos.youtubeChannelStatusLabel(state), "Not connected");
+  assert.strictEqual(Cosmos.youtubeChannel(state).avatar_url, null);
+});
+
 ok("configuration helpers pick the right template list", () => {
   const state = Cosmos.emptyState();
   Cosmos.mergeOverview(state, {

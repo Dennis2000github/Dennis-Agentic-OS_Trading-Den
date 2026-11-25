@@ -72,6 +72,20 @@
     };
   }
 
+  function emptyYoutubeChannel() {
+    return {
+      status: "unknown",
+      id: null,
+      name: null,
+      handle: null,
+      avatar_url: null,
+      connection_id: null,
+      checked_at: null,
+      source: null,
+      error: null
+    };
+  }
+
   function emptyState() {
     var state = {
       agents: [],
@@ -85,6 +99,7 @@
         adsPlatforms: {},
         autonomy: {}
       },
+      youtubeChannel: emptyYoutubeChannel(),
       llm: { configured: false, agent_id: null, model: null },
       llmAgents: [],
       llmSelections: {},
@@ -192,6 +207,7 @@
       ? config.ads_platforms : (state.config.adsPlatforms || {});
     state.config.autonomy = (data.autonomy && typeof data.autonomy === "object")
       ? data.autonomy : (state.config.autonomy || {});
+    mergeYoutubeChannel(state, data.youtube_channel);
     state.llm = data.llm || state.llm;
     state.llmSelections = (data.llm_selections && typeof data.llm_selections === "object")
       ? data.llm_selections : {};
@@ -312,6 +328,44 @@
     return platforms[platformId] || null;
   }
 
+  /* The connected YouTube channel is shared identity data, not editorial
+     channel configuration. Every agent reads the same projection. */
+  function mergeYoutubeChannel(state, payload) {
+    var target = state.youtubeChannel || (state.youtubeChannel = emptyYoutubeChannel());
+    var source = (payload && typeof payload === "object") ? payload : {};
+    var fallback = emptyYoutubeChannel();
+    Object.keys(fallback).forEach(function (key) {
+      target[key] = (source[key] === undefined || source[key] === null)
+        ? fallback[key] : source[key];
+    });
+    target.status = String(target.status || "unknown").toLowerCase();
+    return target;
+  }
+
+  function youtubeChannel(state) {
+    return (state && state.youtubeChannel) || emptyYoutubeChannel();
+  }
+
+  function youtubeChannelConnected(state) {
+    var channel = youtubeChannel(state);
+    return channel.status === "connected" && !!channel.name;
+  }
+
+  function youtubeChannelStatusLabel(state) {
+    var status = youtubeChannel(state).status;
+    if (status === "connected") return "Connected";
+    if (status === "not_connected") return "Not connected";
+    if (status === "unavailable") return "Unavailable";
+    return "Checking";
+  }
+
+  function divisionDisplayTitle(state, division, agent) {
+    if (normalizeDivision(division) !== "youtube") return divisionTitle(division);
+    if (youtubeChannelConnected(state)) return youtubeChannel(state).name;
+    var meta = (agent && agent.divisions && agent.divisions.youtube) || {};
+    return meta.title || divisionTitle("youtube");
+  }
+
   function countsByDivision(recommendations) {
     var result = { ads: 0, youtube: 0 };
     (Array.isArray(recommendations) ? recommendations : []).forEach(function (item) {
@@ -427,8 +481,10 @@
     normalizeAgent: normalizeAgent,
     normalizeDivision: normalizeDivision,
     divisionTitle: divisionTitle,
+    divisionDisplayTitle: divisionDisplayTitle,
     emptyState: emptyState,
     emptyDivision: emptyDivision,
+    emptyYoutubeChannel: emptyYoutubeChannel,
     agentState: agentState,
     divisionState: divisionState,
     setActiveAgent: setActiveAgent,
@@ -454,6 +510,10 @@
     autonomyInfo: autonomyInfo,
     setAutonomy: setAutonomy,
     adsPlatform: adsPlatform,
+    mergeYoutubeChannel: mergeYoutubeChannel,
+    youtubeChannel: youtubeChannel,
+    youtubeChannelConnected: youtubeChannelConnected,
+    youtubeChannelStatusLabel: youtubeChannelStatusLabel,
     countsByDivision: countsByDivision,
     mergeAgentDetail: mergeAgentDetail,
     pendingByDivision: pendingByDivision,

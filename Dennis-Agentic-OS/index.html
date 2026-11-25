@@ -55,7 +55,7 @@
   <link rel="stylesheet" href="css/studio-ads.css?v=20261120-runtime-zones">
   <!-- UI UX Pro Max design system skin (design-system/dennis-agentic-os/MASTER.md) -->
   <link rel="stylesheet" href="css/theme-uiuxpro.css?v=20261112-uupm1">
-  <link rel="stylesheet" href="css/cosmos.css?v=20261124-info1">
+  <link rel="stylesheet" href="css/cosmos.css?v=20261125-integrations1">
   <link rel="stylesheet" href="css/voice-picker.css?v=20261123-voice-live">
 </head>
 <body class="bg-[#060913] text-slate-100 h-screen overflow-hidden flex flex-col font-sans select-none">
@@ -3886,6 +3886,15 @@
           </div>
         </div>
 
+        <!-- SHARED INTEGRATIONS PANEL (COSMOS-level router; enhanced by js/integrationsPanel.js) -->
+        <section id="shared-integrations-panel" class="rounded-2xl border border-cyan-900/40 bg-slate-900/50 p-4 flex flex-col gap-3">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-bold text-white flex items-center gap-2"><i data-lucide="share-2" class="w-4 h-4 text-cyan-400"></i> Shared integrations <span class="text-[10px] font-normal text-slate-500">(COSMOS router)</span></h3>
+            <button id="si-refresh" type="button" class="hud-icon-btn" title="Re-check provider and session status"><i data-lucide="rotate-cw" class="w-3.5 h-3.5"></i></button>
+          </div>
+          <p class="text-[11px] text-slate-500">Loading shared integration status…</p>
+        </section>
+
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-3.5">
           <!-- VOICE PANEL -->
           <section class="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 flex flex-col gap-3">
@@ -4401,9 +4410,9 @@
   <script defer src="js/studioTooltips.js?v=20261120-tooltips1"></script>
   <script defer src="js/studioYoutube.js?v=20261120-tooltips1"></script>
   <script defer src="js/studioWorkspaces.js?v=20261112-yt-phase2"></script>
-  <script defer src="js/cosmosState.js?v=20261119-genesis1"></script>
+  <script defer src="js/cosmosState.js?v=20261125-integrations1"></script>
   <script defer src="js/cosmosGenesis.js?v=20261120-cosmos2"></script>
-  <script defer src="js/cosmosDashboard.js?v=20261124-info1"></script>
+  <script defer src="js/cosmosDashboard.js?v=20261125-integrations1"></script>
   <script defer src="js/studioCreate.js?v=20261115-cosmos1"></script>
   <script defer src="js/skill-builder.js?v=20261120-model-groups"></script>
   <script defer src="vendor/marked.min.js"></script>
@@ -4415,5 +4424,6 @@
   <script defer src="js/connectedSkills.js?v=20261115-hub1"></script>
   <!-- Jarvis OS upgrade layer: Voice/Connections settings + tool routing + dashboards -->
   <script defer src="js/jarvisOs.js?v=20261120-upgrade1"></script>
+  <script defer src="js/integrationsPanel.js?v=20261125-unblock1"></script>
 </body>
 </html>

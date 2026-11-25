@@ -578,6 +578,66 @@ def division_meta(agent_id, division):
     return agent["divisions"][key]
 
 
+# COSMOS-level integrations are shared by every registered intelligence. Write
+# capabilities are listed for planning only; execution still requires the same
+# owner approval gate in backend/integrations/permissions.py.
+SHARED_INTEGRATION_ACCESS = frozenset({
+    "shopee.catalog",
+    "shopee.feeds",
+    "shopee.affiliate_links",
+    "composio.youtube.read",
+    "composio.youtube.write",
+})
+
+
+def shared_integrations(agent_id=None, division=None):
+    """Live shared-capability view for one COSMOS agent/division.
+
+    The integration router remains the single source of truth: this function
+    only projects its registry into prompt context so every intelligence can
+    plan against the same capabilities without owning a connector.
+    """
+    try:
+        from .integrations import registry as integrations_registry
+        view = integrations_registry.registry()
+    except Exception as exc:  # noqa: BLE001 - prompts must degrade honestly
+        return {
+            "available": False,
+            "error": store_safe_text(exc),
+            "router": "/api/integrations",
+            "providers": [],
+            "capabilities": [],
+        }
+    providers = [
+        {"id": row.get("provider"), "status": row.get("status"),
+         "enabled": bool(row.get("enabled"))}
+        for row in view.get("providers") or []
+    ]
+    capabilities = [
+        {"id": row.get("id"), "provider": row.get("provider"),
+         "label": row.get("label"), "permission": row.get("permission"),
+         "approval_required": bool(row.get("approval_required")),
+         "ready": bool(row.get("ready")), "summary": row.get("summary")}
+        for row in view.get("capabilities") or []
+        if row.get("id") in SHARED_INTEGRATION_ACCESS
+    ]
+    return {
+        "available": True,
+        "router": "/api/integrations",
+        "agent": agent_id,
+        "division": division,
+        "providers": providers,
+        "capabilities": capabilities,
+        "note": "All COSMOS intelligences consume these shared capabilities. "
+                "Never claim an external action succeeded; readiness is live state.",
+    }
+
+
+def store_safe_text(exc):
+    text = str(exc)
+    return text[:300] if text else "unknown error"
+
+
 def system_prompt(agent_id, division):
     agent = get_agent(agent_id)
     capability_def = capability(agent_id, division)

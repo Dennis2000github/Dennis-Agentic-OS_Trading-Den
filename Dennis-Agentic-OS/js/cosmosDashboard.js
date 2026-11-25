@@ -23,6 +23,8 @@
     competitors: null,
     modalSubmit: null,
     toastTimer: null,
+    // Shared router session link, disclosed only on an explicit owner click.
+    youtubeLink: null,
     // Owner preset choices for the open Refine/Reject modal (learning loop).
     presetChoice: null,
     // Poll timer that follows an autonomous top-up after a draft.
@@ -433,33 +435,80 @@
     ].join("\n");
   }
 
-  function channelChip() {
-    // YouTube division: channel registration + OAuth connect. OAuth reuses
-    // the shared Google consent flow already configured for publishing.
+  function channelChip(agent) {
+    // YouTube division: editorial channel profile + live connected identity.
+    // Connection state comes only from the shared integration router; the
+    // seeded Studio profile is never presented as proof of a live connection.
+    var live = C.youtubeChannel(S.state);
+    var connected = live.status === "connected";
+    var detail = connected
+      ? (live.handle || "connected via Composio")
+      : C.youtubeChannelStatusLabel(S.state);
     var channels = S.state.config.channels || [];
     var activeId = S.state.config.activeYoutubeChannelId;
-    var active = channels.filter(function (channel) { return channel.id === activeId; })[0];
-    var connected = !!(active && active.youtube_account && active.youtube_account.connected);
     var rows = [];
     if (channels.length) {
       rows.push(
-        '<label class="cosmos-field"><span>Channel</span><select data-cosmos-channel>' +
+        '<label class="cosmos-field"><span>Editorial profile</span><select data-cosmos-channel>' +
         channels.map(function (channel) {
           var selected = channel.id === activeId ? " selected" : "";
           return '<option value="' + attr(channel.id) + '"' + selected + ">" + esc(channel.name) + "</option>";
         }).join("") + "</select></label>"
       );
     }
+    var title = connected
+      ? ("Live channel: " + live.name)
+      : (live.error || "The connected YouTube channel could not be read.");
     return [
-      '<div class="cosmos-platform-chip' + (connected ? " is-on" : "") + '" title="' +
-        attr(connected ? "Channel connected via Google OAuth" : "Register a channel profile, or connect one through Google OAuth") + '">',
+      '<div class="cosmos-platform-chip' + (connected ? " is-on" : "") + '" title="' + attr(title) + '">',
       '  <span class="cosmos-platform-dot"></span>',
-      '  <span class="cosmos-platform-copy"><b>' + esc(active ? active.name : "YouTube channel") + "</b><em>" +
-        esc(connected ? "OAuth connected" : (channels.length ? "registered profile" : "no channel yet")) + "</em></span>",
-      '  <button type="button" class="cosmos-btn is-ghost" data-cosmos-channel-register>Register</button>',
-      '  <button type="button" class="cosmos-btn is-ghost" data-cosmos-channel-oauth>' + (connected ? "Reconnect" : "OAuth") + "</button>",
+      '  <span class="cosmos-platform-copy"><b>' + esc(connected ? live.name : "Connected YouTube channel") + "</b><em>" +
+        esc(detail) + "</em></span>",
+      '  <button type="button" class="cosmos-btn is-ghost" data-cosmos-channel-register>Register profile</button>',
       "</div>"
     ].concat(rows).join("\n");
+  }
+
+  function youtubeStateChip(live) {
+    var status = live.status;
+    var tone = status === "connected" ? "is-on"
+      : (status === "unavailable" ? "is-warn" : "");
+    var label = C.youtubeChannelStatusLabel(S.state);
+    return [
+      '<span class="cosmos-youtube-state-chip ' + tone + '" title="' +
+        attr(live.error || "Live channel identity from the shared YouTube integration") + '">',
+      '  <span class="cosmos-platform-dot"></span>',
+      "  " + esc(label),
+      "</span>"
+    ].join("");
+  }
+
+  function youtubeActionChip(agent, live) {
+    // ANDROMEDA owns the compact connect/refresh action; every other agent
+    // only reads the shared identity. The flow never auto-opens the link.
+    if (C.normalizeAgent(agent.id) !== "andromeda") return youtubeStateChip(live);
+    var connected = live.status === "connected";
+    return [
+      '<button type="button" class="cosmos-youtube-link-chip' + (connected ? " is-on" : "") +
+        '" data-cosmos-youtube-link title="' +
+        attr(connected ? "Refresh the connected YouTube channel" : "Disclose the shared YouTube session connect link") + '">',
+      '  <span class="cosmos-platform-dot"></span>',
+      "  " + (connected ? "Refresh" : "Connect"),
+      "</button>"
+    ].join("");
+  }
+
+  function youtubeAvatarMarkup(live) {
+    if (!live.avatar_url) {
+      return '<span class="cosmos-division-mark">' +
+        esc((live.name || "Y").trim().charAt(0).toUpperCase()) + "</span>";
+    }
+    return [
+      '<span class="cosmos-division-mark cosmos-division-avatar">',
+      '  <span class="cosmos-avatar-fallback">Y</span>',
+      '  <img src="' + attr(live.avatar_url) + '" alt="">',
+      "</span>"
+    ].join("");
   }
 
   function configBlock(division, agent) {
@@ -491,7 +540,7 @@
       '<section class="cosmos-config">',
       '  <div class="cosmos-config-head"><span>Active configuration</span><em>' + esc(template ? template.name : "No template") + "</em></div>",
       '  <div class="cosmos-config-grid">' + rows.join("") + "</div>",
-      '  <div class="cosmos-config-registration">' + (division === "ads" ? platformChip("ads") : channelChip()) + "</div>",
+      '  <div class="cosmos-config-registration">' + (division === "ads" ? platformChip("ads") : channelChip(agent)) + "</div>",
       "</section>"
     ].join("\n");
   }
@@ -922,14 +971,21 @@
     // Autonomous/Override, the five-card board, collapsed execution history.
     var local = C.divisionState(S.state, agent.id, division);
     var meta = (agent.divisions || {})[division] || {};
-    var title = meta.title || C.divisionTitle(division);
+    var live = C.youtubeChannel(S.state);
+    var connected = division === "youtube" && C.youtubeChannelConnected(S.state);
+    var title = C.divisionDisplayTitle(S.state, division, agent);
+    var infoTitle = meta.title || C.divisionTitle(division);
+    var mark = connected ? youtubeAvatarMarkup(live)
+      : '<span class="cosmos-division-mark">' + (division === "ads" ? "A" : "Y") + "</span>";
+    var actionChip = division === "youtube" ? youtubeActionChip(agent, live) : "";
     var cards = C.boardCards(S.state, agent.id, division);
     var executions = local.executions || [];
     return [
       '<section class="cosmos-division" data-division="' + division + '">',
       '  <header class="cosmos-division-head">',
-      '    <div class="cosmos-division-title"><span class="cosmos-division-mark">' + (division === "ads" ? "A" : "Y") + "</span>",
-      '      <div class="cosmos-division-heading"><h2>' + esc(title) + "</h2>" + divisionInfoButton(agent, division, title) + "</div></div>",
+      '    <div class="cosmos-division-title">' + mark,
+      '      <div class="cosmos-division-heading"><h2>' + esc(title) + "</h2>" + actionChip +
+        divisionInfoButton(agent, division, infoTitle) + "</div></div>",
       '    <div class="cosmos-division-stats"><span><b>' + cards.length + "</b>/" + BOARD_SIZE + " cards</span></div>",
       "  </header>",
       llmRowBlock(division),
@@ -1386,21 +1442,60 @@
     });
   }
 
-  function connectChannelOAuth() {
-    // Reuses the shared Google OAuth consent flow that publishing already
-    // configures; the resulting connection covers this channel division.
-    return api("/api/cosmos/genesis/publishing/youtube/authorize", { method: "POST" })
+  function refreshYouTubeChannel() {
+    return api("/api/integrations/youtube/channel?refresh=1").then(function (data) {
+      C.mergeYoutubeChannel(S.state, data);
+      render();
+      if (data && data.status === "connected") {
+        toast("Live channel loaded: " + data.name);
+      } else {
+        toast(C.youtubeChannelStatusLabel(S.state) + " — the title stays on YouTube Intelligence until a live read succeeds.", "warn");
+      }
+      return data || {};
+    }).catch(function (err) {
+      toast(err.message || String(err), "warn");
+      throw err;
+    });
+  }
+
+  function openExplicitYouTubeLink() {
+    // Explicit second step only: nothing opens when the link is disclosed.
+    var link = S.youtubeLink;
+    if (!link || !/^https:\/\/connect\.composio\.dev\/link\//.test(link)) {
+      toast("Refusing to open an unexpected connect link.", "warn");
+      return;
+    }
+    window.open(link, "_blank", "noopener,noreferrer");
+    toast("Connect link opened. Return here and refresh after completing it.");
+  }
+
+  function openYouTubeSessionModal() {
+    return api("/api/integrations/youtube/session/link", { method: "POST", body: {} })
       .then(function (data) {
-        if (data && data.authorization_url) {
-          window.open(data.authorization_url, "cosmos-youtube-oauth", "width=560,height=720");
-          toast("Complete the Google consent screen — the dashboard updates once authorized.");
-          setTimeout(function () { refresh({ keepAgent: true }); }, 8000);
-        } else {
-          toast("OAuth is not configured yet.", "warn");
+        var link = data && (data.redirect_url || (data.session && data.session.redirect_url));
+        if (!link) {
+          toast("The shared router returned no connect link.", "warn");
+          return null;
         }
+        S.youtubeLink = link;
+        var body = [
+          '<p class="cosmos-muted">ANDROMEDA uses the same shared YouTube connection as Settings. Open the link explicitly, finish the session binding, then refresh the channel.</p>',
+          '<div class="cosmos-youtube-link">' + esc(link) + "</div>",
+          '<button type="button" class="cosmos-btn is-ghost" data-cosmos-youtube-open>Open connect link</button>'
+        ].join("\n");
+        openModal("Connect YouTube", body, "Refresh channel", function () {
+          return refreshYouTubeChannel().then(function (live) {
+            if (!live || live.status !== "connected") {
+              throw new Error("Still not connected — complete the link before refreshing.");
+            }
+            return live;
+          });
+        });
+        return data;
       })
       .catch(function (err) {
         toast(err.message || String(err), "warn");
+        throw err;
       });
   }
 
@@ -1763,7 +1858,12 @@
         if (modeButton) return setAutonomyMode(button.getAttribute("data-cosmos-division"), modeButton);
         if (button.hasAttribute("data-cosmos-platform-shopee")) return openShopeeModal();
         if (button.hasAttribute("data-cosmos-channel-register")) return openChannelRegisterModal();
-        if (button.hasAttribute("data-cosmos-channel-oauth")) return connectChannelOAuth();
+        if (button.hasAttribute("data-cosmos-youtube-link")) {
+          var liveChannel = C.youtubeChannel(S.state);
+          return liveChannel.status === "connected"
+            ? refreshYouTubeChannel()
+            : openYouTubeSessionModal();
+        }
         var preset = button.getAttribute("data-cosmos-preset");
         if (preset) {
           S.presetChoice = S.presetChoice === preset ? null : preset;
@@ -1801,6 +1901,9 @@
     if (modal) {
       modal.addEventListener("click", function (event) {
         if (event.target === modal) closeModal();
+        var openLink = event.target && event.target.closest
+          ? event.target.closest("[data-cosmos-youtube-open]") : null;
+        if (openLink) openExplicitYouTubeLink();
       });
       var close = $("cosmos-modal-close");
       var cancel = $("cosmos-modal-cancel");

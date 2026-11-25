@@ -410,6 +410,10 @@ def _user_prompt(agent_id, division, capability_def, snapshot, task, source_note
         "PROVENANCE CONTEXT",
         json.dumps(context, indent=2, ensure_ascii=False),
         "",
+        "SHARED INTEGRATION CAPABILITIES (COSMOS-level; use only through /api/integrations)",
+        json.dumps(context.get("shared_integrations") or {"available": False},
+                   indent=2, ensure_ascii=False),
+        "",
         "OWNER-SUPPLIED SOURCE NOTES",
         source_notes.strip() if source_notes and source_notes.strip() else "(none provided — do not invent sources)",
         "",
@@ -476,6 +480,7 @@ def run(agent_id, division, task, source_notes="", template_id=None, channel_id=
         "recent_executions": cosmos_store.recent_execution_context(agent_id, division, limit=3),
         "backlog_counts": (snapshot.get("backlog") or {}).get("counts") or {},
         "owner_feedback": cosmos_feedback.recent_context(agent_id, division),
+        "shared_integrations": cosmos_registry.shared_integrations(agent_id, division),
     }
     system = cosmos_registry.system_prompt(agent_id, division)
     user = _user_prompt(agent_id, division, capability_def, snapshot, task, source_notes,

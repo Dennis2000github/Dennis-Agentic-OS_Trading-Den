@@ -18,6 +18,7 @@ from backend import cosmos_api  # noqa: E402
 from backend import cosmos_common as common  # noqa: E402
 from backend import cosmos_config  # noqa: E402
 from backend import cosmos_store as store  # noqa: E402
+from backend.integrations import youtube as integrations_youtube  # noqa: E402
 
 
 CHANNEL = {
@@ -48,6 +49,12 @@ class CosmosApiTests(unittest.TestCase):
             mock.patch.object(cosmos_api.youtube_topics, "list_topics", return_value={
                 "counts": {"idea": 2}, "topics": [{"id": "ytt_1", "title": "Tax tips", "status": "idea"}], "total": 1,
             }),
+            mock.patch.object(integrations_youtube, "connected_channel", return_value={
+                "status": "connected", "id": "UCLive", "name": "Live Channel",
+                "handle": "@live", "avatar_url": "https://yt3.example/live.jpg",
+                "connection_id": "ca_live", "checked_at": "2026-11-25T00:00:00",
+                "source": "composio.youtube.list_channels", "error": None,
+            }),
         ]
         for patch in self.patches:
             patch.start()
@@ -65,6 +72,8 @@ class CosmosApiTests(unittest.TestCase):
         self.assertEqual(len(payload["config"]["youtube_templates"]), 5)
         self.assertEqual(payload["config"]["active_ads_template_id"], "womens-apparel")
         self.assertEqual(payload["channels"][0]["name"], "Test Channel")
+        self.assertEqual(payload["youtube_channel"]["name"], "Live Channel")
+        self.assertEqual(payload["youtube_channel"]["status"], "connected")
         self.assertTrue(payload["llm"]["configured"])
         self.assertEqual(payload["counts"]["youtube_backlog"]["idea"], 2)
 
