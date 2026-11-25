@@ -672,6 +672,126 @@
   min-width: 0;
 }
 
+/* --- Workspace prompt box (in-flow, bottom of the CLI dashboard) --- */
+#ws-prompt-box {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  min-height: 38px;
+  padding: 5px 8px;
+  background: rgba(7, 11, 22, 0.96);
+  border-top: 1px solid rgba(27, 37, 61, 0.6);
+}
+
+#ws-prompt-box .ws-attach-btn,
+#ws-prompt-box .ws-send-btn {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 6px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+#ws-prompt-box .ws-attach-btn {
+  color: #cbd5e1;
+  background: rgba(11, 18, 28, 0.9);
+  border: 1px solid rgba(34, 211, 238, 0.25);
+}
+
+#ws-prompt-box .ws-attach-btn:hover {
+  border-color: rgba(34, 211, 238, 0.5);
+  background: rgba(11, 18, 28, 1);
+  color: #e2e8f0;
+}
+
+#ws-prompt-box .ws-send-btn {
+  color: #0c4a6e;
+  background: #06b6d4;
+  border: none;
+}
+
+#ws-prompt-box .ws-send-btn:hover { background: #0891b2; }
+#ws-prompt-box .ws-send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+#ws-prompt-box .ws-attach-btn .lucide,
+#ws-prompt-box .ws-send-btn .lucide {
+  width: 14px;
+  height: 14px;
+}
+
+#ws-prompt-box .ws-prompt-attachments {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 4px;
+  min-width: 0;
+  overflow-x: auto;
+  flex-shrink: 1;
+}
+
+#ws-prompt-box .ws-prompt-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-family: inherit;
+  color: #e2e8f0;
+  background: rgba(11, 18, 28, 0.9);
+  border: 1px solid rgba(34, 211, 238, 0.25);
+  outline: none;
+  transition: border-color 0.2s ease;
+  height: 28px;
+  line-height: 28px;
+}
+
+#ws-prompt-box .ws-prompt-input::placeholder { color: #64748b; }
+#ws-prompt-box .ws-prompt-input:focus {
+  border-color: rgba(34, 211, 238, 0.5);
+  background: rgba(11, 18, 28, 1);
+}
+#ws-prompt-box .ws-prompt-input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 1000px rgba(7, 11, 22, 1) inset;
+  -webkit-text-fill-color: #e2e8f0;
+}
+
+/* File chip attachments */
+#ws-prompt-box .ws-attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  background: rgba(30, 64, 175, 0.35);
+  color: #93c5fd;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+#ws-prompt-box .ws-attachment-chip .file-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100px;
+  white-space: nowrap;
+}
+
+#ws-prompt-box .ws-attachment-chip .remove {
+  cursor: pointer;
+  color: #9ca3af;
+  font-size: 12px;
+}
+#ws-prompt-box .ws-attachment-chip .remove:hover { color: #f87171; }
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  min-width: 0;
+}
+
 #studio-view .studio-chip {
   display: inline-flex;
   align-items: center;

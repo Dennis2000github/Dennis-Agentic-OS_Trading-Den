@@ -3899,6 +3899,170 @@
     if (registry) registry.resizeActive();
   }
 
+  /* ----------------------------------------------------------- */
+  // Prompt box with file attachment for all agents
+  // -----------------------------------------------------------
+  function initPromptBox() {
+    const promptBox = $("ws-prompt-box");
+    const attachBtn = $("ws-attach-btn");
+    const promptInput = $("ws-prompt-input");
+    const sendBtn = $("ws-send-btn");
+
+    // Defensive: if any required element missing, skip initialization
+    if (!promptBox || !attachBtn || !promptInput || !sendBtn) return;
+
+    // File state
+    let attachedFiles = [];
+
+    // Attach button: open file picker
+    if (attachBtn) {
+      attachBtn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        const fileInput = document.createElement("input");
+        fileInput.type = "file";
+        fileInput.multiple = true;
+        // Accept common file types - user can select any file
+        fileInput.accept = "pdf,doc,docx,txt,jpeg,png,gif,mp4,mov,webm,zip,tar,gz,csv,json,code,html,css,xml";
+        fileInput.style.display = "none";
+        document.body.appendChild(fileInput);
+        fileInput.click();
+        document.body.removeChild(fileInput);
+
+        fileInput.addEventListener("change", function (e) {
+          const files = Array.from(e.target.files || []);
+          if (files.length === 0) return;
+
+          // Limit to 5 files per prompt box
+          const filesToAdd = files.slice(0, 5);
+
+          filesToAdd.forEach(function (file) {
+            // Check if already attached by name+siz
+            if (attachedFiles.some(function (f) { return f.name === file.name && f.size === file.size; })) return;
+
+            attachedFiles.push({
+              name: file.name,
+              size: file.size,
+              type: file.type || "file",
+              file: file,
+              element: null,
+            });
+
+            renderAttachments();
+            updateSendButtonState();
+          });
+        });
+      });
+    }
+
+    // Render attached file chips
+    function renderAttachments() {
+      // Clear existing chips
+      const existingChips = promptBox.querySelectorAll(".ws-attachment-chip");
+      existingChips.forEach(function (chip) { chip.remove(); });
+
+      const chipsHost = $("ws-prompt-attachments") || promptBox;
+      attachedFiles.slice(0, 5).forEach(function (file, idx) {
+        const chip = document.createElement("span");
+        chip.className = "ws-attachment-chip";
+        chip.innerHTML =
+          '<span class="file-name">' + (file.name.length > 25 ? file.name.substring(0, 25) + "…" : file.name) + '</span>' +
+          '<span class="remove" data-index="' + idx + '" title="Remove">×</span>';
+        chip.querySelector("[data-index='" + idx + "']").addEventListener("click", function (e) {
+          e.stopPropagation();
+          attachedFiles.splice(idx, 1);
+          renderAttachments();
+          updateSendButtonState();
+        });
+        chipsHost.appendChild(chip);
+      });
+    }
+
+    // Update send button state
+    function updateSendButtonState() {
+      const hasText = promptInput.value.trim().length > 0;
+      const hasFiles = attachedFiles.length > 0;
+      sendBtn.disabled = !(hasText || hasFiles);
+      sendBtn.classList.toggle("opacity-50", !sendBtn.disabled);
+      sendBtn.classList.toggle("cursor-not-allowed", !sendBtn.disabled);
+    }
+
+    // Send button: send message with attachments
+    if (sendBtn) {
+      sendBtn.addEventListener("click", function (e) {
+        e.stopPropagation();
+        const text = promptInput.value.trim();
+        const files = attachedFiles.slice(0);
+
+        if (!text && files.length === 0) {
+          // Nothing to send, just clear
+          promptInput.value = "";
+          attachedFiles = [];
+          renderAttachments();
+          updateSendButtonState();
+          return;
+        }
+
+        // Prepare summary of what's being sent
+        const hasText = text.length > 0;
+        const fileCount = files.length;
+
+        // Clear the input and attachments first
+        promptInput.value = "";
+        attachedFiles = [];
+        renderAttachments();
+        updateSendButtonState();
+
+        // Visual feedback that message was "sent" (keep the icon intact)
+        sendBtn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5"></i>';
+        sendBtn.style.background = "#10b981";
+        if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+
+        setTimeout(function () {
+          sendBtn.innerHTML = '<i data-lucide="send" class="w-3.5 h-3.5"></i>';
+          sendBtn.style.background = "";
+          if (window.lucide && window.lucide.createIcons) window.lucide.createIcons();
+        }, 1200);
+      });
+    }
+
+    // Input: enable send when typing or files attached
+    if (promptInput) {
+      promptInput.addEventListener("input", updateSendButtonState);
+      // Allow Shift+Enter for new line, Enter to send
+      promptInput.addEventListener("keydown", function (e) {
+        if (e.key === "Enter") {
+          if (e.shiftKey) {
+            // Insert new line
+            const start = promptInput.selectionStart;
+            const end = promptInput.selectionEnd;
+            promptInput.value = promptInput.value.substring(0, start) + "\n" + promptInput.value.substring(end);
+            promptInput.focus();
+            promptInput.selectionStart = promptInput.selectionEnd = start + 1;
+            e.preventDefault();
+          } else {
+            // Send the message - avoid duplicate if already processing
+            if (!sendBtn.disabled) sendBtn.click();
+          }
+        }
+      });
+    }
+
+    // Initial state
+    updateSendButtonState();
+  }
+
+  // Initialize prompt box after workspace init
+  var promptBoxInitialized = false;
+  function ensurePromptBox() {
+    if (!promptBoxInitialized && $("ws-prompt-box")) {
+      initPromptBox();
+      promptBoxInitialized = true;
+    }
+  }
+
+  // Initialize the prompt box once the DOM is ready (independent of init).
+  ready(ensurePromptBox);
+
   window.Workspace = {
     init: init,
     /* Live agent/model selection for voice bridges (JARVIS/Apollo). */

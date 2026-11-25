@@ -469,6 +469,14 @@
             </div>
           </div>
         </div>
+
+        <!-- Prompt box: + (attach) on the left, send icon on the right, inside the CLI dashboard -->
+        <div id="ws-prompt-box" class="ws-prompt-box">
+          <button id="ws-attach-btn" class="ws-attach-btn" title="Attach a file"><i data-lucide="plus" class="w-3.5 h-3.5"></i></button>
+          <div id="ws-prompt-attachments" class="ws-prompt-attachments"></div>
+          <input id="ws-prompt-input" type="text" placeholder="" aria-label="Message" class="ws-prompt-input" maxlength="2000">
+          <button id="ws-send-btn" class="ws-send-btn" title="Send"><i data-lucide="send" class="w-3.5 h-3.5"></i></button>
+        </div>
       </section>
 
       <!-- ========================================================================= -->
